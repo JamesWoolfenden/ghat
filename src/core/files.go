@@ -3,14 +3,14 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/rs/zerolog/log"
+	"github.com/sergi/go-diff/diffmatchpatch"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/rs/zerolog/log"
 )
 
 func Files(directory *string) ([]os.DirEntry, error) {
@@ -68,7 +68,7 @@ func GetGHA(directory *string, matches []os.DirEntry, ghat []os.DirEntry) ([]os.
 
 func UpdateFile(file *string) error {
 	buffer, err := os.ReadFile(*file)
-
+	replacement := string(buffer)
 	if err != nil {
 		return fmt.Errorf("failed to open file &w", err)
 	}
@@ -80,41 +80,91 @@ func UpdateFile(file *string) error {
 
 		action[0] = strings.TrimSpace(action[0])
 		msg, err2 := getPayload(action[0])
+
 		if err2 != nil {
-			return err2
+			splitter := strings.SplitN(action[0], "/", 3)
+			newUrl := splitter[0] + "/" + splitter[1]
+			msg, err2 = getPayload(newUrl)
+			if err2 != nil {
+				log.Warn().Msgf("failed to retrieve back %w", err2)
+
+				continue
+			}
 		}
 
 		tag := msg["tag_name"]
-
 		if tag == nil {
-			splitter := strings.SplitN(action[0], "/", 2)
-			msg, err2 := getPayload(splitter[0])
-			if err2 != nil {
-				log.Warn().Msgf("failed to retrieve back %w", err2)
-				
-				continue
-			}
-			tag = msg["tag_name"]
+			log.Print("halt and catch fire")
 		}
-		log.Print(action[0], ":", tag)
+
+		oldAction := action[0] + "@" + action[1]
+		newAction := action[0] + "@" + tag.(string)
+
+		replacement = strings.ReplaceAll(replacement, oldAction, newAction)
 	}
+
+	dmp := diffmatchpatch.New()
+	diffs := dmp.DiffMain(string(buffer), replacement, false)
+
+	fmt.Println(dmp.DiffPrettyText(diffs))
+
+	newBuffer := []byte(replacement)
+
+	err = os.WriteFile(*file, newBuffer, 0644)
+
+	if err != nil {
+		return fmt.Errorf("failed to write err %w", err)
+	}
+
 	return nil
 }
 
 func getPayload(action string) (map[string]interface{}, error) {
 	url := "https://api.github.com/repos/" + action + "/releases/latest"
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get url %w", err)
-	}
+	auth := os.Getenv("GITHUB_API")
+	var body []byte
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read body %w", err)
+	if auth != "" {
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("request failed %w", err)
+		}
+
+		req.Header.Add("Authorization", "Bearer "+auth)
+		client := &http.Client{}
+		resp, err := client.Do(req)
+
+		if resp.StatusCode != 200 {
+			return nil, fmt.Errorf("api failed with %d", resp.StatusCode)
+		}
+
+		defer resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("client failed %w", err)
+		}
+
+		body, err = io.ReadAll(resp.Body)
+
+	} else {
+		log.Warn().Msg("failed to read environmental variable GITHUB_API falling back to unauthenticated")
+
+		resp, err := http.Get(url)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get url %w", err)
+		}
+
+		body, err = io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read body %w", err)
+		}
 	}
 
 	var msg map[string]interface{}
 
-	json.Unmarshal(body, &msg)
+	err := json.Unmarshal(body, &msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal %w", err)
+	}
+
 	return msg, nil
 }
