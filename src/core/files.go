@@ -71,7 +71,7 @@ func UpdateFile(file *string) error {
 	buffer, err := os.ReadFile(*file)
 	replacement := string(buffer)
 	if err != nil {
-		return fmt.Errorf("failed to open file &w", err)
+		return fmt.Errorf("failed to open file %w", err)
 	}
 
 	r := regexp.MustCompile(`uses:(.*)`)
@@ -135,11 +135,18 @@ func getPayload(action string) (map[string]interface{}, error) {
 		client := &http.Client{}
 		resp, err := client.Do(req)
 
+		if resp == nil {
+			return nil, fmt.Errorf("api failed to respond")
+		}
+
 		if resp.StatusCode != 200 {
 			return nil, fmt.Errorf("api failed with %d", resp.StatusCode)
 		}
 
-		defer resp.Body.Close()
+		defer func(Body io.ReadCloser) {
+			_ = Body.Close()
+		}(resp.Body)
+
 		if err != nil {
 			return nil, fmt.Errorf("client failed %w", err)
 		}

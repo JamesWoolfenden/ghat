@@ -43,9 +43,15 @@ func main() {
 				Action: func(*cli.Context) error {
 
 					if &file == nil {
-						core.UpdateFile(&file)
+						err := core.UpdateFile(&file)
+						if err != nil {
+							return err
+						}
 					} else {
-						core.Files(&directory)
+						_, err := core.Files(&directory)
+						if err != nil {
+							return err
+						}
 					}
 
 					return nil
