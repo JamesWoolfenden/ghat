@@ -19,7 +19,7 @@ func Files(directory *string) ([]os.DirEntry, error) {
 	matches, err := os.ReadDir(*directory)
 
 	if err != nil {
-		log.Error().Msgf("failed to read %w", *directory)
+		log.Error().Msgf("failed to read %s", *directory)
 	}
 
 	var ghat []os.DirEntry
