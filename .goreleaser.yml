@@ -1,0 +1,47 @@
+# .goreleaser.yml
+
+before:
+  hooks:
+    - ./set-version.sh
+
+builds:
+  - goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - 386
+      - amd64
+      - arm64
+    goarm:
+      - 7
+    ignore:
+      - goarch: 386
+        goos: darwin
+archives:
+  - format_overrides:
+      - goos: windows
+        format: zip
+
+brews:
+  - name: ghat
+
+    tap:
+      owner: JamesWoolfenden
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+
+
+    commit_author:
+      name: "GitHub Action"
+      email: action@github.com
+
+    homepage: "https://github.com/JamesWoolfenden/ghat#readme"
+
+    description: "Ghat is a tool for updating GHA dependencies"
+
+    install: |
+      bin.install "ghat"
+
+    test: |
+      system "#{bin}/ghat", "--help"

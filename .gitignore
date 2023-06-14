@@ -1,0 +1,16 @@
+ghat.exe
+.idea
+.terraform
+terraform.tfstate
+.terraform.lock.hcl
+.vscode/
+ghat
+.pytest_cache/
+*.backup
+__debug_bin.exe
+.DS_Store
+*.orig
+.terraform.tfstate.lock.info
+.ghat
+provider.azure.tf
+provider.azurerm.tf
