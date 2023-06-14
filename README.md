@@ -1,6 +1,6 @@
 # ghat
 
-![alt text](ghat.jfif "ghat")
+![alt text](ghat.png "ghat")
 
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/jameswoolfenden/ghat/graphs/commit-activity)
 [![Build Status](https://github.com/JamesWoolfenden/ghat/workflows/CI/badge.svg?branch=master)](https://github.com/JamesWoolfenden/ghat)
@@ -11,7 +11,7 @@
 [![checkov](https://img.shields.io/badge/checkov-verified-brightgreen)](https://www.checkov.io/)
 [![Github All Releases](https://img.shields.io/github/downloads/jameswoolfenden/ghat/total.svg)](https://github.com/JamesWoolfenden/ghat/releases)
 
-Ghat is a tool for updating dependencies in a GHA - Github Action.
+Ghat is a tool for updating dependencies in a GHA - GitHub Action.
 
 ## Table of Contents
 
@@ -79,39 +79,33 @@ docker run --tty --volume /local/path/to/tf:/tf jameswoolfenden/ghat scan -d /tf
 ## Usage
 
 To authenticate the GitHub Api you will need to set you GitHub Personal Access Token as the environment variable
-*GITHUB_TOKEN*
+*GITHUB_API*
 
 ## Help
 
 ```bash
 ./ghat -h
 NAME:
-   ghat - Generate IAM policy from your IAC code
+   ghat - Update GHA dependencies
 
 USAGE:
    ghat [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.2.1
+   9.9.9
 
 AUTHOR:
-   James Woolfenden <support@bridgecrew.io>
+   James Woolfenden <jim.wolf@duck.com>
 
 COMMANDS:
-   apply, a    Create a policy and use it to instantiate the IAC
-   compare, c  policy comparison of deployed versus IAC
-   invoke, i   Triggers a gitHub action specified with the workflow flag
-   make, m     make the policy/role required for this IAC to deploy
-   readme, r   Looks in dir for a README.md and updates it with the Policy required to build the code
-   remote, m   Create/Update the Policy and set credentials/secret for Github Action
-   scan, s     scan a directory for IAM code
+   swot, a     updates GHA in a directory
    version, v  Outputs the application version
-   watch, w    Waits for policy update
    help, h     Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --help, -h     show help (default: false)
-   --version, -v  print the version (default: false)
+   --help, -h     show help
+   --version, -v  print the version
+
 ```
 
 ## Building
