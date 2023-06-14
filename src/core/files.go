@@ -87,7 +87,7 @@ func UpdateFile(file *string) error {
 			newUrl := splitter[0] + "/" + splitter[1]
 			msg, err2 = getPayload(newUrl)
 			if err2 != nil {
-				log.Warn().Msgf("failed to retrieve back %w", err2)
+				log.Warn().Msgf("failed to retrieve back %s", err2)
 
 				continue
 			}
