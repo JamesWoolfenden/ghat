@@ -3,14 +3,15 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/rs/zerolog/log"
-	"github.com/sergi/go-diff/diffmatchpatch"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/rs/zerolog/log"
+	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
 func Files(directory *string) ([]os.DirEntry, error) {

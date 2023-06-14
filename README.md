@@ -13,7 +13,6 @@
 
 Ghat is a tool for updating dependencies in a GHA - Github Action.
 
-
 ## Table of Contents
 
 <!--toc:start-->
@@ -24,20 +23,7 @@ Ghat is a tool for updating dependencies in a GHA - Github Action.
     - [Windows](#windows)
     - [Docker](#docker)
   - [Usage](#usage)
-    - [Scan](#scan)
-    - [Output](#output)
-    - [Make](#make)
-    - [Invoke](#invoke)
-    - [Apply](#apply)
-    - [Remote](#remote)
-    - [Readme](#readme)
-  - [Compare](#compare)
-  - [Help](#help)
-  - [Building](#building)
-  - [Extending](#extending)
-    - [Add Import mapping file](#add-import-mapping-file)
-    - [Add to provider Scan](#add-to-provider-scan)
-  - [Related Tools](#related-tools)
+
 <!--toc:end-->
 
 ## Install
@@ -91,8 +77,6 @@ docker run --tty --volume /local/path/to/tf:/tf jameswoolfenden/ghat scan -d /tf
 <https://hub.docker.com/repository/docker/jameswoolfenden/ghat>
 
 ## Usage
-
-
 
 To authenticate the GitHub Api you will need to set you GitHub Personal Access Token as the environment variable
 *GITHUB_TOKEN*
