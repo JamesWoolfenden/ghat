@@ -11,7 +11,7 @@
 [![checkov](https://img.shields.io/badge/checkov-verified-brightgreen)](https://www.checkov.io/)
 [![Github All Releases](https://img.shields.io/github/downloads/jameswoolfenden/ghat/total.svg)](https://github.com/JamesWoolfenden/ghat/releases)
 
-Ghat is a tool for updating dependencies in a GHA - GitHub Action.
+Ghat is a tool  (GHAT) for updating dependencies in a GHA - GitHub Action.
 
 ## Table of Contents
 
