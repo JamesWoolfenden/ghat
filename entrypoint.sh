@@ -8,40 +8,10 @@ then
   exit $?
 fi
 
+flags=""
+
 echo "running command:"
-if [ -n "$INPUT_DIRECTORY" ]
-then
-  FLAG="--directory"
-  COMMANDS="$INPUT_DIRECTORY"
-fi
+echo ghat swot -f "$INPUT_FILE" "$flags"
 
-if [ -n "$INPUT_FILE" ]
-then
-  FLAG="--file"
-  COMMANDS="$INPUT_FILE"
-fi
-
-if [ -n "$INPUT_AUTO" ];
-then
-  COMMANDS+=" --auto"
-fi
-
-if [ -n "$INPUT_WRITE" ] && [ "$INPUT_WRITE" = "true" ];
-then
-  COMMANDS+=" --write"
-fi
-
-if [ -n "$INPUT_INIT" ] && [ "$INPUT_INIT" = "true" ];
-then
-  COMMANDS+=" --init"
-fi
-
-if [ -n "$INPUT_OUTPUT" ]
-then
-  COMMANDS+=" --output "+ $INPUT_OUTPUT
-fi
-
-echo ghat "$INPUT_VERB" "$FLAG" "$COMMANDS"
-/usr/bin/ghat "$INPUT_VERB" "$FLAG" "$COMMANDS"
-
+/usr/bin/ghat swot -f "$INPUT_FILE" "$flags"
 export ghat_EXIT_CODE=$?
