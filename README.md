@@ -106,8 +106,8 @@ docker run --tty --volume /local/path/to/tf:/tf jameswoolfenden/ghat scan -d /tf
 
 ## Usage
 
-To authenticate the GitHub Api you will need to set you GitHub Personal Access Token as the environment variable
-*GITHUB_API*
+To authenticate the GitHub Api you should set-up your GitHub Personal Access Token as the environment variable
+*GITHUB_API* or *GITHUB_TOKEN*, it will fall back to using anonymous if you dont but RATE LIMITS.
 
 ## Help
 
