@@ -70,6 +70,9 @@ func GetGHA(directory *string, matches []os.DirEntry, ghat []os.DirEntry) ([]os.
 func UpdateFile(file *string, gitHubToken string) error {
 	buffer, err := os.ReadFile(*file)
 	replacement := string(buffer)
+
+	var newUrl string
+
 	if err != nil {
 		return fmt.Errorf("failed to open file %w", err)
 	}
@@ -84,7 +87,7 @@ func UpdateFile(file *string, gitHubToken string) error {
 
 		if err2 != nil {
 			splitter := strings.SplitN(action[0], "/", 3)
-			newUrl := splitter[0] + "/" + splitter[1]
+			newUrl = splitter[0] + "/" + splitter[1]
 			msg, err2 = getPayload(newUrl, gitHubToken)
 			if err2 != nil {
 				log.Warn().Msgf("failed to retrieve back %s", err2)
@@ -95,10 +98,17 @@ func UpdateFile(file *string, gitHubToken string) error {
 
 		if msg["tag_name"] != nil {
 			tag := msg["tag_name"].(string)
-			body, err := getHash(action[0], tag, gitHubToken)
+
+			url := action[0]
+
+			if newUrl != "" {
+				url = newUrl
+			}
+
+			body, err := getHash(url, tag, gitHubToken)
 
 			if err != nil {
-				log.Warn().Msgf("failed to retrieve commit hash %s", err)
+				log.Warn().Msgf("failed to retrieve commit hash %s for %s", err, action[0])
 				continue
 			}
 
