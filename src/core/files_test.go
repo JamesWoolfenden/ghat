@@ -6,10 +6,15 @@ import (
 	"testing"
 )
 
+var gitHubToken = os.Getenv("GITHUB_TOKEN")
+
 func TestFiles(t *testing.T) {
+	t.Parallel()
+
 	type args struct {
 		directory *string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -18,9 +23,12 @@ func TestFiles(t *testing.T) {
 	}{
 		// TODO: Add test cases.
 	}
+
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := Files(tt.args.directory)
+			t.Parallel()
+			got, err := Files(tt.args.directory, gitHubToken)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Files() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -33,11 +41,14 @@ func TestFiles(t *testing.T) {
 }
 
 func TestGetGHA(t *testing.T) {
+	t.Parallel()
+
 	type args struct {
 		directory *string
 		matches   []os.DirEntry
 		ghat      []os.DirEntry
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -47,9 +58,12 @@ func TestGetGHA(t *testing.T) {
 	}{
 		// TODO: Add test cases.
 	}
+
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, got1, err := GetGHA(tt.args.directory, tt.args.matches, tt.args.ghat)
+			t.Parallel()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetGHA() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -65,9 +79,12 @@ func TestGetGHA(t *testing.T) {
 }
 
 func TestUpdateFile(t *testing.T) {
+	t.Parallel()
+
 	type args struct {
 		file *string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -75,9 +92,12 @@ func TestUpdateFile(t *testing.T) {
 	}{
 		// TODO: Add test cases.
 	}
+
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			if err := UpdateFile(tt.args.file); (err != nil) != tt.wantErr {
+			t.Parallel()
+			if err := UpdateFile(tt.args.file, gitHubToken); (err != nil) != tt.wantErr {
 				t.Errorf("UpdateFile() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -85,9 +105,12 @@ func TestUpdateFile(t *testing.T) {
 }
 
 func Test_getPayload(t *testing.T) {
+	t.Parallel()
+
 	type args struct {
 		action string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -96,9 +119,12 @@ func Test_getPayload(t *testing.T) {
 	}{
 		// TODO: Add test cases.
 	}
+
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := getPayload(tt.args.action)
+			t.Parallel()
+			got, err := getPayload(tt.args.action, gitHubToken)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getPayload() error = %v, wantErr %v", err, tt.wantErr)
 				return

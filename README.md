@@ -11,7 +11,33 @@
 [![checkov](https://img.shields.io/badge/checkov-verified-brightgreen)](https://www.checkov.io/)
 [![Github All Releases](https://img.shields.io/github/downloads/jameswoolfenden/ghat/total.svg)](https://github.com/JamesWoolfenden/ghat/releases)
 
-Ghat is a tool  (GHAT) for updating dependencies in a GHA - GitHub Action.
+Ghat is a tool  (GHAT) for updating dependencies in a GHA - GitHub Action. It replaces insecure mutable tags with immutable commit hashes as well as using the latest released version:
+
+```yml
+   ## sets up go based on the version
+      - name: Install Go
+        uses: actions/setup-go@v4.0.1
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      ## checks out our code locally, so we can work with the files
+      - name: Checkout code
+        uses: actions/checkout@v3.5.3
+```
+
+Becomes
+
+```yml
+      ## sets up go based on the version
+      - name: Install Go
+        uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      ## checks out our code locally, so we can work with the files
+      - name: Checkout code
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+```
 
 ## Table of Contents
 

@@ -20,6 +20,8 @@ func main() {
 
 	var directory string
 
+	var gitHubToken string
+
 	app := &cli.App{
 		EnableBashCompletion: true,
 		Flags:                []cli.Flag{},
@@ -42,13 +44,13 @@ func main() {
 				UsageText: "ghat swot",
 				Action: func(*cli.Context) error {
 
-					if &file == nil {
-						err := core.UpdateFile(&file)
+					if file != "" {
+						err := core.UpdateFile(&file, gitHubToken)
 						if err != nil {
 							return err
 						}
 					} else {
-						_, err := core.Files(&directory)
+						_, err := core.Files(&directory, gitHubToken)
 						if err != nil {
 							return err
 						}
@@ -72,6 +74,14 @@ func main() {
 						Destination: &directory,
 						Category:    "files",
 					},
+					&cli.StringFlag{
+						Name:        "token",
+						Aliases:     []string{"t"},
+						Usage:       "Github PAT token",
+						Destination: &gitHubToken,
+						Category:    "authentication",
+						EnvVars:     []string{"GITHUB_TOKEN", "GITHUB_API"},
+					},
 				},
 			},
 		},
@@ -88,9 +98,3 @@ func main() {
 		log.Fatal().Err(err).Msg("ghat failure")
 	}
 }
-
-//for each
-//	find all instances in file that match regex
-//	uses:(.*)
-//	replace with newest version
-//save updated

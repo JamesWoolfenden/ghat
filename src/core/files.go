@@ -14,7 +14,7 @@ import (
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
-func Files(directory *string) ([]os.DirEntry, error) {
+func Files(directory *string, gitHubToken string) ([]os.DirEntry, error) {
 
 	matches, err := os.ReadDir(*directory)
 
@@ -31,7 +31,7 @@ func Files(directory *string) ([]os.DirEntry, error) {
 
 	for _, gha := range entries {
 		file := filepath.Join(*directory, gha.Name())
-		err = UpdateFile(&file)
+		err = UpdateFile(&file, gitHubToken)
 
 		if err != nil {
 			log.Warn().Msgf("failed to update %s", gha.Name())
@@ -67,7 +67,7 @@ func GetGHA(directory *string, matches []os.DirEntry, ghat []os.DirEntry) ([]os.
 	return ghat, directory, nil
 }
 
-func UpdateFile(file *string) error {
+func UpdateFile(file *string, gitHubToken string) error {
 	buffer, err := os.ReadFile(*file)
 	replacement := string(buffer)
 	if err != nil {
@@ -80,12 +80,12 @@ func UpdateFile(file *string) error {
 		action := strings.Split(match[1], "@")
 
 		action[0] = strings.TrimSpace(action[0])
-		msg, err2 := getPayload(action[0])
+		msg, err2 := getPayload(action[0], gitHubToken)
 
 		if err2 != nil {
 			splitter := strings.SplitN(action[0], "/", 3)
 			newUrl := splitter[0] + "/" + splitter[1]
-			msg, err2 = getPayload(newUrl)
+			msg, err2 = getPayload(newUrl, gitHubToken)
 			if err2 != nil {
 				log.Warn().Msgf("failed to retrieve back %s", err2)
 
@@ -93,15 +93,34 @@ func UpdateFile(file *string) error {
 			}
 		}
 
-		tag := msg["tag_name"]
-		if tag == nil {
-			log.Print("halt and catch fire")
+		if msg["tag_name"] != nil {
+			tag := msg["tag_name"].(string)
+			body, err := getHash(action[0], tag, gitHubToken)
+
+			if err != nil {
+				log.Warn().Msgf("failed to retrieve commit hash %s", err)
+				continue
+			}
+
+			object, ok := body["object"].(map[string]interface{})
+			if !ok {
+				log.Warn().Msgf("failed to assert map of string %s", err)
+				continue
+			}
+
+			sha := object["sha"].(string)
+			if !ok {
+				log.Warn().Msgf("failed to assert string %s", err)
+				continue
+			}
+
+			oldAction := action[0] + "@" + action[1]
+			newAction := action[0] + "@" + sha + " # " + tag //GET /repos/{owner}/{repo}/git/ref/tags/{tag_name}
+
+			replacement = strings.ReplaceAll(replacement, oldAction, newAction)
+		} else {
+			log.Warn().Msgf("tag field empty skipping %s", action[0])
 		}
-
-		oldAction := action[0] + "@" + action[1]
-		newAction := action[0] + "@" + tag.(string)
-
-		replacement = strings.ReplaceAll(replacement, oldAction, newAction)
 	}
 
 	dmp := diffmatchpatch.New()
@@ -120,18 +139,26 @@ func UpdateFile(file *string) error {
 	return nil
 }
 
-func getPayload(action string) (map[string]interface{}, error) {
+func getPayload(action string, gitHubToken string) (map[string]interface{}, error) {
 	url := "https://api.github.com/repos/" + action + "/releases/latest"
-	auth := os.Getenv("GITHUB_API")
+	return GetBody(gitHubToken, url)
+}
+
+func getHash(action string, tag string, gitHubToken string) (map[string]interface{}, error) {
+	url := "https://api.github.com/repos/" + action + "/git/ref/tags/" + tag
+	return GetBody(gitHubToken, url)
+}
+
+func GetBody(gitHubToken string, url string) (map[string]interface{}, error) {
 	var body []byte
 
-	if auth != "" {
+	if gitHubToken != "" {
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return nil, fmt.Errorf("request failed %w", err)
 		}
 
-		req.Header.Add("Authorization", "Bearer "+auth)
+		req.Header.Add("Authorization", "Bearer "+gitHubToken)
 		client := &http.Client{}
 		resp, err := client.Do(req)
 
@@ -153,9 +180,12 @@ func getPayload(action string) (map[string]interface{}, error) {
 
 		body, err = io.ReadAll(resp.Body)
 
-	} else {
-		log.Warn().Msg("failed to read environmental variable GITHUB_API falling back to unauthenticated")
+		if err != nil {
+			return nil, fmt.Errorf("failed to read body %w", err)
+		}
 
+	} else {
+		log.Warn().Msgf("failing back to anonymous auth")
 		resp, err := http.Get(url)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get url %w", err)
