@@ -54,3 +54,9 @@ repos:
     rev: v1.53.3
     hooks:
       - id: golangci-lint
+  - repo: https://github.com/bridgecrewio/checkov
+    rev: v0.1.50
+    hooks:
+      - id: checkov
+        language_version: python3.10
+        args: -d .
