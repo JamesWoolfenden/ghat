@@ -39,6 +39,8 @@ Becomes
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
 ```
 
+Ghat will use your Github creds, if available, from your environment using the environmental variables GITHUB_TOKEN or GITHUB_API, but it can also drop back to anonymous access, the drawback is that this is severely rate limited by gitHub.
+
 ## Table of Contents
 
 <!--toc:start-->
