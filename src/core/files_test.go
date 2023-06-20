@@ -15,13 +15,19 @@ func TestFiles(t *testing.T) {
 		directory *string
 	}
 
+	dir := "testdata/files/"
+	bogus := "testdata/bogus/"
+	empty := "testdata/empty"
+
 	tests := []struct {
 		name    string
 		args    args
 		want    []os.DirEntry
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{"Pass", args{&dir}, nil, false},
+		{"Bogus", args{&bogus}, nil, false},
+		{"Empty", args{&empty}, nil, false},
 	}
 
 	for _, tt := range tests {

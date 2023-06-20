@@ -83,18 +83,20 @@ func UpdateFile(file *string, gitHubToken string) error {
 		action := strings.Split(match[1], "@")
 
 		action[0] = strings.TrimSpace(action[0])
-		msg, err2 := getPayload(action[0], gitHubToken)
+		body, err2 := getPayload(action[0], gitHubToken)
 
 		if err2 != nil {
 			splitter := strings.SplitN(action[0], "/", 3)
 			newUrl = splitter[0] + "/" + splitter[1]
-			msg, err2 = getPayload(newUrl, gitHubToken)
+			body, err2 = getPayload(newUrl, gitHubToken)
 			if err2 != nil {
 				log.Warn().Msgf("failed to retrieve back %s", err2)
 
 				continue
 			}
 		}
+
+		msg := body.(map[string]interface{})
 
 		if msg["tag_name"] != nil {
 			tag := msg["tag_name"].(string)
@@ -105,7 +107,8 @@ func UpdateFile(file *string, gitHubToken string) error {
 				url = newUrl
 			}
 
-			body, err := getHash(url, tag, gitHubToken)
+			payload, err := getHash(url, tag, gitHubToken)
+			body := payload.(map[string]interface{})
 
 			if err != nil {
 				log.Warn().Msgf("failed to retrieve commit hash %s for %s", err, action[0])
@@ -149,17 +152,17 @@ func UpdateFile(file *string, gitHubToken string) error {
 	return nil
 }
 
-func getPayload(action string, gitHubToken string) (map[string]interface{}, error) {
+func getPayload(action string, gitHubToken string) (interface{}, error) {
 	url := "https://api.github.com/repos/" + action + "/releases/latest"
 	return GetBody(gitHubToken, url)
 }
 
-func getHash(action string, tag string, gitHubToken string) (map[string]interface{}, error) {
+func getHash(action string, tag string, gitHubToken string) (interface{}, error) {
 	url := "https://api.github.com/repos/" + action + "/git/ref/tags/" + tag
 	return GetBody(gitHubToken, url)
 }
 
-func GetBody(gitHubToken string, url string) (map[string]interface{}, error) {
+func GetBody(gitHubToken string, url string) (interface{}, error) {
 	var body []byte
 
 	if gitHubToken != "" {
@@ -207,7 +210,7 @@ func GetBody(gitHubToken string, url string) (map[string]interface{}, error) {
 		}
 	}
 
-	var msg map[string]interface{}
+	var msg interface{}
 
 	err := json.Unmarshal(body, &msg)
 	if err != nil {
