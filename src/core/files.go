@@ -14,6 +14,7 @@ import (
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
+// Files updates all actions in a directory.
 func Files(directory *string, gitHubToken string) ([]os.DirEntry, error) {
 
 	matches, err := os.ReadDir(*directory)
@@ -41,6 +42,7 @@ func Files(directory *string, gitHubToken string) ([]os.DirEntry, error) {
 	return nil, nil
 }
 
+// GetGHA gets all the actions in a directory
 func GetGHA(directory *string, matches []os.DirEntry, ghat []os.DirEntry) ([]os.DirEntry, *string, error) {
 	for _, match := range matches {
 		if match.IsDir() {
@@ -67,6 +69,7 @@ func GetGHA(directory *string, matches []os.DirEntry, ghat []os.DirEntry) ([]os.
 	return ghat, directory, nil
 }
 
+// UpdateFile updates am action with latest dependencies
 func UpdateFile(file *string, gitHubToken string) error {
 	buffer, err := os.ReadFile(*file)
 	replacement := string(buffer)
@@ -162,6 +165,7 @@ func getHash(action string, tag string, gitHubToken string) (interface{}, error)
 	return GetBody(gitHubToken, url)
 }
 
+// GetBody requests a url using gitHub PAT for auth
 func GetBody(gitHubToken string, url string) (interface{}, error) {
 	var body []byte
 

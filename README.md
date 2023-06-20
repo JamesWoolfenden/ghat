@@ -109,6 +109,19 @@ docker run --tty --volume /local/path/to/tf:/tf jameswoolfenden/ghat scan -d /tf
 To authenticate the GitHub Api you should set-up your GitHub Personal Access Token as the environment variable
 *GITHUB_API* or *GITHUB_TOKEN*, it will fall back to using anonymous if you dont but RATE LIMITS.
 
+### Directory scan
+This will look for the .github/worflow folder and update all the files it find there, and display a diff of the changes made to each file:
+
+```bash
+$ghat swot -d .
+```
+
+### Individual file scan
+
+```
+$ghat swot -f .\.github\workflows\ci.yml
+```
+
 ## Help
 
 ```bash
