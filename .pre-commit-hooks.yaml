@@ -1,31 +1,31 @@
 ---
 # Build and run the Go binary from the repo
 # REQUIRES: Go v1.16+ installed
-- id: ghat-docs-go
-  name: ghat-docs
-  description: Generate Policy documentation for Terraform modules (via Go binary)
+- id: ghat-go
+  name: ghat
+  description: upgrade action dependencies
   language: golang
-  entry: ghat
+  entry: ghat swot -d .
   pass_filenames: false
-  types: [ terraform ]
+  types: [ yaml ]
 
 # Build and run `ghat-docs` assuming it was installed manually
 # or via package manager
 # REQUIRES: ghat-docs to be installed and on the $PATH
-- id: ghat-docs-system
-  name: ghat-docs
-  description: Generate Policy documentation for Terraform modules (via locally-installed CLI)
+- id: ghat-system
+  name: ghat
+  description: upgrade action dependencies
   language: system
-  entry: ghat
+  entry: ghat swot -d .
   pass_filenames: false
-  types: [ terraform ]
+  types: [ yaml ]
 
 # Builds and runs the Docker image from the repo
 # REQUIRES: Docker installed
-- id: ghat-docs-docker
-  name: ghat-docs
-  description: Generate Policy documentation for Terraform modules (via Docker build)
+- id: ghat-docker
+  name: ghat
+  description: upgrade action dependencies (via Docker build)
   language: docker
-  entry: ghat
+  entry: ghat swot -d .
   pass_filenames: false
-  types: [ terraform ]
+  types: [ yaml ]
