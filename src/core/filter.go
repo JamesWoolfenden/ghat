@@ -5,13 +5,19 @@ import (
 	"time"
 )
 
-func GetReleases(action string, gitHubToken string, days int) (string, error) {
+const daystoNano = 24 * 60 * 60 * 1000 * 1000 * 1000
+
+func GetReleases(action string, gitHubToken string, days *int) (map[string]interface{}, error) {
 	now := time.Now()
-	interval := time.Duration(14 * 24 * time.Hour)
+	interval := time.Duration(*days * daystoNano)
 	limit := now.Add(-interval)
 
 	url := "https://api.github.com/repos/" + action + "/releases"
 	temp, err := GetBody(gitHubToken, url)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to request list of releases %w", err)
+	}
 
 	bodies := temp.([]interface{})
 
@@ -21,13 +27,9 @@ func GetReleases(action string, gitHubToken string, days int) (string, error) {
 
 		released, _ := time.Parse(time.RFC3339, temp)
 		if released.Before(limit) {
-			fmt.Println(released)
+			return release, nil
 		}
 	}
 
-	if err != nil {
-		return "", fmt.Errorf("failed to request list of releases %w", err)
-	}
-
-	return "", err
+	return nil, err
 }

@@ -15,7 +15,7 @@ import (
 )
 
 // Files updates all actions in a directory.
-func Files(directory *string, gitHubToken string) ([]os.DirEntry, error) {
+func Files(directory *string, gitHubToken string, days *int) ([]os.DirEntry, error) {
 
 	matches, err := os.ReadDir(*directory)
 
@@ -32,7 +32,7 @@ func Files(directory *string, gitHubToken string) ([]os.DirEntry, error) {
 
 	for _, gha := range entries {
 		file := filepath.Join(*directory, gha.Name())
-		err = UpdateFile(&file, gitHubToken)
+		err = UpdateFile(&file, gitHubToken, days)
 
 		if err != nil {
 			log.Warn().Msgf("failed to update %s", gha.Name())
@@ -66,11 +66,12 @@ func GetGHA(directory *string, matches []os.DirEntry, ghat []os.DirEntry) ([]os.
 			}
 		}
 	}
+
 	return ghat, directory, nil
 }
 
 // UpdateFile updates am action with latest dependencies
-func UpdateFile(file *string, gitHubToken string) error {
+func UpdateFile(file *string, gitHubToken string, days *int) error {
 	buffer, err := os.ReadFile(*file)
 	replacement := string(buffer)
 
@@ -86,12 +87,12 @@ func UpdateFile(file *string, gitHubToken string) error {
 		action := strings.Split(match[1], "@")
 
 		action[0] = strings.TrimSpace(action[0])
-		body, err2 := getPayload(action[0], gitHubToken)
+		body, err2 := getPayload(action[0], gitHubToken, days)
 
 		if err2 != nil {
 			splitter := strings.SplitN(action[0], "/", 3)
 			newUrl = splitter[0] + "/" + splitter[1]
-			body, err2 = getPayload(newUrl, gitHubToken)
+			body, err2 = getPayload(newUrl, gitHubToken, days)
 			if err2 != nil {
 				log.Warn().Msgf("failed to retrieve back %s", err2)
 
@@ -155,9 +156,13 @@ func UpdateFile(file *string, gitHubToken string) error {
 	return nil
 }
 
-func getPayload(action string, gitHubToken string) (interface{}, error) {
-	url := "https://api.github.com/repos/" + action + "/releases/latest"
-	return GetBody(gitHubToken, url)
+func getPayload(action string, gitHubToken string, days *int) (interface{}, error) {
+	if *days == 0 {
+		url := "https://api.github.com/repos/" + action + "/releases/latest"
+		return GetBody(gitHubToken, url)
+	}
+
+	return GetReleases(action, gitHubToken, days)
 }
 
 func getHash(action string, tag string, gitHubToken string) (interface{}, error) {

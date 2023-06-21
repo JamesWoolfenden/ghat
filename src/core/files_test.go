@@ -13,11 +13,14 @@ func TestFiles(t *testing.T) {
 
 	type args struct {
 		directory *string
+		days      *int
 	}
 
 	dir := "testdata/files/"
 	bogus := "testdata/bogus/"
 	empty := "testdata/empty"
+
+	var zero = 0
 
 	tests := []struct {
 		name    string
@@ -25,16 +28,16 @@ func TestFiles(t *testing.T) {
 		want    []os.DirEntry
 		wantErr bool
 	}{
-		{"Pass", args{&dir}, nil, false},
-		{"Bogus", args{&bogus}, nil, false},
-		{"Empty", args{&empty}, nil, false},
+		{"Pass", args{&dir, &zero}, nil, false},
+		{"Bogus", args{&bogus, &zero}, nil, false},
+		{"Empty", args{&empty, &zero}, nil, false},
 	}
 
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := Files(tt.args.directory, gitHubToken)
+			got, err := Files(tt.args.directory, gitHubToken, tt.args.days)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Files() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -55,6 +58,15 @@ func TestGetGHA(t *testing.T) {
 		ghat      []os.DirEntry
 	}
 
+	duffDir := "nothere"
+	nomatches, _ := os.ReadDir(duffDir)
+
+	noworkflowsdir := "./testdata/noworkflows"
+	noworkflows, _ := os.ReadDir(noworkflowsdir)
+
+	noworkflowswithdir := "./testdata/noworkflowswithdir"
+	noworkflowswithdircontents, _ := os.ReadDir(noworkflowswithdir)
+
 	tests := []struct {
 		name    string
 		args    args
@@ -62,7 +74,9 @@ func TestGetGHA(t *testing.T) {
 		want1   *string
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{"no matches", args{&duffDir, nomatches, nil}, nil, &duffDir, false},
+		{"no workflows", args{&noworkflowsdir, noworkflows, nil}, nil, &noworkflowsdir, false},
+		{"no workflows with dir", args{&noworkflowswithdir, noworkflowswithdircontents, nil}, nil, &noworkflowswithdir, false},
 	}
 
 	for _, tt := range tests {
@@ -84,13 +98,39 @@ func TestGetGHA(t *testing.T) {
 	}
 }
 
-func TestUpdateFile(t *testing.T) {
-	t.Parallel()
-
+func TestGetBody(t *testing.T) {
 	type args struct {
-		file *string
+		gitHubToken string
+		url         string
 	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetBody(tt.args.gitHubToken, tt.args.url)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetBody() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetBody() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
+func TestUpdateFile(t *testing.T) {
+	type args struct {
+		file        *string
+		gitHubToken string
+		days        *int
+	}
 	tests := []struct {
 		name    string
 		args    args
@@ -98,13 +138,38 @@ func TestUpdateFile(t *testing.T) {
 	}{
 		// TODO: Add test cases.
 	}
-
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			if err := UpdateFile(tt.args.file, gitHubToken); (err != nil) != tt.wantErr {
+			if err := UpdateFile(tt.args.file, tt.args.gitHubToken, tt.args.days); (err != nil) != tt.wantErr {
 				t.Errorf("UpdateFile() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func Test_getHash(t *testing.T) {
+	type args struct {
+		action      string
+		tag         string
+		gitHubToken string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    interface{}
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := getHash(tt.args.action, tt.args.tag, tt.args.gitHubToken)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getHash() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getHash() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -114,23 +179,24 @@ func Test_getPayload(t *testing.T) {
 	t.Parallel()
 
 	type args struct {
-		action string
+		action      string
+		gitHubToken string
+		days        *int
 	}
 
 	tests := []struct {
 		name    string
 		args    args
-		want    map[string]interface{}
+		want    interface{}
 		wantErr bool
 	}{
 		// TODO: Add test cases.
 	}
-
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := getPayload(tt.args.action, gitHubToken)
+			got, err := getPayload(tt.args.action, tt.args.gitHubToken, tt.args.days)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getPayload() error = %v, wantErr %v", err, tt.wantErr)
 				return

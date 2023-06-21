@@ -22,6 +22,8 @@ func main() {
 
 	var gitHubToken string
 
+	var days int
+
 	app := &cli.App{
 		EnableBashCompletion: true,
 		Flags:                []cli.Flag{},
@@ -45,12 +47,12 @@ func main() {
 				Action: func(*cli.Context) error {
 
 					if file != "" {
-						err := core.UpdateFile(&file, gitHubToken)
+						err := core.UpdateFile(&file, gitHubToken, &days)
 						if err != nil {
 							return err
 						}
 					} else {
-						_, err := core.Files(&directory, gitHubToken)
+						_, err := core.Files(&directory, gitHubToken, &days)
 						if err != nil {
 							return err
 						}
@@ -73,6 +75,15 @@ func main() {
 						Value:       ".",
 						Destination: &directory,
 						Category:    "files",
+					},
+					&cli.IntFlag{
+						Name:        "stable",
+						Aliases:     []string{"s"},
+						Usage:       "days to wait for stabilisation of release",
+						Value:       0,
+						Destination: &days,
+						DefaultText: "0",
+						Category:    "delay",
 					},
 					&cli.StringFlag{
 						Name:        "token",
