@@ -5,7 +5,8 @@ on:
 
 name: CI
 permissions: read-all
-
+env:
+  GITHUB_TOKEN: ${{ github.token }}
 jobs:
   test:
     ## We want to define a strategy for our job
@@ -39,3 +40,5 @@ jobs:
       ## runs go test ./...
       - name: Test
         run: go test ./...
+        with:
+          token: ${{ github.token }}
