@@ -170,7 +170,7 @@ func getHash(action string, tag string, gitHubToken string) (interface{}, error)
 	return GetBody(gitHubToken, url)
 }
 
-// GetBody requests a url using gitHub PAT for auth
+// GetBody requests a URL using gitHub PAT for auth
 func GetBody(gitHubToken string, url string) (interface{}, error) {
 	var body []byte
 

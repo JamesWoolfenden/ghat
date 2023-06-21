@@ -19,7 +19,11 @@ func GetReleases(action string, gitHubToken string, days *int) (map[string]inter
 		return nil, fmt.Errorf("failed to request list of releases %w", err)
 	}
 
-	bodies := temp.([]interface{})
+	bodies, ok := temp.([]interface{})
+
+	if !ok {
+		return nil, fmt.Errorf("api query did not return list: %s", bodies)
+	}
 
 	for _, body := range bodies {
 		release := body.(map[string]interface{})
