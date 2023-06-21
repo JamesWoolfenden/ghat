@@ -5,11 +5,9 @@ import (
 	"time"
 )
 
-const daystoNano = 24 * 60 * 60 * 1000 * 1000 * 1000
-
 func GetReleases(action string, gitHubToken string, days *int) (map[string]interface{}, error) {
 	now := time.Now()
-	interval := time.Duration(*days * daystoNano)
+	interval := time.Duration(*days * 24 * 60 * 60 * 1000 * 1000 * 1000)
 	limit := now.Add(-interval)
 
 	url := "https://api.github.com/repos/" + action + "/releases"
