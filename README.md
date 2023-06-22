@@ -110,7 +110,8 @@ To authenticate the GitHub Api you should setup your GitHub Personal Access Toke
 *GITHUB_API* or *GITHUB_TOKEN*, it will fall back to using anonymous if you don't but RATE LIMITS.
 
 ### Directory scan
-This will look for the .github/worflow folder and update all the files it finds there, and display a diff of the changes made to each file:
+
+This will look for the .github/workflow folder and update all the files it finds there, and display a diff of the changes made to each file:
 
 ```bash
 $ghat swot -d .
@@ -118,34 +119,61 @@ $ghat swot -d .
 
 ### Individual file scan
 
-```
+```bash
 $ghat swot -f .\.github\workflows\ci.yml
+```
+
+### Stable releases
+
+If you're concerned that the very latest release might be too fresh, and would rather have the latest from 2 weeks ago?
+I got you covered:
+
+```bash
+$ghat swot -d . --stable 14
 ```
 
 ## Help
 
 ```bash
-./ghat -h
+ ghat swot -h
 NAME:
-   ghat - Update GHA dependencies
+   ghat swot - updates GHA in a directory
 
 USAGE:
-   ghat [global options] command [command options] [arguments...]
+   ghat swot
 
-VERSION:
-   9.9.9
+OPTIONS:
+   authentication
 
-AUTHOR:
-   James Woolfenden <jim.wolf@duck.com>
+   --token value, -t value  Github PAT token [$GITHUB_TOKEN, $GITHUB_API]
 
-COMMANDS:
-   swot, a     updates GHA in a directory
-   version, v  Outputs the application version
-   help, h     Shows a list of commands or help for one command
+   delay
 
-GLOBAL OPTIONS:
-   --help, -h     show help
-   --version, -v  print the version
+   --stable value, -s value  days to wait for stabilisation of release (default: 0)
+
+   files
+
+   --directory value, -d value  Destination to update GHAs (default: ".")
+   --file value, -f value       GHA file to parse
+
+```
+
+### pre-commit
+
+I've added a number of pre-commit hooks to this repo that will update your build configs,
+update .pre-commit-config.yaml
+
+```yaml
+  - repo: https://github.com/JamesWoolfenden/ghat/actions
+    rev: v0.0.10
+    hooks:
+      - id: ghat-go
+        name: ghat
+        description: upgrade action dependencies
+        language: golang
+        entry: ghat swot -d .
+        pass_filenames: false
+        types: [ yaml ]
 
 ```
 
@@ -162,3 +190,5 @@ Make build
 ```
 
 ## Extending
+
+Log an issue, a pr or send an email to jim.wolf @ duck.com.
