@@ -39,7 +39,7 @@ Becomes
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
 ```
 
-Ghat will use your Github creds, if available, from your environment using the environmental variables GITHUB_TOKEN or GITHUB_API, but it can also drop back to anonymous access, the drawback is that this is severely rate limited by gitHub.
+Ghat will use your GitHub creds, if available, from your environment using the environmental variables GITHUB_TOKEN or GITHUB_API, but it can also drop back to anonymous access, the drawback is that this is severely rate limited by gitHub.
 
 ## Table of Contents
 
@@ -106,11 +106,11 @@ docker run --tty --volume /local/path/to/tf:/tf jameswoolfenden/ghat scan -d /tf
 
 ## Usage
 
-To authenticate the GitHub Api you should set-up your GitHub Personal Access Token as the environment variable
-*GITHUB_API* or *GITHUB_TOKEN*, it will fall back to using anonymous if you dont but RATE LIMITS.
+To authenticate the GitHub Api you should setup your GitHub Personal Access Token as the environment variable
+*GITHUB_API* or *GITHUB_TOKEN*, it will fall back to using anonymous if you don't but RATE LIMITS.
 
 ### Directory scan
-This will look for the .github/worflow folder and update all the files it find there, and display a diff of the changes made to each file:
+This will look for the .github/worflow folder and update all the files it finds there, and display a diff of the changes made to each file:
 
 ```bash
 $ghat swot -d .

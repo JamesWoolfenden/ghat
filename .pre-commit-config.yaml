@@ -29,7 +29,7 @@ repos:
     hooks:
       - id: shell-lint
   - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.34.0
+    rev: v0.35.0
     hooks:
       - id: markdownlint
         exclude: src/testdata|testdata
@@ -55,8 +55,17 @@ repos:
     hooks:
       - id: golangci-lint
   - repo: https://github.com/bridgecrewio/checkov
-    rev: 2.3.294
+    rev: 2.3.300
     hooks:
       - id: checkov
         language_version: python3.10
         args: ["-d", "."]
+  - repo: local
+    hooks:
+      - id: ghat-go
+        name: ghat
+        description: upgrade action dependencies
+        language: golang
+        entry: ghat swot -d .
+        pass_filenames: false
+        types: [ yaml ]

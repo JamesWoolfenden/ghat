@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/rs/zerolog v1.29.1
 	github.com/sergi/go-diff v1.3.1
-	github.com/urfave/cli/v2 v2.25.6
+	github.com/urfave/cli/v2 v2.25.7
 )
 
 require (
