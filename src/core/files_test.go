@@ -99,10 +99,13 @@ func TestGetGHA(t *testing.T) {
 }
 
 func TestGetBody(t *testing.T) {
+	t.Parallel()
+
 	type args struct {
 		gitHubToken string
 		url         string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -112,7 +115,9 @@ func TestGetBody(t *testing.T) {
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := GetBody(tt.args.gitHubToken, tt.args.url)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetBody() error = %v, wantErr %v", err, tt.wantErr)
