@@ -68,4 +68,5 @@ repos:
         language: golang
         entry: ghat swot -d .
         pass_filenames: false
+        always_run: true
         types: [ yaml ]
