@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -84,6 +85,12 @@ func UpdateFile(file *string, gitHubToken string, days *int) error {
 	r := regexp.MustCompile(`uses:(.*)`)
 	matches := r.FindAllStringSubmatch(string(buffer), -1)
 	for _, match := range matches {
+
+		//is path
+		if strings.Contains(match[1], ".github") {
+			continue
+		}
+
 		action := strings.Split(match[1], "@")
 
 		action[0] = strings.TrimSpace(action[0])
@@ -100,7 +107,11 @@ func UpdateFile(file *string, gitHubToken string, days *int) error {
 			}
 		}
 
-		msg := body.(map[string]interface{})
+		msg, ok := body.(map[string]interface{})
+
+		if !ok {
+			return errors.New("failed to assert map[string]interface{}")
+		}
 
 		if msg["tag_name"] != nil {
 			tag := msg["tag_name"].(string)
