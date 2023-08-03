@@ -16,16 +16,11 @@ import (
 func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
-	var file string
-
-	var directory string
-
-	var gitHubToken string
-
-	var days int
+	var myFlags core.Flags
 
 	app := &cli.App{
 		EnableBashCompletion: true,
+		Copyright:            "James Woolfenden",
 		Flags:                []cli.Flag{},
 		Commands: []*cli.Command{
 			{
@@ -46,13 +41,13 @@ func main() {
 				UsageText: "ghat swot",
 				Action: func(*cli.Context) error {
 
-					if file != "" {
-						err := core.UpdateFile(&file, gitHubToken, &days)
+					if myFlags.File != "" {
+						err := myFlags.UpdateFile()
 						if err != nil {
 							return err
 						}
 					} else {
-						_, err := core.Files(&directory, gitHubToken, &days)
+						_, err := myFlags.Files()
 						if err != nil {
 							return err
 						}
@@ -65,7 +60,7 @@ func main() {
 						Name:        "file",
 						Aliases:     []string{"f"},
 						Usage:       "GHA file to parse",
-						Destination: &file,
+						Destination: &myFlags.File,
 						Category:    "files",
 					},
 					&cli.StringFlag{
@@ -73,7 +68,7 @@ func main() {
 						Aliases:     []string{"d"},
 						Usage:       "Destination to update GHAs",
 						Value:       ".",
-						Destination: &directory,
+						Destination: &myFlags.Directory,
 						Category:    "files",
 					},
 					&cli.IntFlag{
@@ -81,7 +76,7 @@ func main() {
 						Aliases:     []string{"s"},
 						Usage:       "days to wait for stabilisation of release",
 						Value:       0,
-						Destination: &days,
+						Destination: &myFlags.Days,
 						DefaultText: "0",
 						Category:    "delay",
 					},
@@ -89,9 +84,15 @@ func main() {
 						Name:        "token",
 						Aliases:     []string{"t"},
 						Usage:       "Github PAT token",
-						Destination: &gitHubToken,
+						Destination: &myFlags.GitHubToken,
 						Category:    "authentication",
 						EnvVars:     []string{"GITHUB_TOKEN", "GITHUB_API"},
+					},
+					&cli.BoolFlag{
+						Name:        "dry-run",
+						Usage:       "show but don't write changes",
+						Destination: &myFlags.DryRun,
+						Value:       false,
 					},
 				},
 			},

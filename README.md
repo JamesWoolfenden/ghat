@@ -51,6 +51,10 @@ Ghat will use your GitHub creds, if available, from your environment using the e
     - [Windows](#windows)
     - [Docker](#docker)
   - [Usage](#usage)
+    - [directory](#directory-scan)
+    - [file](#file-scan)
+    - [stable](#stable-releases)
+    - [pre-commit](#pre-commit)
 
 <!--toc:end-->
 
@@ -99,14 +103,14 @@ scoop install ghat
 
 ```shell
 docker pull jameswoolfenden/ghat
-docker run --tty --volume /local/path/to/tf:/tf jameswoolfenden/ghat scan -d /tf
+docker run --tty --volume /local/path/to/repo:/repo jameswoolfenden/ghat swot -d /repo
 ```
 
 <https://hub.docker.com/repository/docker/jameswoolfenden/ghat>
 
 ## Usage
 
-To authenticate the GitHub Api you should setup your GitHub Personal Access Token as the environment variable
+To authenticate the GitHub Api you should set up your GitHub Personal Access Token as the environment variable
 *GITHUB_API* or *GITHUB_TOKEN*, it will fall back to using anonymous if you don't but RATE LIMITS.
 
 ### Directory scan
@@ -117,7 +121,7 @@ This will look for the .github/workflow folder and update all the files it finds
 $ghat swot -d .
 ```
 
-### Individual file scan
+### File scan
 
 ```bash
 $ghat swot -f .\.github\workflows\ci.yml
@@ -173,6 +177,7 @@ update .pre-commit-config.yaml
         language: golang
         entry: ghat swot -d .
         pass_filenames: false
+        always_run: true
         types: [ yaml ]
 
 ```

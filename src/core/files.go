@@ -16,24 +16,24 @@ import (
 )
 
 // Files updates all actions in a directory.
-func Files(directory *string, gitHubToken string, days *int) ([]os.DirEntry, error) {
+func (myFlags *Flags) Files() ([]os.DirEntry, error) {
 
-	matches, err := os.ReadDir(*directory)
+	matches, err := os.ReadDir(myFlags.Directory)
 
 	if err != nil {
-		log.Error().Msgf("failed to read %s", *directory)
+		log.Error().Msgf("failed to read %s", myFlags.Directory)
 	}
 
 	var ghat []os.DirEntry
 
-	entries, directory, err2 := GetGHA(directory, matches, ghat)
+	entries, err2 := myFlags.GetGHA(matches, ghat)
 	if err2 != nil {
 		return entries, err2
 	}
 
 	for _, gha := range entries {
-		file := filepath.Join(*directory, gha.Name())
-		err = UpdateFile(&file, gitHubToken, days)
+		myFlags.File = filepath.Join(myFlags.Directory, gha.Name())
+		err = myFlags.UpdateFile()
 
 		if err != nil {
 			log.Warn().Msgf("failed to update %s", gha.Name())
@@ -44,21 +44,22 @@ func Files(directory *string, gitHubToken string, days *int) ([]os.DirEntry, err
 }
 
 // GetGHA gets all the actions in a directory
-func GetGHA(directory *string, matches []os.DirEntry, ghat []os.DirEntry) ([]os.DirEntry, *string, error) {
+func (myFlags *Flags) GetGHA(matches []os.DirEntry, ghat []os.DirEntry) ([]os.DirEntry, error) {
 	for _, match := range matches {
 		if match.IsDir() {
 			if strings.Contains(match.Name(), ".github") {
 				log.Print(match.Name())
-				AbsDir, _ := filepath.Abs(*directory)
+				AbsDir, _ := filepath.Abs(myFlags.Directory)
 				newDirectory := filepath.Join(AbsDir, match.Name(), "workflows")
 				if _, err := os.Stat(newDirectory); err == nil {
 					ghat, err = os.ReadDir(newDirectory)
+					myFlags.Directory = newDirectory
 
 					if err != nil {
-						return nil, &newDirectory, fmt.Errorf("no files found %w", err)
+						return nil, fmt.Errorf("no files found %w", err)
 					}
 
-					return ghat, &newDirectory, nil
+					return ghat, nil
 				}
 			}
 		} else {
@@ -68,12 +69,12 @@ func GetGHA(directory *string, matches []os.DirEntry, ghat []os.DirEntry) ([]os.
 		}
 	}
 
-	return ghat, directory, nil
+	return ghat, nil
 }
 
 // UpdateFile updates am action with latest dependencies
-func UpdateFile(file *string, gitHubToken string, days *int) error {
-	buffer, err := os.ReadFile(*file)
+func (myFlags *Flags) UpdateFile() error {
+	buffer, err := os.ReadFile(myFlags.File)
 	replacement := string(buffer)
 
 	var newUrl string
@@ -94,12 +95,12 @@ func UpdateFile(file *string, gitHubToken string, days *int) error {
 		action := strings.Split(match[1], "@")
 
 		action[0] = strings.TrimSpace(action[0])
-		body, err2 := getPayload(action[0], gitHubToken, days)
+		body, err2 := getPayload(action[0], myFlags.GitHubToken, &myFlags.Days)
 
 		if err2 != nil {
 			splitter := strings.SplitN(action[0], "/", 3)
 			newUrl = splitter[0] + "/" + splitter[1]
-			body, err2 = getPayload(newUrl, gitHubToken, days)
+			body, err2 = getPayload(newUrl, myFlags.GitHubToken, &myFlags.Days)
 			if err2 != nil {
 				log.Warn().Msgf("failed to retrieve back %s", err2)
 
@@ -122,7 +123,7 @@ func UpdateFile(file *string, gitHubToken string, days *int) error {
 				url = newUrl
 			}
 
-			payload, err := getHash(url, tag, gitHubToken)
+			payload, err := getHash(url, tag, myFlags.GitHubToken)
 			body := payload.(map[string]interface{})
 
 			if err != nil {
@@ -156,12 +157,14 @@ func UpdateFile(file *string, gitHubToken string, days *int) error {
 
 	fmt.Println(dmp.DiffPrettyText(diffs))
 
-	newBuffer := []byte(replacement)
+	if !myFlags.DryRun {
+		newBuffer := []byte(replacement)
 
-	err = os.WriteFile(*file, newBuffer, 0644)
+		err = os.WriteFile(myFlags.File, newBuffer, 0644)
 
-	if err != nil {
-		return fmt.Errorf("failed to write err %w", err)
+		if err != nil {
+			return fmt.Errorf("failed to write err %w", err)
+		}
 	}
 
 	return nil
