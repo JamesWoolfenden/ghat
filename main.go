@@ -11,9 +11,13 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"moul.io/banner"
 )
 
 func main() {
+	fmt.Println(banner.Inline("ghat"))
+	fmt.Println("version:", version.Version)
+
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	var myFlags core.Flags

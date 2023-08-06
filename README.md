@@ -39,7 +39,7 @@ Becomes
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
 ```
 
-Ghat will use your GitHub creds, if available, from your environment using the environmental variables GITHUB_TOKEN or GITHUB_API, but it can also drop back to anonymous access, the drawback is that this is severely rate limited by gitHub.
+Ghat will use your GitHub credentials, if available, from your environment using the environmental variables GITHUB_TOKEN or GITHUB_API, but it can also drop back to anonymous access, the drawback is that this is severely rate limited by gitHub.
 
 ## Table of Contents
 
@@ -196,4 +196,4 @@ Make build
 
 ## Extending
 
-Log an issue, a pr or send an email to jim.wolf @ duck.com.
+Log an issue, a pr or an email to jim.wolf @ duck.com.
