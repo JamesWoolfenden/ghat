@@ -6,4 +6,5 @@ type Flags struct {
 	GitHubToken string
 	Days        int
 	DryRun      bool
+	Entries     []string
 }

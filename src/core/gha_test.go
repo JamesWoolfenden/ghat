@@ -137,13 +137,13 @@ func TestFlags_Files(t *testing.T) {
 				Days:        tt.fields.Days,
 				DryRun:      tt.fields.DryRun,
 			}
-			got, err := myFlags.Files()
+			got, err := myFlags.Action()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Files() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Action() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Files() got = %v, want %v", got, tt.want)
+				t.Errorf("Action() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -228,8 +228,8 @@ func TestFlags_UpdateFile(t *testing.T) {
 				Days:        tt.fields.Days,
 				DryRun:      tt.fields.DryRun,
 			}
-			if err := myFlags.UpdateFile(); (err != nil) != tt.wantErr {
-				t.Errorf("UpdateFile() error = %v, wantErr %v", err, tt.wantErr)
+			if err := myFlags.UpdateGHA(); (err != nil) != tt.wantErr {
+				t.Errorf("UpdateGHA() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
