@@ -19,7 +19,7 @@ func (myFlags *Flags) Action(Action string) error {
 		myFlags.Entries, err = GetFiles(myFlags.Directory)
 
 		if err != nil {
-			log.Error().Msgf("failed to read %s", myFlags.Directory)
+			log.Error().Msgf("action failed to read %s", myFlags.Directory)
 		}
 	}
 

@@ -7,4 +7,5 @@ type Flags struct {
 	Days        int
 	DryRun      bool
 	Entries     []string
+	Update      bool
 }

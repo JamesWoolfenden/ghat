@@ -1,14 +1,17 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/rs/zerolog/log"
 )
 
 type Registry struct {
-	Registry bool
+	Registry      bool
+	LatestVersion string
 }
 
 func (myRegistry *Registry) IsRegistryModule(module string) (bool, error) {
@@ -33,4 +36,61 @@ func IsOK(url string) (bool, error) {
 	log.Info().Msgf("Received %s for %s", resp.Status, url)
 
 	return false, nil
+}
+
+func (myRegistry *Registry) GetLatest(module string) (*string, error) {
+	found, err := myRegistry.IsRegistryModule(module)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if found {
+		url := "https://registry.terraform.io/v1/modules/" + module
+		resp, err := http.Get(url)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to get url %w", err)
+		}
+
+		if resp == nil {
+			return nil, fmt.Errorf("api failed to respond")
+		}
+
+		if resp.StatusCode != 200 {
+			return nil, fmt.Errorf("api failed with %d", resp.StatusCode)
+		}
+
+		defer func(Body io.ReadCloser) {
+			_ = Body.Close()
+		}(resp.Body)
+
+		if err != nil {
+			return nil, fmt.Errorf("client failed %w", err)
+		}
+
+		body, err := io.ReadAll(resp.Body)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to read body %w", err)
+		}
+
+		var msg map[string]interface{}
+
+		err = json.Unmarshal(body, &msg)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to read body %w", err)
+		}
+
+		var ok bool
+
+		myRegistry.LatestVersion, ok = msg["version"].(string)
+
+		if !ok {
+			return nil, fmt.Errorf("failed to find version in payload")
+		}
+	}
+
+	return &myRegistry.LatestVersion, nil
 }

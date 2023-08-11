@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
@@ -67,8 +69,11 @@ func (myFlags *Flags) UpdateModule(file string) error {
 					var diags hcl.Diagnostics
 					sourceValue, diags := attribute.Expr.Value(ctx)
 
-					log.Print(sourceValue)
-
+					myFlags.GetType(sourceValue.AsString())
+					// what is the source type
+					//
+					// if source type is git  update version?
+					// if source is registry convert to git
 					if diags.HasErrors() {
 						return fmt.Errorf("version parse: %w", fileDiags)
 					}
@@ -152,4 +157,55 @@ func (myFlags *Flags) GetTF() ([]string, error) {
 	}
 
 	return terraform, nil
+}
+
+func (myFlags *Flags) GetType(module string) (string, string, error) {
+	var moduleType string
+
+	//handle local path
+	absPath, _ := filepath.Abs(module)
+	_, err := os.Stat(absPath)
+
+	if err == nil {
+		return module, "local", nil
+	}
+
+	if strings.Contains("?ref=", module) {
+		moduleType = "url"
+
+		if myFlags.Update {
+			splitter := strings.Split(module, "?ref=")
+			base := splitter[0]
+			log.Print(base)
+			// get lastest tag from git reference
+			//trim git:
+			//trim
+		}
+
+		return module, moduleType, nil
+	}
+
+	//split and check if using version then replace with hash or updated version hash
+	//then it's a good
+	//Modules in Package Sub-directories
+	//
+	//Generic Git, Mercurial repositories
+	//
+	//	//HTTP URLs
+	//	//	//
+	//	//GitHub
+
+	//Local paths
+	//
+	//Terraform Registry
+
+	//
+	//Bitbucket
+
+	//S3 buckets
+	//
+	//GCS buckets
+	//
+
+	return module, moduleType, err
 }

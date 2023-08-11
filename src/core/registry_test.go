@@ -81,3 +81,46 @@ func TestRegistry_IsRegistryModule(t *testing.T) {
 		})
 	}
 }
+
+func TestRegistry_GetLatest(t *testing.T) {
+	t.Parallel()
+
+	type fields struct {
+		Registry      bool
+		LatestVersion string
+	}
+
+	type args struct {
+		module string
+	}
+
+	want := "0.3.12"
+
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *string
+		wantErr bool
+	}{
+		{"Pass", fields{false, ""}, args{"jameswoolfenden/ip/http"}, &want, false},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			myRegistry := &Registry{
+				Registry:      tt.fields.Registry,
+				LatestVersion: tt.fields.LatestVersion,
+			}
+			got, err := myRegistry.GetLatest(tt.args.module)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetLatest() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetLatest() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
