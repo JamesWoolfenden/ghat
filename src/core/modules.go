@@ -113,7 +113,7 @@ func (myFlags *Flags) UpdateModule(file string) error {
 			newBody.Blocks = append(newBody.Blocks, block)
 		} else {
 			newBody.Blocks = append(newBody.Blocks, block)
-			log.Info().Msgf("%s", newBody)
+			log.Print(newBody)
 		}
 
 	}

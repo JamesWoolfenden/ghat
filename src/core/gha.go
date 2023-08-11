@@ -187,7 +187,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 func getPayload(action string, gitHubToken string, days *int) (interface{}, error) {
 	if *days == 0 {
 		url := "https://api.github.com/repos/" + action + "/releases/latest"
-		return GetBody(gitHubToken, url)
+		return GetGithubBody(gitHubToken, url)
 	}
 
 	return GetReleases(action, gitHubToken, days)
@@ -195,11 +195,11 @@ func getPayload(action string, gitHubToken string, days *int) (interface{}, erro
 
 func getHash(action string, tag string, gitHubToken string) (interface{}, error) {
 	url := "https://api.github.com/repos/" + action + "/git/ref/tags/" + tag
-	return GetBody(gitHubToken, url)
+	return GetGithubBody(gitHubToken, url)
 }
 
-// GetBody requests a URL using gitHub PAT for auth
-func GetBody(gitHubToken string, url string) (interface{}, error) {
+// GetGithubBody requests a URL using gitHub PAT for auth
+func GetGithubBody(gitHubToken string, url string) (interface{}, error) {
 	var body []byte
 
 	if gitHubToken != "" {
