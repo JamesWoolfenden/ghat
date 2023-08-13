@@ -3,6 +3,7 @@ package core
 import "testing"
 
 func TestFlags_GetType(t *testing.T) {
+	t.Parallel()
 	type fields struct {
 		File        string
 		Directory   string
@@ -12,37 +13,44 @@ func TestFlags_GetType(t *testing.T) {
 		Entries     []string
 		Update      bool
 	}
+
 	type args struct {
 		module string
 	}
+
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    string
-		want1   string
-		wantErr bool
+		name     string
+		fields   fields
+		args     args
+		wantType string
+		wantErr  bool
 	}{
-		{"Local paths", fields{}, args{"./testdata"}, "./testdata", "local", false},
-		{"Local paths not found", fields{}, args{"./somewhere"}, "./somewhere", "", true},
-		//{"Terraform Registry",""},
+		{"Local paths", fields{}, args{"./testdata"}, "local", false},
+		{"Local paths not found", fields{}, args{"./somewhere"}, "local", true},
+
+		{"Terraform Registry", fields{}, args{"jameswoolfenden/http/ip"}, "github", false},
+		{"Terraform Registry fail", fields{}, args{"jameswoolfenden/http/ip/duff"}, "", true},
+
+		// I dearly wanted to use that name
+		{"Bitbucket", fields{}, args{"bitbucket.org/hashicorp/terraform-consul-aws"}, "bitbucket", false},
+
+		{"Shallow", fields{}, args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?depth=1"}, "shallow", false}, //
+
+		{"Mercurial repositories", fields{}, args{"hg::http://example.com/vpc.hg"}, "mercurial", false},
 		//
-		//{"GitHub",""},
-		//
-		//{"Bitbucket"""},
-		//
-		//{"Generic Git, Mercurial repositories",""},
-		//
-		//{"HTTP URLs",""},
-		//
-		//{"S3 buckets",""},
-		//
-		//{"GCS buckets",""},
-		//
-		//{"Modules in Package Sub-directories",""},
+		{"archive", fields{}, args{"https://example.com/vpc-module.zip"}, "archive", false},
+		{"archive", fields{}, args{"https://example.com/vpc-module?archive=zip"}, "archive", false},
+
+		{"S3 buckets", fields{}, args{"s3::https://s3-eu-west-1.amazonaws.com/examplecorp-terraform-modules/vpc.zip"}, "s3", false},
+		{"GCS buckets", fields{}, args{"gcs::https://www.googleapis.com/storage/v1/modules/foomodule.zip"}, "gcs", false},
+
+		{"Modules in Package Sub-directories", fields{}, args{"hashicorp/consul/aws//modules/consul-cluster"}, "github", false},
+		{"Modules 2", fields{}, args{"git::https://example.com/network.git//modules/vpc"}, "git", false},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			myFlags := &Flags{
 				File:        tt.fields.File,
 				Directory:   tt.fields.Directory,
@@ -52,16 +60,15 @@ func TestFlags_GetType(t *testing.T) {
 				Entries:     tt.fields.Entries,
 				Update:      tt.fields.Update,
 			}
-			got, got1, err := myFlags.GetType(tt.args.module)
+			got, err := myFlags.GetType(tt.args.module)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetType() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
-			if got != tt.want {
-				t.Errorf("GetType() got = %v, want %v", got, tt.want)
-			}
-			if got1 != tt.want1 {
-				t.Errorf("GetType() got1 = %v, want %v", got1, tt.want1)
+
+			if got != tt.wantType {
+				t.Errorf("GetType() got = %v, want %v", got, tt.wantType)
 			}
 		})
 	}

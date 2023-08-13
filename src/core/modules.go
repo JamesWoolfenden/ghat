@@ -68,15 +68,21 @@ func (myFlags *Flags) UpdateModule(file string) error {
 
 					var diags hcl.Diagnostics
 					sourceValue, diags := attribute.Expr.Value(ctx)
-
-					myFlags.GetType(sourceValue.AsString())
-					// what is the source type
-					//
-					// if source type is git  update version?
-					// if source is registry convert to git
 					if diags.HasErrors() {
 						return fmt.Errorf("version parse: %w", fileDiags)
 					}
+
+					ModuleType, err := myFlags.GetType(sourceValue.AsString())
+
+					if err != nil {
+						return err
+					}
+
+					=myFlags.UpdateSource(sourceValue.AsString(), ModuleType)
+					switch ModuleType {
+					case
+					}
+
 				}
 
 				newAttributes[x] = attribute
@@ -159,53 +165,83 @@ func (myFlags *Flags) GetTF() ([]string, error) {
 	return terraform, nil
 }
 
-func (myFlags *Flags) GetType(module string) (string, string, error) {
+func (myFlags *Flags) GetType(module string) (string, error) {
 	var moduleType string
 
-	//handle local path
+	// handle local path
 	absPath, _ := filepath.Abs(module)
 	_, err := os.Stat(absPath)
 
 	if err == nil {
-		return module, "local", nil
+		return "local", nil
 	}
 
-	if strings.Contains("?ref=", module) {
-		moduleType = "url"
-
-		if myFlags.Update {
-			splitter := strings.Split(module, "?ref=")
-			base := splitter[0]
-			log.Print(base)
-			// get lastest tag from git reference
-			//trim git:
-			//trim
-		}
-
-		return module, moduleType, nil
+	if strings.Contains(module, "bitbucket.org") {
+		return "bitbucket", nil
 	}
 
-	//split and check if using version then replace with hash or updated version hash
-	//then it's a good
-	//Modules in Package Sub-directories
-	//
-	//Generic Git, Mercurial repositories
-	//
-	//	//HTTP URLs
-	//	//	//
-	//	//GitHub
+	if strings.Contains(module, "s3::") {
+		return "s3", nil
+	}
 
-	//Local paths
-	//
-	//Terraform Registry
+	if strings.Contains(module, "gcs::") {
+		return "gcs", nil
+	}
 
-	//
-	//Bitbucket
+	if strings.Contains(module, ".zip") || strings.Contains(module, "archive=") {
+		return "archive", nil
+	}
 
-	//S3 buckets
-	//
-	//GCS buckets
-	//
+	var splitter []string
 
-	return module, moduleType, err
+	// github registry format and suub dirs
+
+	splitter = strings.Split(module, "/")
+
+	if len(splitter) == 3 && !(strings.Contains(module, "git::") || strings.Contains(module, "https:")) {
+		return "github", nil
+	}
+
+	if strings.Contains(module, "depth=") {
+		return "shallow", nil
+	}
+
+	if strings.Contains(module, "git::") {
+		return "git", nil
+	}
+
+	if strings.Contains(module, "hg::") {
+		return "mercurial", nil
+	}
+
+	if strings.Contains(module, "//") {
+		temp := strings.Split(module, "//")[0]
+		return myFlags.GetType(temp)
+	}
+
+	err = os.MkdirAll(module, 0700)
+
+	if err == nil {
+		_ = os.Remove(module)
+		return "local", fmt.Errorf("localpath not found %s", module)
+	}
+
+	return moduleType, err
+}
+
+func (myFlags *Flags)  UpdateSource(module string, moduleType string ) {
+	//if strings.Contains("?ref=", module) {
+	//	moduleType = "url"
+	//
+	//	if myFlags.Update {
+	//		splitter := strings.Split(module, "?ref=")
+	//		base := splitter[0]
+	//		log.Print(base)
+	//		// get lastest tag from git reference
+	//		//trim git:
+	//		//trim
+	//	}
+	//
+	//	return moduleType, nil
+	//}
 }
