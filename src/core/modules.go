@@ -8,129 +8,69 @@ import (
 	"strings"
 
 	"github.com/hashicorp/hcl/v2"
-	"github.com/hashicorp/hcl/v2/hclparse"
-	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/rs/zerolog/log"
+	diff "github.com/yudai/gojsondiff"
+	"github.com/zclconf/go-cty/cty"
 )
 
 func (myFlags *Flags) UpdateModule(file string) error {
-	parser := hclparse.NewParser()
+
 	src, err := os.ReadFile(file)
 	if err != nil {
 		return fmt.Errorf("failed to read %s", file)
 	}
 
-	parsedFile, fileDiags := parser.ParseHCL(src, file)
+	inFile, _ := hclwrite.ParseConfig(src, "", hcl.Pos{Line: 1, Column: 1})
+	outFile := hclwrite.NewEmptyFile()
 
-	if fileDiags.HasErrors() {
-		return fmt.Errorf("config parse: %w", fileDiags)
-	}
+	newBody := outFile.Body()
+	root := inFile.Body()
 
-	content := parsedFile.Body.(*hclsyntax.Body)
+	for _, block := range root.Blocks() {
+		if block.Type() == "module" {
+			version := GetStringValue(block, "version")
+			source := GetStringValue(block, "source")
 
-	//newContent:=hcl.File{
-	//	Body:  nil,
-	//	Bytes: nil,
-	//	Nav:   nil,
-	//}
+			block.Body().RemoveAttribute("version")
 
-	newBody := hclsyntax.Body{}
+			myType, err := myFlags.GetType(source)
 
-	for _, block := range content.Blocks {
-
-		if block.Type == "module" {
-			var source *hclsyntax.Attribute
-			var version *hclsyntax.Attribute
-			//version := cty.Value{}
-			//source := cty.Value{}
-
-			myAttributes := block.Body.Attributes
-			newAttributes := hclsyntax.Attributes{}
-
-			if myAttributes["source"] != nil {
-				source = myAttributes["source"]
+			if err != nil {
+				log.Info().Msgf("source type failure")
+				continue
 			}
 
-			if myAttributes["version"] != nil {
-				version = myAttributes["version"]
-			}
-
-			log.Print(source)
-			log.Print(version)
-			for x, attribute := range myAttributes {
-
-				if attribute.Name == "version" {
-					continue
-				}
-
-				if attribute.Name == "source" {
-					ctx := &hcl.EvalContext{}
-
-					var diags hcl.Diagnostics
-					sourceValue, diags := attribute.Expr.Value(ctx)
-					if diags.HasErrors() {
-						return fmt.Errorf("version parse: %w", fileDiags)
-					}
-
-					ModuleType, err := myFlags.GetType(sourceValue.AsString())
-
-					if err != nil {
-						return err
-					}
-
-					=myFlags.UpdateSource(sourceValue.AsString(), ModuleType)
-					switch ModuleType {
-					case
-					}
-
-				}
-
-				newAttributes[x] = attribute
-				//		ctx := &hcl.EvalContext{}
-				//		var diags hcl.Diagnostics
-				//		version, diags = attribute.Expr.Value(ctx)
-				//
-				//		if diags.HasErrors() {
-				//			return nil, fmt.Errorf("version parse: %w", fileDiags)
-				//		}
-				//	}
-			}
-
-			block.Body.Attributes = newAttributes
-			//log.Info().Msgf("%s", version)
-			//new tf file
-
-			//terraformBlock, err := p.parseBlock(block, file)
-			//src, _ := os.ReadFile(file)
-			//
-			//hclFile, diags := hclwrite.ParseConfig(src, file, hcl.InitialPos)
-			//
-			//if diags.HasErrors() {
-			//	return nil, fmt.Errorf("config parse: %w", diags)
-			//}
-			//
-			//hclSyntaxFile, diags := hclsyntax.ParseConfig(src, file, hcl.InitialPos)
-
-			//f.Body().SetAttributeValue("version", cty.StringVal("999.999.999"))
-
-			//myBlocks := test.Blocks()
-			//for _, block := range myBlocks {
-			//	log.Print(block.Labels())
-			//}
-			//log.Print(myBlocks)
-			//result := hclFile.Bytes()
-			//log.Print(result)
-			//log.Print(hclSyntaxFile)
-			newBody.Blocks = append(newBody.Blocks, block)
-		} else {
-			newBody.Blocks = append(newBody.Blocks, block)
-			log.Print(newBody)
+			block.Body().SetAttributeValue("source", cty.StringVal(myFlags.UpdateSource(source, myType, version)))
 		}
-
+		newBody.AppendBlock(block)
 	}
 
-	//write back if modified and if !myFlags.DryRun
+	differ := diff.New()
+	compare, err := differ.Compare(src, outFile.Bytes())
+
+	if err != nil {
+		return err
+	}
+
+	if compare.Modified() && !myFlags.DryRun {
+		err := os.WriteFile(file, outFile.Bytes(), 0666)
+		if err != nil {
+			log.Info().Msgf("failed to write %s", file)
+		}
+	}
+
 	return nil
+}
+
+func GetStringValue(block *hclwrite.Block, attribute string) string {
+	var Value string
+	version := block.Body().GetAttribute(attribute)
+
+	if (version != nil) && (len(version.Expr().BuildTokens(nil)) == 3) {
+		Value = string(version.Expr().BuildTokens(nil)[1].Bytes)
+	}
+	return Value
 }
 
 func (myFlags *Flags) UpdateModules() error {
@@ -192,11 +132,8 @@ func (myFlags *Flags) GetType(module string) (string, error) {
 		return "archive", nil
 	}
 
-	var splitter []string
-
-	// github registry format and suub dirs
-
-	splitter = strings.Split(module, "/")
+	// gitHub registry format and sub dirs
+	splitter := strings.Split(module, "/")
 
 	if len(splitter) == 3 && !(strings.Contains(module, "git::") || strings.Contains(module, "https:")) {
 		return "github", nil
@@ -229,7 +166,7 @@ func (myFlags *Flags) GetType(module string) (string, error) {
 	return moduleType, err
 }
 
-func (myFlags *Flags)  UpdateSource(module string, moduleType string ) {
+func (myFlags *Flags) UpdateSource(module string, moduleType string, version string) string {
 	//if strings.Contains("?ref=", module) {
 	//	moduleType = "url"
 	//
@@ -244,4 +181,5 @@ func (myFlags *Flags)  UpdateSource(module string, moduleType string ) {
 	//
 	//	return moduleType, nil
 	//}
+	return "test"
 }

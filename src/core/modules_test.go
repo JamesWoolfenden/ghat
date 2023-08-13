@@ -18,6 +18,7 @@ func TestFlags_GetType(t *testing.T) {
 		module string
 	}
 
+	//goland:noinspection HttpUrlsUsage
 	tests := []struct {
 		name     string
 		fields   fields
