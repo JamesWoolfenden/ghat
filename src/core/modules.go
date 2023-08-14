@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/rs/zerolog/log"
-	diff "github.com/yudai/gojsondiff"
+	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/zclconf/go-cty/cty"
 )
 
@@ -28,6 +28,7 @@ func (myFlags *Flags) UpdateModule(file string) error {
 	root := inFile.Body()
 
 	for _, block := range root.Blocks() {
+
 		if block.Type() == "module" {
 			version := GetStringValue(block, "version")
 			source := GetStringValue(block, "source")
@@ -38,22 +39,28 @@ func (myFlags *Flags) UpdateModule(file string) error {
 
 			if err != nil {
 				log.Info().Msgf("source type failure")
-				continue
+			} else {
+				block.Body().SetAttributeValue("source", cty.StringVal(myFlags.UpdateSource(source, myType, version)))
 			}
-
-			block.Body().SetAttributeValue("source", cty.StringVal(myFlags.UpdateSource(source, myType, version)))
 		}
 		newBody.AppendBlock(block)
 	}
 
-	differ := diff.New()
-	compare, err := differ.Compare(src, outFile.Bytes())
+	var differ bool
+	temp := outFile.Bytes()
 
-	if err != nil {
-		return err
+	if string(src) != string(temp) {
+		differ = true
 	}
 
-	if compare.Modified() && !myFlags.DryRun {
+	dmp := diffmatchpatch.New()
+	diffs := dmp.DiffMain(string(src), string(temp), false)
+
+	if differ {
+		fmt.Println(dmp.DiffPrettyText(diffs))
+	}
+
+	if differ && !myFlags.DryRun {
 		err := os.WriteFile(file, outFile.Bytes(), 0666)
 		if err != nil {
 			log.Info().Msgf("failed to write %s", file)
