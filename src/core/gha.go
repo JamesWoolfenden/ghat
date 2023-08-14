@@ -186,11 +186,15 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 
 func getPayload(action string, gitHubToken string, days *int) (interface{}, error) {
 	if *days == 0 {
-		url := "https://api.github.com/repos/" + action + "/releases/latest"
-		return GetGithubBody(gitHubToken, url)
+		return GetLatest(action, gitHubToken)
 	}
 
 	return GetReleases(action, gitHubToken, days)
+}
+
+func GetLatest(action string, gitHubToken string) (interface{}, error) {
+	url := "https://api.github.com/repos/" + action + "/releases/latest"
+	return GetGithubBody(gitHubToken, url)
 }
 
 func getHash(action string, tag string, gitHubToken string) (interface{}, error) {
