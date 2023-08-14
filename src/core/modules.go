@@ -2,13 +2,13 @@ package core
 
 import (
 	"fmt"
-	"github.com/go-git/go-git/v5/storage/memory"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/rs/zerolog/log"
@@ -33,6 +33,10 @@ func (myFlags *Flags) UpdateModule(file string) error {
 	for _, block := range root.Blocks() {
 		if block.Type() == "module" {
 			version := GetStringValue(block, "version")
+			if !strings.Contains(version, "v") {
+				version = "v" + version
+			}
+
 			source := GetStringValue(block, "source")
 
 			block.Body().RemoveAttribute("version")
@@ -46,7 +50,8 @@ func (myFlags *Flags) UpdateModule(file string) error {
 				if err != nil {
 					log.Info().Msgf("failed to update module source %s", err)
 				}
-				block.Body().SetAttributeValue("source", cty.StringVal(newValue+"# "+version))
+				block.Body().SetAttributeValue("source", cty.StringVal(newValue))
+				log.Info().Msgf("updated %s with hash of version %s", newValue, version)
 			}
 		}
 
@@ -220,7 +225,7 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 						return "", "", err
 					}
 
-					return "git::" + root + "?ref=" + hash, version, nil
+					return "git::https://" + root + "?ref=" + hash, version, nil
 				} else {
 					repo, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 						URL: strings.TrimRight(module, ".git"),
@@ -231,6 +236,9 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 					}
 
 					ref, err := repo.Head()
+					if err != nil {
+						return "", "", err
+					}
 					log.Print(ref)
 				}
 
@@ -249,21 +257,22 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 							return "", "", err
 						}
 					}
-					return "git::" + root + "?ref=" + hash, version, nil
+					return "git::https://" + root + "?ref=" + hash, version, nil
+				} else {
+					log.Info().Msgf("git != github")
 				}
-
-				log.Info().Msgf(" git != github")
 			}
 		}
 
 	case "registry":
 		{
 			splits := strings.Split(module, "/")
-			if len(splits) != 4 {
+			if len(splits) != 3 {
 				return "", "", fmt.Errorf("registry format should split 3 ways")
 			}
 
-			newModule := splits[0] + "/" + splits[1] + "-" + splits[3] + "-" + splits[2]
+			//e.g. jameswoolfenden/terraform-http-ip
+			newModule := "github.com" + "/" + splits[0] + "/" + "terraform" + "-" + splits[2] + "-" + splits[1] + ".git"
 
 			return myFlags.UpdateGithubSource(version, newModule)
 		}
@@ -316,8 +325,7 @@ func (myFlags *Flags) UpdateGithubSource(version string, newModule string) (stri
 		}
 	}
 
-	root := "github.com/" + newModule
-	return "git::" + root + "?ref=" + hash, version, nil
+	return "git::https://" + newModule + "?ref=" + hash, version, nil
 }
 
 func (myFlags *Flags) GetGithubLatestHash(newModule string) (string, string, error) {
