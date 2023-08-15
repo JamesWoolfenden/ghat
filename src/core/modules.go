@@ -33,7 +33,7 @@ func (myFlags *Flags) UpdateModule(file string) error {
 	for _, block := range root.Blocks() {
 		if block.Type() == "module" {
 			version := GetStringValue(block, "version")
-			if !strings.Contains(version, "v") {
+			if !strings.Contains(version, "v") && version != "" {
 				version = "v" + version
 			}
 
@@ -197,7 +197,7 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 	case "git":
 		{
 			//var hash string
-			newModule := strings.TrimLeft(module, "git::")
+			newModule := strings.TrimPrefix(module, "git::")
 
 			if strings.Contains(newModule, ",") {
 				commas := strings.Split(newModule, ",")
