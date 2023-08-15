@@ -51,7 +51,6 @@ func (myFlags *Flags) UpdateModule(file string) error {
 					log.Info().Msgf("failed to update module source %s", err)
 				}
 				block.Body().SetAttributeValue("source", cty.StringVal(newValue))
-				log.Info().Msgf("updated %s with hash of version %s", newValue, version)
 			}
 		}
 
