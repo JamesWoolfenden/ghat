@@ -11,7 +11,7 @@
 [![checkov](https://img.shields.io/badge/checkov-verified-brightgreen)](https://www.checkov.io/)
 [![Github All Releases](https://img.shields.io/github/downloads/jameswoolfenden/ghat/total.svg)](https://github.com/JamesWoolfenden/ghat/releases)
 
-Ghat is a tool  (GHAT) for updating dependencies in a GHA - GitHub Action. It replaces insecure mutable tags with immutable commit hashes as well as using the latest released version:
+Ghat is a tool  (GHAT) for updating dependencies in a GHA - GitHub Action, and now also for updating and **managing Terraform Dependencies**. It replaces insecure mutable tags with immutable commit hashes as well as using the latest released version:
 
 ```yml
    ## sets up go based on the version
@@ -40,6 +40,25 @@ Becomes
 ```
 
 Ghat will use your GitHub credentials, if available, from your environment using the environmental variables GITHUB_TOKEN or GITHUB_API, but it can also drop back to anonymous access, the drawback is that this is severely rate limited by gitHub.
+
+Ghat also manages Terraform modules, to give you the most secure reference, so:
+
+```terraform
+module "ip" {
+  source      = "JamesWoolfenden/ip/http"
+  version     = "0.3.12"
+  permissions = "pike"
+}
+```
+Becomes:
+
+```terraform
+module "ip" {
+  source      = "git::https://github.com/JamesWoolfenden/terraform-http-ip.git?ref=a6cf071d14365133f48ed161812c14b00ad3c692"
+  permissions = "pike"
+}
+
+```
 
 ## Table of Contents
 
@@ -136,30 +155,61 @@ I got you covered:
 $ghat swot -d . --stable 14
 ```
 
+### Swipe
+Updates Terraform modules to use secure module references, and displays a file diff:
+
+```bash
+ ghat swipe -f .\registry\module.git.tf -update
+        _           _
+ __ _ | |_   __ _ | |_
+/ _` || ' \ / _` ||  _|
+\__, ||_||_|\__,_| \__|
+|___/
+version: 9.9.9
+1:42PM INF module source is git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?depth=1 of type shallow and cannot be updated
+module "ip" {
+  source      = "git::https://github.com/JamesWoolfenden/ip/terraform-http"
+  v-ip.git?rersion     f= "aca5d0.4513.1698f2f564913cfcc3534780794c800"
+  permissions = "pike"
+}
+```
+The update flag can be used to update the reference, the default behaviour is just to change the reference to a git bashed hash.
+
+
 ## Help
 
 ```bash
- ghat swot -h
+ ghat --help
+       _           _
+ __ _ | |_   __ _ | |_
+/ _` || ' \ / _` ||  _|
+\__, ||_||_|\__,_| \__|
+|___/
+version: v0.0.19
 NAME:
-   ghat swot - updates GHA in a directory
+   ghat - Update GHA dependencies
 
 USAGE:
-   ghat swot
+   ghat [global options] command [command options] [arguments...]
 
-OPTIONS:
-   authentication
+VERSION:
+   v0.0.19
 
-   --token value, -t value  Github PAT token [$GITHUB_TOKEN, $GITHUB_API]
+AUTHOR:
+   James Woolfenden <jim.wolf@duck.com>
 
-   delay
+COMMANDS:
+   swipe, w    updates Terraform module versions with versioned hashes
+   swot, a     updates GHA versions for hashes
+   version, v  Outputs the application version
+   help, h     Shows a list of commands or help for one command
 
-   --stable value, -s value  days to wait for stabilisation of release (default: 0)
+GLOBAL OPTIONS:
+   --help, -h     show help
+   --version, -v  print the version
 
-   files
-
-   --directory value, -d value  Destination to update GHAs (default: ".")
-   --file value, -f value       GHA file to parse
-
+COPYRIGHT:
+   James Woolfenden
 ```
 
 ### pre-commit
