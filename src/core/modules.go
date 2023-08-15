@@ -46,7 +46,7 @@ func (myFlags *Flags) UpdateModule(file string) error {
 			if err != nil {
 				log.Info().Msgf("source type failure")
 			} else {
-				newValue, version, err := myFlags.UpdateSource(source, myType, version)
+				newValue, _, err := myFlags.UpdateSource(source, myType, version)
 				if err != nil {
 					log.Info().Msgf("failed to update module source %s", err)
 				}
