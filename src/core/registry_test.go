@@ -20,7 +20,7 @@ func TestIsOK(t *testing.T) {
 	}{
 		{"Pass", args{"https://registry.terraform.io/v1/modules/jameswoolfenden/ip/http/versions"}, true, false},
 		{"Fail", args{"https://registry.terraform.io/v1/modules/jameswoolfenden/ip/https/versions"}, false, false},
-		{"NotUrl", args{"jameswoolfenden/ip/https"}, nil, true},
+		{"NotUrl", args{"jameswoolfenden/ip/https"}, false, true},
 	}
 
 	for _, tt := range tests {
@@ -95,7 +95,7 @@ func TestRegistry_GetLatest(t *testing.T) {
 		module string
 	}
 
-	want := "0.3.12"
+	want := "0.3.13"
 
 	tests := []struct {
 		name    string

@@ -180,17 +180,10 @@ func (myFlags *Flags) GetType(module string) (string, error) {
 		return myFlags.GetType(temp)
 	}
 
-	err = os.MkdirAll(module, 0700)
-
-	remove := os.RemoveAll(module)
-
-	if remove != nil {
-		log.Info().Msgf("%s", remove)
-	}
-
-	if err == nil {
+	if _, err := os.Stat(module); os.IsNotExist(err) {
 		return "local", fmt.Errorf("localpath not found %s", module)
 	}
+
 	return moduleType, err
 }
 
@@ -229,7 +222,7 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 						return "", "", err
 					}
 
-					return "git::https://" + root + "?ref=" + hash, version, nil
+					return "git::" + root + "?ref=" + hash, version, nil
 				} else {
 					repo, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 						URL: strings.TrimRight(module, ".git"),
@@ -264,7 +257,7 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 							return "", "", err
 						}
 					}
-					return "git::https://" + root + "?ref=" + hash, version, nil
+					return "git::" + root + "?ref=" + hash, version, nil
 				} else {
 					log.Info().Msgf("git != github")
 				}
@@ -273,7 +266,17 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 
 	case "registry":
 		{
+			var subdir string
+
+			subdirs := strings.Split(module, "//")
+
+			if len(subdirs) == 2 {
+				subdir = subdirs[1]
+				module = subdirs[0]
+			}
+
 			splits := strings.Split(module, "/")
+
 			if len(splits) != 3 {
 				return "", "", fmt.Errorf("registry format should split 3 ways")
 			}
@@ -281,20 +284,32 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 			//e.g. jameswoolfenden/terraform-http-ip
 			newModule := "github.com" + "/" + splits[0] + "/" + "terraform" + "-" + splits[2] + "-" + splits[1] + ".git"
 
-			return myFlags.UpdateGithubSource(version, newModule)
+			if subdir == "" {
+				return myFlags.UpdateGithubSource(version, newModule)
+			} else {
+				return myFlags.WithSubDir(version, newModule, subdir)
+			}
+
 		}
 
 	case "github":
 		{
+			subdirs := strings.Split(module, "//")
+			if len(subdirs) == 2 {
+				subdir := subdirs[1]
+				root := subdirs[0]
+				//e.g. jameswoolfenden/terraform-http-ip
+				newModule := root + ".git"
 
+				return myFlags.WithSubDir(version, newModule, subdir)
+
+			}
+
+			newModule = module + ".git"
+			return myFlags.UpdateGithubSource(version, newModule)
 		}
 
-	case "mercurial":
-		{
-
-		}
-
-	case "local", "shallow", "archive", "s3", "gcs":
+	case "local", "shallow", "archive", "s3", "gcs", "mercurial":
 		{
 			log.Info().Msgf("module source is %s of type %s and cannot be updated", module, moduleType)
 			return module, version, nil
@@ -307,6 +322,14 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 	}
 
 	return newModule, version, nil
+}
+
+func (myFlags *Flags) WithSubDir(version string, newModule string, subdir string) (string, string, error) {
+	url, version, err := myFlags.UpdateGithubSource(version, newModule)
+
+	urlsplit := strings.Split(url, ".git")
+	newUrl := urlsplit[0] + ".git" + "//" + subdir + urlsplit[1]
+	return newUrl, version, err
 }
 
 func (myFlags *Flags) UpdateGithubSource(version string, newModule string) (string, string, error) {
