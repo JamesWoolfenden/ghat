@@ -32,7 +32,7 @@ func TestFlags_GetType(t *testing.T) {
 		{"Local paths not found", fields{}, args{"./somewhere"}, "local", true},
 
 		{"Terraform Registry", fields{}, args{"jameswoolfenden/http/ip"}, "registry", false},
-		{"Terraform Registry fail", fields{}, args{"jameswoolfenden/http/ip/duff"}, "", true},
+		{"Terraform Registry fail", fields{}, args{"jameswoolfenden/http/ip/duff"}, "local", true},
 		{"github", fields{}, args{"github.com/jameswoolfenden/terraform-http-ip"}, "github", false},
 
 		{"git", fields{}, args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git"}, "git", false},
@@ -52,7 +52,7 @@ func TestFlags_GetType(t *testing.T) {
 		{"S3 buckets", fields{}, args{"s3::https://s3-eu-west-1.amazonaws.com/examplecorp-terraform-modules/vpc.zip"}, "s3", false},
 		{"GCS buckets", fields{}, args{"gcs::https://www.googleapis.com/storage/v1/modules/foomodule.zip"}, "gcs", false},
 
-		{"Modules in Package Sub-directories", fields{}, args{"hashicorp/consul/aws//modules/consul-cluster"}, "github", false},
+		{"Modules in Package Sub-directories", fields{}, args{"hashicorp/consul/aws//modules/consul-cluster"}, "registry", false},
 		{"Modules 2", fields{}, args{"git::https://example.com/network.git//modules/vpc"}, "git", false},
 	}
 	for _, tt := range tests {

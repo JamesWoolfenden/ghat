@@ -182,11 +182,15 @@ func (myFlags *Flags) GetType(module string) (string, error) {
 
 	err = os.MkdirAll(module, 0700)
 
-	if err == nil {
-		_ = os.Remove(module)
-		return "local", fmt.Errorf("localpath not found %s", module)
+	remove := os.RemoveAll(module)
+
+	if remove != nil {
+		log.Info().Msgf("%s", remove)
 	}
 
+	if err == nil {
+		return "local", fmt.Errorf("localpath not found %s", module)
+	}
 	return moduleType, err
 }
 
@@ -247,7 +251,10 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 			} else {
 				if strings.Contains(newModule, "github.com") {
 					if version != "" {
-						hash, err = myFlags.GetGithubHash(strings.TrimLeft(newModule, "https://"), version)
+						hash, err = myFlags.GetGithubHash(
+							strings.TrimPrefix(newModule, "https://"),
+							version,
+						)
 						if err != nil {
 							return "", "", err
 						}
