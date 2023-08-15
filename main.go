@@ -41,23 +41,10 @@ func main() {
 			{
 				Name:      "swot",
 				Aliases:   []string{"a"},
-				Usage:     "updates GHA in a directory",
+				Usage:     "updates GHA versions for hashes",
 				UsageText: "ghat swot",
 				Action: func(*cli.Context) error {
-
-					if myFlags.File != "" {
-						err := myFlags.UpdateFile()
-						if err != nil {
-							return err
-						}
-					} else {
-						_, err := myFlags.Files()
-						if err != nil {
-							return err
-						}
-					}
-
-					return nil
+					return myFlags.Action("swot")
 				},
 				Flags: []cli.Flag{
 					&cli.StringFlag{
@@ -97,6 +84,52 @@ func main() {
 						Usage:       "show but don't write changes",
 						Destination: &myFlags.DryRun,
 						Value:       false,
+					},
+				},
+			},
+			{
+				Name:      "swipe",
+				Aliases:   []string{"w"},
+				Usage:     "updates Terraform module versions with versioned hashes",
+				UsageText: "ghat swipe",
+				Action: func(*cli.Context) error {
+					return myFlags.Action("swipe")
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:        "file",
+						Aliases:     []string{"f"},
+						Usage:       "module file to parse",
+						Destination: &myFlags.File,
+						Category:    "files",
+					},
+					&cli.StringFlag{
+						Name:        "directory",
+						Aliases:     []string{"d"},
+						Usage:       "Destination to update modules",
+						Value:       ".",
+						Destination: &myFlags.Directory,
+						Category:    "files",
+					},
+					&cli.BoolFlag{
+						Name:        "update",
+						Usage:       "update to lastest module available",
+						Destination: &myFlags.Update,
+						Value:       false,
+					},
+					&cli.BoolFlag{
+						Name:        "dry-run",
+						Usage:       "show but don't write changes",
+						Destination: &myFlags.DryRun,
+						Value:       false,
+					},
+					&cli.StringFlag{
+						Name:        "token",
+						Aliases:     []string{"t"},
+						Usage:       "Github PAT token",
+						Destination: &myFlags.GitHubToken,
+						Category:    "authentication",
+						EnvVars:     []string{"GITHUB_TOKEN", "GITHUB_API"},
 					},
 				},
 			},

@@ -15,55 +15,69 @@ import (
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
-// Files updates all actions in a directory.
-func (myFlags *Flags) Files() ([]os.DirEntry, error) {
-
-	matches, err := os.ReadDir(myFlags.Directory)
-
+func GetFiles(dir string) ([]string, error) {
+	Entries, err := os.ReadDir(dir)
 	if err != nil {
-		log.Error().Msgf("failed to read %s", myFlags.Directory)
+		return nil, err
 	}
 
-	var ghat []os.DirEntry
+	var ParsedEntries []string
 
-	entries, err2 := myFlags.GetGHA(matches, ghat)
-	if err2 != nil {
-		return entries, err2
-	}
+	for _, entry := range Entries {
+		AbsDir, _ := filepath.Abs(dir)
+		gitDir := filepath.Join(AbsDir, ".git")
 
-	for _, gha := range entries {
-		myFlags.File = filepath.Join(myFlags.Directory, gha.Name())
-		err = myFlags.UpdateFile()
+		if entry.IsDir() {
 
-		if err != nil {
-			log.Warn().Msgf("failed to update %s", gha.Name())
+			newDir := filepath.Join(AbsDir, entry.Name())
+
+			if !(strings.Contains(newDir, ".terraform")) && newDir != gitDir {
+				newEntries, err := GetFiles(newDir)
+
+				if err != nil {
+					return nil, err
+				}
+
+				ParsedEntries = append(ParsedEntries, newEntries...)
+			}
+		} else {
+			myFile := filepath.Join(dir, entry.Name())
+			if !(strings.Contains(myFile, ".terraform")) {
+				ParsedEntries = append(ParsedEntries, myFile)
+			}
 		}
 	}
 
-	return nil, nil
+	return ParsedEntries, nil
+}
+
+func (myFlags *Flags) UpdateGHAS() error {
+	var err error
+	myFlags.Entries, err = myFlags.GetGHA()
+
+	if err != nil {
+		return err
+	}
+
+	for _, gha := range myFlags.Entries {
+		err = myFlags.UpdateGHA(gha)
+
+		if err != nil {
+			return fmt.Errorf("failed to update %s", gha)
+		}
+	}
+
+	return nil
 }
 
 // GetGHA gets all the actions in a directory
-func (myFlags *Flags) GetGHA(matches []os.DirEntry, ghat []os.DirEntry) ([]os.DirEntry, error) {
-	for _, match := range matches {
-		if match.IsDir() {
-			if strings.Contains(match.Name(), ".github") {
-				log.Print(match.Name())
-				AbsDir, _ := filepath.Abs(myFlags.Directory)
-				newDirectory := filepath.Join(AbsDir, match.Name(), "workflows")
-				if _, err := os.Stat(newDirectory); err == nil {
-					ghat, err = os.ReadDir(newDirectory)
-					myFlags.Directory = newDirectory
+func (myFlags *Flags) GetGHA() ([]string, error) {
+	var ghat []string
 
-					if err != nil {
-						return nil, fmt.Errorf("no files found %w", err)
-					}
-
-					return ghat, nil
-				}
-			}
-		} else {
-			if strings.Contains(match.Name(), ".yml") || (strings.Contains(match.Name(), ".yaml")) {
+	for _, match := range myFlags.Entries {
+		entry, _ := os.Stat(match)
+		if strings.Contains(match, ".github/workflows") && !entry.IsDir() {
+			if strings.Contains(match, ".yml") || (strings.Contains(match, ".yaml")) {
 				ghat = append(ghat, match)
 			}
 		}
@@ -72,16 +86,16 @@ func (myFlags *Flags) GetGHA(matches []os.DirEntry, ghat []os.DirEntry) ([]os.Di
 	return ghat, nil
 }
 
-// UpdateFile updates am action with latest dependencies
-func (myFlags *Flags) UpdateFile() error {
-	buffer, err := os.ReadFile(myFlags.File)
-	replacement := string(buffer)
-
-	var newUrl string
-
+// UpdateGHA updates am action with latest dependencies
+func (myFlags *Flags) UpdateGHA(file string) error {
+	buffer, err := os.ReadFile(file)
 	if err != nil {
 		return fmt.Errorf("failed to open file %w", err)
 	}
+
+	replacement := string(buffer)
+
+	var newUrl string
 
 	r := regexp.MustCompile(`uses:(.*)`)
 	matches := r.FindAllStringSubmatch(string(buffer), -1)
@@ -95,14 +109,14 @@ func (myFlags *Flags) UpdateFile() error {
 		action := strings.Split(match[1], "@")
 
 		action[0] = strings.TrimSpace(action[0])
-		body, err2 := getPayload(action[0], myFlags.GitHubToken, &myFlags.Days)
+		body, err := getPayload(action[0], myFlags.GitHubToken, &myFlags.Days)
 
-		if err2 != nil {
+		if err != nil {
 			splitter := strings.SplitN(action[0], "/", 3)
 			newUrl = splitter[0] + "/" + splitter[1]
-			body, err2 = getPayload(newUrl, myFlags.GitHubToken, &myFlags.Days)
-			if err2 != nil {
-				log.Warn().Msgf("failed to retrieve back %s", err2)
+			body, err = getPayload(newUrl, myFlags.GitHubToken, &myFlags.Days)
+			if err != nil {
+				log.Warn().Msgf("failed to retrieve back %s", err)
 
 				continue
 			}
@@ -160,7 +174,7 @@ func (myFlags *Flags) UpdateFile() error {
 	if !myFlags.DryRun {
 		newBuffer := []byte(replacement)
 
-		err = os.WriteFile(myFlags.File, newBuffer, 0644)
+		err = os.WriteFile(file, newBuffer, 0644)
 
 		if err != nil {
 			return fmt.Errorf("failed to write err %w", err)
@@ -172,20 +186,24 @@ func (myFlags *Flags) UpdateFile() error {
 
 func getPayload(action string, gitHubToken string, days *int) (interface{}, error) {
 	if *days == 0 {
-		url := "https://api.github.com/repos/" + action + "/releases/latest"
-		return GetBody(gitHubToken, url)
+		return GetLatest(action, gitHubToken)
 	}
 
 	return GetReleases(action, gitHubToken, days)
 }
 
-func getHash(action string, tag string, gitHubToken string) (interface{}, error) {
-	url := "https://api.github.com/repos/" + action + "/git/ref/tags/" + tag
-	return GetBody(gitHubToken, url)
+func GetLatest(action string, gitHubToken string) (interface{}, error) {
+	url := "https://api.github.com/repos/" + action + "/releases/latest"
+	return GetGithubBody(gitHubToken, url)
 }
 
-// GetBody requests a URL using gitHub PAT for auth
-func GetBody(gitHubToken string, url string) (interface{}, error) {
+func getHash(action string, tag string, gitHubToken string) (interface{}, error) {
+	url := "https://api.github.com/repos/" + action + "/git/ref/tags/" + tag
+	return GetGithubBody(gitHubToken, url)
+}
+
+// GetGithubBody requests a URL using gitHub PAT for auth
+func GetGithubBody(gitHubToken string, url string) (interface{}, error) {
 	var body []byte
 
 	if gitHubToken != "" {

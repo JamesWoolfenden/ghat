@@ -11,7 +11,7 @@ func GetReleases(action string, gitHubToken string, days *int) (map[string]inter
 	limit := now.Add(-interval)
 
 	url := "https://api.github.com/repos/" + action + "/releases"
-	temp, err := GetBody(gitHubToken, url)
+	temp, err := GetGithubBody(gitHubToken, url)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to request list of releases %w", err)
