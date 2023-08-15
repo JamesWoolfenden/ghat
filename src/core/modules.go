@@ -409,7 +409,7 @@ func (myFlags *Flags) GetGithubHash(newModule string, tag string) (string, error
 
 		hash = object["sha"].(string)
 	} else {
-		if len(tag) == 64 || len(tag) == 7 {
+		if len(tag) == 40 || len(tag) == 7 {
 			hash = tag
 		} else {
 			return "", fmt.Errorf("supplied hash is not a short or a long hash")
