@@ -189,7 +189,9 @@ func (myFlags *Flags) GetType(module string) (string, error) {
 func (myFlags *Flags) UpdateSource(module string, moduleType string, version string) (string, string, error) {
 
 	var newModule string
+
 	var hash string
+
 	var err error
 
 	switch moduleType {
@@ -362,13 +364,17 @@ func (myFlags *Flags) GetGithubLatestHash(newModule string) (string, string, err
 	name := strings.Split(newModule, "github.com/")
 
 	action := strings.Split(name[1], ".git")
-	payload, err := GetLatest(action[0], myFlags.GitHubToken)
+	payload, err := GetLatestTag(action[0], myFlags.GitHubToken)
 
 	if err != nil {
 		return "", "", err
 	}
 
-	assertedPayload := payload.(map[string]interface{})
+	assertedPayload, ok := payload.(map[string]interface{})
+
+	if !ok {
+		return "", "", fmt.Errorf("type assertion failed")
+	}
 
 	version := assertedPayload["tag_name"].(string)
 	hash, err := myFlags.GetGithubHash(newModule, version)

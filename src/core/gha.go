@@ -186,15 +186,27 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 
 func getPayload(action string, gitHubToken string, days *int) (interface{}, error) {
 	if *days == 0 {
-		return GetLatest(action, gitHubToken)
+		return GetLatestRelease(action, gitHubToken)
 	}
 
 	return GetReleases(action, gitHubToken, days)
 }
 
-func GetLatest(action string, gitHubToken string) (interface{}, error) {
+func GetLatestRelease(action string, gitHubToken string) (interface{}, error) {
 	url := "https://api.github.com/repos/" + action + "/releases/latest"
 	return GetGithubBody(gitHubToken, url)
+}
+
+func GetLatestTag(action string, gitHubToken string) (interface{}, error) {
+	url := "https://api.github.com/repos/" + action + "/tags"
+	tags, err := GetGithubBody(gitHubToken, url)
+	tagged, ok := tags.([]interface{})
+
+	if !ok {
+		return nil, fmt.Errorf("failed to assert slice %s", tags)
+	}
+
+	return tagged[0].(map[string]interface{}), err
 }
 
 func getHash(action string, tag string, gitHubToken string) (interface{}, error) {

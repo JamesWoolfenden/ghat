@@ -116,11 +116,11 @@ func TestRegistry_GetLatest(t *testing.T) {
 			}
 			got, err := myRegistry.GetLatest(tt.args.module)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetLatest() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GetLatestRelease() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetLatest() got = %v, want %v", got, tt.want)
+				t.Errorf("GetLatestRelease() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

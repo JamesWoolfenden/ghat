@@ -235,3 +235,39 @@ func Test_getPayload(t *testing.T) {
 //		})
 //	}
 //}
+
+func TestGetLatestTag(t *testing.T) {
+	t.Parallel()
+	type args struct {
+		action      string
+		gitHubToken string
+	}
+
+	latest := "4232d5fcb1b2a98d741258b8329742f63f7a598b"
+
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{"Pass", args{"jameswoolfenden/terraform-azurerm-diskencryptionset", gitHubToken}, latest, false},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := GetLatestTag(tt.args.action, tt.args.gitHubToken)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetLatestTag() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			returned := got.(map[string]interface{})
+			commit := returned["commit"].(map[string]interface{})
+			hash := commit["sha"].(string)
+			if hash != tt.want {
+				t.Errorf("GetLatestTag() got = %v, want %v", hash, tt.want)
+			}
+		})
+	}
+}
