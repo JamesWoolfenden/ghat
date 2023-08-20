@@ -74,9 +74,11 @@ func (myFlags *Flags) UpdateGHAS() error {
 func (myFlags *Flags) GetGHA() ([]string, error) {
 	var ghat []string
 
+	gitHubPath := filepath.Join(".github", "workflows")
+
 	for _, match := range myFlags.Entries {
 		entry, _ := os.Stat(match)
-		if strings.Contains(match, ".github/workflows") && !entry.IsDir() {
+		if strings.Contains(match, gitHubPath) && !entry.IsDir() {
 			if strings.Contains(match, ".yml") || (strings.Contains(match, ".yaml")) {
 				ghat = append(ghat, match)
 			}
