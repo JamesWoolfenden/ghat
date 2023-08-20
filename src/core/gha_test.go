@@ -243,7 +243,7 @@ func TestGetLatestTag(t *testing.T) {
 		gitHubToken string
 	}
 
-	latest := "4232d5fcb1b2a98d741258b8329742f63f7a598b"
+	latest := "fc0b830997dd820476a7ad5e4b6ef2dcbdc766d7"
 
 	tests := []struct {
 		name    string

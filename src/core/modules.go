@@ -267,13 +267,13 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 
 	case "registry":
 		{
-			var subdir string
+			var subDir string
 
-			subdirs := strings.Split(module, "//")
+			subDirs := strings.Split(module, "//")
 
-			if len(subdirs) == 2 {
-				subdir = subdirs[1]
-				module = subdirs[0]
+			if len(subDirs) == 2 {
+				subDir = subDirs[1]
+				module = subDirs[0]
 			}
 
 			splits := strings.Split(module, "/")
@@ -285,25 +285,24 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 			//e.g. jameswoolfenden/terraform-http-ip
 			newModule := "github.com" + "/" + splits[0] + "/" + "terraform" + "-" + splits[2] + "-" + splits[1] + ".git"
 
-			if subdir == "" {
+			if subDir == "" {
 				return myFlags.UpdateGithubSource(version, newModule)
 			} else {
-				return myFlags.WithSubDir(version, newModule, subdir)
+				return myFlags.WithSubDir(version, newModule, subDir)
 			}
-
 		}
 
 	case "github":
 		{
-			subdirs := strings.Split(module, "//")
-			if len(subdirs) == 2 {
-				subdir := subdirs[1]
-				root := subdirs[0]
-				//e.g. jameswoolfenden/terraform-http-ip
+			subDirs := strings.Split(module, "//")
+			if len(subDirs) == 2 {
+				subDir := subDirs[1]
+				root := subDirs[0]
+
+				// e.g. jameswoolfenden/terraform-http-ip
 				newModule := root + ".git"
 
-				return myFlags.WithSubDir(version, newModule, subdir)
-
+				return myFlags.WithSubDir(version, newModule, subDir)
 			}
 
 			newModule = module + ".git"
@@ -330,11 +329,13 @@ func (myFlags *Flags) WithSubDir(version string, newModule string, subdir string
 
 	urlsplit := strings.Split(url, ".git")
 	newUrl := urlsplit[0] + ".git" + "//" + subdir + urlsplit[1]
+
 	return newUrl, version, err
 }
 
 func (myFlags *Flags) UpdateGithubSource(version string, newModule string) (string, string, error) {
 	var hash string
+
 	var err error
 
 	if myFlags.Update {
@@ -360,7 +361,6 @@ func (myFlags *Flags) UpdateGithubSource(version string, newModule string) (stri
 }
 
 func (myFlags *Flags) GetGithubLatestHash(newModule string) (string, string, error) {
-
 	name := strings.Split(newModule, "github.com/")
 
 	action := strings.Split(name[1], ".git")
@@ -376,12 +376,15 @@ func (myFlags *Flags) GetGithubLatestHash(newModule string) (string, string, err
 		return "", "", fmt.Errorf("type assertion failed")
 	}
 
-	version := assertedPayload["tag_name"].(string)
-	hash, err := myFlags.GetGithubHash(newModule, version)
+	version, ok := assertedPayload["name"].(string)
 
-	if err != nil {
-		return "", "", err
+	if !ok {
+		return "", "", fmt.Errorf("type assertion failed")
 	}
+
+	commit := assertedPayload["commit"].(map[string]interface{})
+
+	hash := commit["sha"].(string)
 
 	return hash, version, nil
 }
