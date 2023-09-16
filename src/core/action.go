@@ -1,10 +1,9 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/rs/zerolog/log"
 )
 
 func (myFlags *Flags) Action(Action string) error {
@@ -19,7 +18,7 @@ func (myFlags *Flags) Action(Action string) error {
 		myFlags.Entries, err = GetFiles(myFlags.Directory)
 
 		if err != nil {
-			log.Error().Msgf("action failed to read %s", myFlags.Directory)
+			return fmt.Errorf("action failed to read %s", myFlags.Directory)
 		}
 	}
 
