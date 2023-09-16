@@ -32,10 +32,7 @@ func (myFlags *Flags) UpdateModule(file string) error {
 
 	for _, block := range root.Blocks() {
 		if block.Type() == "module" {
-			version := GetStringValue(block, "version")
-			if !strings.Contains(version, "v") && version != "" {
-				version = "v" + version
-			}
+			version := GetVersion(block)
 
 			source := GetStringValue(block, "source")
 
@@ -44,7 +41,7 @@ func (myFlags *Flags) UpdateModule(file string) error {
 			myType, err := myFlags.GetType(source)
 
 			if err != nil {
-				log.Info().Msgf("source type failure")
+				log.Info().Msgf("source type failure %s", source)
 			} else {
 				newValue, _, err := myFlags.UpdateSource(source, myType, version)
 				if err != nil {
@@ -80,6 +77,29 @@ func (myFlags *Flags) UpdateModule(file string) error {
 	}
 
 	return nil
+}
+
+func GetVersion(block *hclwrite.Block) string {
+	version := GetStringValue(block, "version")
+	if version == "" {
+		return ""
+	}
+
+	constraints := []string{"=", "!", ">", ">", "~"}
+
+	for _, constraint := range constraints {
+		if strings.Contains(version, constraint) {
+			version = ""
+			log.Info().Msg("constraints not valid, using latest")
+			continue
+		}
+	}
+
+	if !strings.Contains(version, "v") && version != "" {
+		version = "v" + version
+	}
+
+	return version
 }
 
 func GetStringValue(block *hclwrite.Block, attribute string) string {
@@ -408,7 +428,20 @@ func (myFlags *Flags) GetGithubHash(newModule string, tag string) (string, error
 		payload, err = GetGithubBody(myFlags.GitHubToken, url)
 
 		if err != nil {
-			return "", err
+			// retry as version is truncated
+			if strings.Count(tag, ".") == 1 {
+				tag = tag + ".0"
+				url = "https://api.github.com/repos/" + action[0] + "/git/ref/tags/" + tag
+				payload, err = GetGithubBody(myFlags.GitHubToken, url)
+				if err != nil {
+					log.Info().Msgf("failed to find tag %s", tag)
+					return "", err
+				}
+			} else {
+				return "", err
+			}
+		} else {
+			log.Info().Msgf("failed to understand %s", tag)
 		}
 
 		assertedPayload := payload.(map[string]interface{})
