@@ -11,6 +11,23 @@ var gitHubToken = os.Getenv("GITHUB_TOKEN")
 func TestGetBody(t *testing.T) {
 	t.Parallel()
 
+	url := "https://api.github.com/users/JamesWoolfenden/orgs"
+
+	result := map[string]interface{}{
+		"login":              "teamvulkan",
+		"id":                 46164047,
+		"node_id":            "MDEyOk9yZ2FuaXphdGlvbjQ2MTY0MDQ3",
+		"url":                "https://api.github.com/orgs/teamvulkan",
+		"repos_url":          "https://api.github.com/orgs/teamvulkan/repos",
+		"events_url":         "https://api.github.com/orgs/teamvulkan/events",
+		"hooks_url":          "https://api.github.com/orgs/teamvulkan/hooks",
+		"issues_url":         "https://api.github.com/orgs/teamvulkan/issues",
+		"members_url":        "https://api.github.com/orgs/teamvulkan/members{/member}",
+		"public_members_url": "https://api.github.com/orgs/teamvulkan/public_members{/member}",
+		"avatar_url":         "https://avatars.githubusercontent.com/u/46164047?v=4",
+		"description":        "",
+	}
+
 	type args struct {
 		gitHubToken string
 		url         string
@@ -22,7 +39,7 @@ func TestGetBody(t *testing.T) {
 		want    interface{}
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{"Pass", args{gitHubToken: gitHubToken, url: url}, result, false},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -33,7 +50,9 @@ func TestGetBody(t *testing.T) {
 				t.Errorf("GetGithubBody() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+			gotMap := got.([]interface{})[0].(map[string]interface{})
+			wanted := tt.want.(map[string]interface{})
+			if !reflect.DeepEqual(gotMap["node_id"], wanted["node_id"]) {
 				t.Errorf("GetGithubBody() got = %v, want %v", got, tt.want)
 			}
 		})
@@ -173,6 +192,7 @@ func TestGetLatestTag(t *testing.T) {
 		wantErr bool
 	}{
 		{"Pass", args{"jameswoolfenden/terraform-azurerm-diskencryptionset", gitHubToken}, latest, false},
+		{"Fail", args{"jameswoolfenden/terraform-azurerm-guff", gitHubToken}, "", true},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -183,6 +203,16 @@ func TestGetLatestTag(t *testing.T) {
 				t.Errorf("GetLatestTag() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
+			if got == nil && tt.want != "" {
+				t.Errorf("GetLatestTag() got = nil, want %v", tt.want)
+				return
+			}
+
+			if (got == nil) == (tt.want == "") {
+				return
+			}
+
 			returned := got.(map[string]interface{})
 			commit := returned["commit"].(map[string]interface{})
 			hash := commit["sha"].(string)

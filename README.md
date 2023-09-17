@@ -50,6 +50,7 @@ module "ip" {
   permissions = "pike"
 }
 ```
+
 Becomes:
 
 ```terraform
@@ -156,6 +157,7 @@ $ghat swot -d . --stable 14
 ```
 
 ### Swipe
+
 Updates Terraform modules to use secure module references, and displays a file diff:
 
 ```bash
@@ -173,8 +175,8 @@ module "ip" {
   permissions = "pike"
 }
 ```
-The update flag can be used to update the reference, the default behaviour is just to change the reference to a git bashed hash.
 
+The update flag can be used to update the reference, the default behaviour is just to change the reference to a git bashed hash.
 
 ## Help
 
@@ -234,7 +236,7 @@ update .pre-commit-config.yaml
 
 ## Building
 
-```go
+```shell
 go build
 ```
 

@@ -40,6 +40,8 @@ func TestFlags_Action(t *testing.T) {
 		{"dirDry", dirDry, args{}, false},
 		{"file swipe", file, args{"swipe"}, false},
 		{"file swot", fileGHA, args{"swot"}, false},
+		{"file swot empty", dirDry, args{"swot"}, false},
+		{"file swipe empty", dirDry, args{"swipe"}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
