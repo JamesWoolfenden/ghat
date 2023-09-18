@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-
-	"github.com/rs/zerolog/log"
 )
 
 type Registry struct {
@@ -33,9 +31,7 @@ func IsOK(url string) (bool, error) {
 		return true, nil
 	}
 
-	log.Info().Msgf("Received %s for %s", resp.Status, url)
-
-	return false, nil
+	return false, fmt.Errorf("Received %s for %s", resp.Status, url)
 }
 
 func (myRegistry *Registry) GetLatest(module string) (*string, error) {

@@ -14,6 +14,8 @@ func (myFlags *Flags) Action(Action string) error {
 			pwd, _ := os.Getwd()
 			myFlags.File = filepath.Join(pwd, myFlags.File)
 		}
+
+		myFlags.Entries = append(myFlags.Entries, myFlags.File)
 	} else {
 		myFlags.Entries, err = GetFiles(myFlags.Directory)
 

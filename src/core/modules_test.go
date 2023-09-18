@@ -97,6 +97,7 @@ func TestFlags_UpdateSource(t *testing.T) {
 		moduleType string
 		version    string
 	}
+	//goland:noinspection HttpUrlsUsage
 	tests := []struct {
 		name    string
 		fields  fields

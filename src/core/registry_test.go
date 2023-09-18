@@ -19,7 +19,7 @@ func TestIsOK(t *testing.T) {
 		wantErr bool
 	}{
 		{"Pass", args{"https://registry.terraform.io/v1/modules/jameswoolfenden/ip/http/versions"}, true, false},
-		{"Fail", args{"https://registry.terraform.io/v1/modules/jameswoolfenden/ip/https/versions"}, false, false},
+		{"Fail", args{"https://registry.terraform.io/v1/modules/jameswoolfenden/ip/https/versions"}, false, true},
 		{"NotUrl", args{"jameswoolfenden/ip/https"}, false, true},
 	}
 
@@ -59,8 +59,8 @@ func TestRegistry_IsRegistryModule(t *testing.T) {
 		wantErr bool
 	}{
 		{"Pass", fields{false}, args{"jameswoolfenden/ip/http"}, true, false},
-		{"Fail", fields{false}, args{"jameswoolfenden/ip/https"}, false, false},
-		{"NotUrl", fields{false}, args{"https://jameswoolfenden/ip/https"}, false, false},
+		{"Fail", fields{false}, args{"jameswoolfenden/ip/https"}, false, true},
+		{"NotUrl", fields{false}, args{"https://jameswoolfenden/ip/https"}, false, true},
 	}
 
 	for _, tt := range tests {
@@ -105,6 +105,7 @@ func TestRegistry_GetLatest(t *testing.T) {
 		wantErr bool
 	}{
 		{"Pass", fields{false, ""}, args{"jameswoolfenden/ip/http"}, &want, false},
+		{"Fail", fields{false, ""}, args{"jameswoolfenden/ip/guff"}, nil, true},
 	}
 	for _, tt := range tests {
 		tt := tt

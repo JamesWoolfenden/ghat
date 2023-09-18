@@ -77,6 +77,7 @@ func (myFlags *Flags) GetGHA() ([]string, error) {
 	gitHubPath := filepath.Join(".github", "workflows")
 
 	for _, match := range myFlags.Entries {
+		match, _ = filepath.Abs(match)
 		entry, _ := os.Stat(match)
 		if strings.Contains(match, gitHubPath) && !entry.IsDir() {
 			if strings.Contains(match, ".yml") || (strings.Contains(match, ".yaml")) {

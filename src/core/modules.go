@@ -224,7 +224,7 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 				commas := strings.Split(newModule, ",")
 
 				if len(commas) > 1 {
-					log.Info().Msgf("too many urlparams")
+					log.Info().Msgf("too many URL params")
 					//do something
 				}
 			}

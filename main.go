@@ -113,7 +113,7 @@ func main() {
 					},
 					&cli.BoolFlag{
 						Name:        "update",
-						Usage:       "update to lastest module available",
+						Usage:       "update to latest module available",
 						Destination: &myFlags.Update,
 						Value:       false,
 					},
