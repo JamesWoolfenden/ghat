@@ -70,3 +70,9 @@ repos:
         pass_filenames: false
         always_run: true
         types: [ yaml ]
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v0.5.1
+    hooks:
+      - id: validate-toml
+      - id: no-go-testing
+      - id: go-mod-tidy
