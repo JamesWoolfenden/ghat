@@ -4,6 +4,8 @@ import (
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/rs/zerolog/log"
 )
 
 var gitHubToken = os.Getenv("GITHUB_TOKEN")
@@ -56,7 +58,11 @@ func TestGetBody(t *testing.T) {
 				return
 			}
 			if tt.want != nil {
-				gotMap := got.([]interface{})[0].(map[string]interface{})
+				gotMap, ok := got.([]interface{})[0].(map[string]interface{})
+				if !ok {
+					log.Info().Msgf("assertion error %s", err)
+					return
+				}
 				wanted := tt.want.(map[string]interface{})
 				if !reflect.DeepEqual(gotMap["node_id"], wanted["node_id"]) {
 					t.Errorf("GetGithubBody() got = %v, want %v", got, tt.want)
