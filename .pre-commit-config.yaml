@@ -67,7 +67,6 @@ repos:
         description: upgrade action dependencies
         language: golang
         entry: ghat swot -d . --continue-on-error true
-        exclude: test.yml
         pass_filenames: false
         always_run: true
         types: [ yaml ]
