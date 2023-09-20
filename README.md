@@ -10,6 +10,7 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![checkov](https://img.shields.io/badge/checkov-verified-brightgreen)](https://www.checkov.io/)
 [![Github All Releases](https://img.shields.io/github/downloads/jameswoolfenden/ghat/total.svg)](https://github.com/JamesWoolfenden/ghat/releases)
+[![codecov](https://codecov.io/gh/JamesWoolfenden/ghat/graph/badge.svg?token=P9V791WMRE)](https://codecov.io/gh/JamesWoolfenden/ghat)
 
 Ghat is a tool  (GHAT) for updating dependencies in a GHA - GitHub Action, and now also for updating and **managing Terraform Dependencies**. It replaces insecure mutable tags with immutable commit hashes as well as using the latest released version:
 

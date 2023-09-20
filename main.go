@@ -85,6 +85,12 @@ func main() {
 						Destination: &myFlags.DryRun,
 						Value:       false,
 					},
+					&cli.BoolFlag{
+						Name:        "continue-on-error",
+						Usage:       "just keep going",
+						Destination: &myFlags.ContinueOnError,
+						Value:       false,
+					},
 				},
 			},
 			{

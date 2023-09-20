@@ -119,9 +119,11 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			newUrl = splitter[0] + "/" + splitter[1]
 			body, err = getPayload(newUrl, myFlags.GitHubToken, &myFlags.Days)
 			if err != nil {
-				log.Warn().Msgf("failed to retrieve back %s", err)
-
-				continue
+				if myFlags.ContinueOnError {
+					log.Info().Err(err)
+					continue
+				}
+				return fmt.Errorf("failed to retrieve data for action %s with %s", action[0], err)
 			}
 		}
 
@@ -141,10 +143,14 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			}
 
 			payload, err := getHash(url, tag, myFlags.GitHubToken)
-			body := payload.(map[string]interface{})
-
 			if err != nil {
 				log.Warn().Msgf("failed to retrieve commit hash %s for %s", err, action[0])
+				continue
+			}
+
+			body, ok := payload.(map[string]interface{})
+			if !ok {
+				log.Warn().Msgf("Payload is not expected map %s", body)
 				continue
 			}
 

@@ -31,7 +31,7 @@ func IsOK(url string) (bool, error) {
 		return true, nil
 	}
 
-	return false, fmt.Errorf("Received %s for %s", resp.Status, url)
+	return false, fmt.Errorf("received %s for %s", resp.Status, url)
 }
 
 func (myRegistry *Registry) GetLatest(module string) (*string, error) {

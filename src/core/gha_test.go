@@ -11,6 +11,8 @@ var gitHubToken = os.Getenv("GITHUB_TOKEN")
 func TestGetBody(t *testing.T) {
 	t.Parallel()
 
+	garbage := "guffinhere"
+	fail_url := "https://api.github.com/users/JamesWoolfenden2/orgs"
 	url := "https://api.github.com/users/JamesWoolfenden/orgs"
 
 	result := map[string]interface{}{
@@ -41,6 +43,8 @@ func TestGetBody(t *testing.T) {
 	}{
 		{"Pass", args{gitHubToken: gitHubToken, url: url}, result, false},
 		{"Pass no token", args{url: url}, result, false},
+		{"Fail 404", args{gitHubToken: gitHubToken, url: fail_url}, nil, true},
+		{"Garbage", args{gitHubToken: gitHubToken, url: garbage}, nil, true},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -51,11 +55,18 @@ func TestGetBody(t *testing.T) {
 				t.Errorf("GetGithubBody() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			gotMap := got.([]interface{})[0].(map[string]interface{})
-			wanted := tt.want.(map[string]interface{})
-			if !reflect.DeepEqual(gotMap["node_id"], wanted["node_id"]) {
-				t.Errorf("GetGithubBody() got = %v, want %v", got, tt.want)
+			if tt.want != nil {
+				gotMap := got.([]interface{})[0].(map[string]interface{})
+				wanted := tt.want.(map[string]interface{})
+				if !reflect.DeepEqual(gotMap["node_id"], wanted["node_id"]) {
+					t.Errorf("GetGithubBody() got = %v, want %v", got, tt.want)
+				}
+				return
 			}
+			if got != nil {
+				t.Errorf("GetGithubBody() nillness got = %v, want %v", got, tt.want)
+			}
+
 		})
 	}
 }
@@ -305,6 +316,65 @@ func TestFlags_UpdateGHAS(t *testing.T) {
 			}
 			if err := myFlags.UpdateGHAS(); (err != nil) != tt.wantErr {
 				t.Errorf("UpdateGHAS() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestFlags_UpdateGHA(t *testing.T) {
+	t.Parallel()
+	type fields struct {
+		File            string
+		Directory       string
+		GitHubToken     string
+		Days            int
+		DryRun          bool
+		Entries         []string
+		Update          bool
+		ContinueOnError bool
+	}
+
+	type args struct {
+		file string
+	}
+
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{name: "Pass file",
+			fields: fields{File: "./testdata/gha/.github/workflows/test.yml", GitHubToken: gitHubToken, DryRun: true, Entries: []string{"./testdata/gha/.github/workflows/test.yml"}, Update: true},
+			args:   args{"./testdata/gha/.github/workflows/test.yml"}},
+		{name: "No such file",
+			fields:  fields{File: "./testdata/gha/.github/workflows/guff.yml", GitHubToken: gitHubToken, DryRun: true, Entries: []string{"./testdata/gha/.github/workflows/test.yml"}, Update: true},
+			args:    args{"./testdata/gha/.github/workflows/guff.yml"},
+			wantErr: true},
+		{name: "Faulty GHA",
+			fields:  fields{File: "./testdata/faulty/.github/workflows/test.yml", GitHubToken: gitHubToken, DryRun: true, Entries: []string{"./testdata/faulty/.github/workflows/test.yml"}, Update: true},
+			args:    args{file: "./testdata/faulty/.github/workflows/test.yml"},
+			wantErr: true},
+		{name: "Faulty GHA continue",
+			fields: fields{File: "./testdata/faulty/.github/workflows/test.yml", GitHubToken: gitHubToken, DryRun: true, Entries: []string{"./testdata/faulty/.github/workflows/test.yml"}, Update: true, ContinueOnError: true},
+			args:   args{file: "./testdata/faulty/.github/workflows/test.yml"}},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			myFlags := &Flags{
+				File:            tt.fields.File,
+				Directory:       tt.fields.Directory,
+				GitHubToken:     tt.fields.GitHubToken,
+				Days:            tt.fields.Days,
+				DryRun:          tt.fields.DryRun,
+				Entries:         tt.fields.Entries,
+				Update:          tt.fields.Update,
+				ContinueOnError: tt.fields.ContinueOnError,
+			}
+			if err := myFlags.UpdateGHA(tt.args.file); (err != nil) != tt.wantErr {
+				t.Errorf("UpdateGHA() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
