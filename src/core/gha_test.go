@@ -58,12 +58,15 @@ func TestGetBody(t *testing.T) {
 				return
 			}
 			if tt.want != nil {
-				gotMap, ok := got.([]interface{})[0].(map[string]interface{})
+				_, ok := got.([]interface{})
 				if !ok {
 					log.Info().Msgf("assertion error %s", err)
 					return
 				}
+
+				gotMap := got.([]interface{})[0].(map[string]interface{})
 				wanted := tt.want.(map[string]interface{})
+
 				if !reflect.DeepEqual(gotMap["node_id"], wanted["node_id"]) {
 					t.Errorf("GetGithubBody() got = %v, want %v", got, tt.want)
 				}
