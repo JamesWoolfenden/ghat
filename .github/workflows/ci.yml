@@ -39,7 +39,7 @@ jobs:
 
       ## runs go test ./...
       - name: Test
-        run: go test ./...
+        run: go test ./... -coverprofile=./cover.out
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
