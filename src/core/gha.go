@@ -53,11 +53,7 @@ func GetFiles(dir string) ([]string, error) {
 
 func (myFlags *Flags) UpdateGHAS() error {
 	var err error
-	myFlags.Entries, err = myFlags.GetGHA()
-
-	if err != nil {
-		return err
-	}
+	myFlags.Entries = myFlags.GetGHA()
 
 	for _, gha := range myFlags.Entries {
 		err = myFlags.UpdateGHA(gha)
@@ -71,7 +67,7 @@ func (myFlags *Flags) UpdateGHAS() error {
 }
 
 // GetGHA gets all the actions in a directory
-func (myFlags *Flags) GetGHA() ([]string, error) {
+func (myFlags *Flags) GetGHA() []string {
 	var ghat []string
 
 	gitHubPath := filepath.Join(".github", "workflows")
@@ -86,7 +82,7 @@ func (myFlags *Flags) GetGHA() ([]string, error) {
 		}
 	}
 
-	return ghat, nil
+	return ghat
 }
 
 // UpdateGHA updates am action with latest dependencies

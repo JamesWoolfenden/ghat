@@ -13,8 +13,8 @@ var gitHubToken = os.Getenv("GITHUB_TOKEN")
 func TestGetBody(t *testing.T) {
 	t.Parallel()
 
-	garbage := "guffinhere"
-	fail_url := "https://api.github.com/users/JamesWoolfenden2/orgs"
+	garbage := "guff-inhere"
+	failUrl := "https://api.github.com/users/JamesWoolfenden2/orgs"
 	url := "https://api.github.com/users/JamesWoolfenden/orgs"
 
 	result := map[string]interface{}{
@@ -45,7 +45,7 @@ func TestGetBody(t *testing.T) {
 	}{
 		{"Pass", args{gitHubToken: gitHubToken, url: url}, result, false},
 		{"Pass no token", args{url: url}, result, false},
-		{"Fail 404", args{gitHubToken: gitHubToken, url: fail_url}, nil, true},
+		{"Fail 404", args{gitHubToken: gitHubToken, url: failUrl}, nil, true},
 		{"Garbage", args{gitHubToken: gitHubToken, url: garbage}, nil, true},
 	}
 	for _, tt := range tests {
@@ -208,15 +208,14 @@ func TestFlags_GetGHA(t *testing.T) {
 
 	var nothing []string
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    []string
-		wantErr bool
+		name   string
+		fields fields
+		args   args
+		want   []string
 	}{
-		{"no matches", duffDir, args{noMatches, nil}, nothing, false},
-		{"no workflows", noWorkflowsDir, args{noWorkflows, nil}, nil, false},
-		{"no workflows with dir", noWorkflowsWithDir, args{noWorkflowsWithDirContents, nil}, nil, false},
+		{"no matches", duffDir, args{noMatches, nil}, nothing},
+		{"no workflows", noWorkflowsDir, args{noWorkflows, nil}, nil},
+		{"no workflows with dir", noWorkflowsWithDir, args{noWorkflowsWithDirContents, nil}, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -227,11 +226,8 @@ func TestFlags_GetGHA(t *testing.T) {
 				Days:        tt.fields.Days,
 				DryRun:      tt.fields.DryRun,
 			}
-			got, err := myFlags.GetGHA()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetGHA() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			got := myFlags.GetGHA()
+
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetGHA() got = %v, want %v", got, tt.want)
 			}

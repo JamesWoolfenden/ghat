@@ -220,14 +220,14 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 			//var hash string
 			newModule := strings.TrimPrefix(module, "git::")
 
-			if strings.Contains(newModule, ",") {
-				commas := strings.Split(newModule, ",")
-
-				if len(commas) > 1 {
-					log.Info().Msgf("too many URL params")
-					//do something
-				}
-			}
+			//if strings.Contains(newModule, ",") {
+			//	commas := strings.Split(newModule, ",")
+			//
+			//	if len(commas) > 1 {
+			//		log.Info().Msgf("too many URL params")
+			//		//do something
+			//	}
+			//}
 			splitter := strings.Split(newModule, "?ref=")
 
 			root := splitter[0]

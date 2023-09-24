@@ -26,6 +26,7 @@ func TestFlags_Action(t *testing.T) {
 	dirDry := fields{"", "testdata/files/", gitHubToken, 0, true, nil, true}
 	fileGHA := fields{"testdata/files/ci.yml", "testdata/files/", gitHubToken, 0, true, nil, true}
 	file := fields{"testdata/files/module.tf", "testdata/files/", gitHubToken, 0, true, nil, true}
+	noFile := fields{"testdata/files/guff.tf", "testdata/files/", gitHubToken, 0, true, nil, true}
 
 	tests := []struct {
 		name    string
@@ -42,6 +43,7 @@ func TestFlags_Action(t *testing.T) {
 		{"file swot", fileGHA, args{"swot"}, false},
 		{"file swot empty", dirDry, args{"swot"}, false},
 		{"file swipe empty", dirDry, args{"swipe"}, false},
+		{"no file", noFile, args{"swipe"}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
