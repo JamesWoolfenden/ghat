@@ -106,6 +106,7 @@ func TestRegistry_GetLatest(t *testing.T) {
 	}{
 		{"Pass", fields{false, ""}, args{"jameswoolfenden/ip/http"}, &want, false},
 		{"Fail", fields{false, ""}, args{"jameswoolfenden/ip/guff"}, nil, true},
+		{"norepo", fields{false, ""}, args{"jameswoolfenden/ip/guff"}, nil, true},
 	}
 	for _, tt := range tests {
 		tt := tt

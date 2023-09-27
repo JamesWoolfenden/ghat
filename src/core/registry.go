@@ -43,11 +43,7 @@ func (myRegistry *Registry) GetLatest(module string) (*string, error) {
 
 	if found {
 		url := "https://registry.terraform.io/v1/modules/" + module
-		resp, err := http.Get(url)
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to get url %w", err)
-		}
+		resp, _ := http.Get(url)
 
 		if resp == nil {
 			return nil, fmt.Errorf("api failed to respond")
