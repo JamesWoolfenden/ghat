@@ -24,7 +24,6 @@ func TestFlags_UpdateHooks(t *testing.T) {
 		{name: "guff", fields: fields{Directory: "guff", GitHubToken: gitHubToken}, wantErr: true},
 		{name: "Pass relative", fields: fields{Directory: "../../", GitHubToken: gitHubToken}, wantErr: false},
 		//{name: "Pass absolute", fields: fields{Directory: "E:/Code/pike", GitHubToken: gitHubToken}, wantErr: false},
-		{name: "Pass absolute", fields: fields{Directory: "E:/Code/pike", GitHubToken: gitHubToken}, wantErr: false},
 	}
 
 	for _, tt := range tests {

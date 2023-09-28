@@ -6,18 +6,19 @@ repos:
         - id: check-merge-conflict
         - id: trailing-whitespace
         - id: end-of-file-fixer
-        - exclude: examples/
-          id: check-yaml
+        - id: check-yaml
+          exclude: examples/
         - id: check-added-large-files
-        - args:
+        - id: pretty-format-json
+          args:
             - --autofix
-          id: pretty-format-json
         - id: detect-aws-credentials
         - id: detect-private-key
       repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: v4.4.0
+      rev: f71fa2c1f9cf5cb705f73dffe4b21f7c61470ba9
     - hooks:
-        - exclude: binary|\.bin$|rego|\.rego$|go|\.go$
+        - id: forbid-tabs
+          exclude: binary|\.bin$|rego|\.rego$|go|\.go$
           exclude_types:
             - python
             - javascript
@@ -25,71 +26,68 @@ repos:
             - markdown
             - makefile
             - xml
-          id: forbid-tabs
       repo: https://github.com/Lucas-C/pre-commit-hooks
-      rev: v1.5.4
+      rev: 762c66ea96843b54b936fc680162ea67f85ec2d7
     - hooks:
         - id: shell-lint
       repo: https://github.com/jameswoolfenden/pre-commit-shell
-      rev: 0.0.2
+      rev: 062f0b028ae65827e04f91c1e6738cfcbe9b337f
     - hooks:
-        - exclude: src/testdata|testdata
-          id: markdownlint
+        - id: markdownlint
+          exclude: src/testdata|testdata
       repo: https://github.com/igorshubovych/markdownlint-cli
-      rev: v0.37.0
+      rev: 3f18b949d53ffddafc6d98373366533d61e00da8
     - hooks:
         - id: terraform-fmt
           language_version: python3.11
       repo: https://github.com/jameswoolfenden/pre-commit
-      rev: v0.1.50
+      rev: b00d945c0dce54f230a5d1cfb7d24e285396e1f2
     - hooks:
         - id: gofmt
         - id: goimports
       repo: https://github.com/gruntwork-io/pre-commit
-      rev: v0.1.22
+      rev: 62acdd0e6aaf398eb04af4a6fcd97a9f3f538668
     - hooks:
-        - args:
+        - id: go-test
+          args:
             - ./...
-          id: go-test
         - id: go-mod-tidy
         - id: go-generate
       repo: https://github.com/syntaqx/git-hooks
-      rev: v0.0.18
+      rev: a3b888f92cd5b40b270c9a9752181fdc1717cbe5
     - hooks:
         - id: golangci-lint
       repo: https://github.com/golangci/golangci-lint
-      rev: v1.54.2
+      rev: 411e0bbbd3096aa0ee2b924160629bdf2bc81d40
     - hooks:
-        - args:
+        - id: checkov
+          language_version: python3.11
+          args:
             - -d
             - .
-          id: checkov
-          language_version: python3.11
       repo: https://github.com/bridgecrewio/checkov
-      rev: 2.4.52
+      rev: 59cd4d3232b12be549cd7910ea6e3dee5b3b1e73
     - hooks:
-        - always_run: true
-          description: upgrade action dependencies
-          entry: ghat swot -d . --continue-on-error true
-          id: ghat-go
-          language: golang
+        - id: ghat-go
           name: ghat
-          pass_filenames: false
-          types:
-            - yaml
-        - always_run: true
-          description: upgrade action dependencies
-          entry: ghat sift -d .
-          id: ghat-go-sift
+          entry: ghat swot -d . --continue-on-error true
           language: golang
-          name: sift
-          pass_filenames: false
           types:
             - yaml
+          always_run: true
+          description: upgrade action dependencies
+        - id: ghat-go-sift
+          name: sift
+          entry: ghat sift -d .
+          language: golang
+          types:
+            - yaml
+          always_run: true
+          description: upgrade action dependencies
       repo: local
     - hooks:
         - id: validate-toml
         - id: no-go-testing
         - id: go-mod-tidy
       repo: https://github.com/dnephin/pre-commit-golang
-      rev: v0.5.1
+      rev: fb24a639f7c938759fe56eeebbb7713b69d60494

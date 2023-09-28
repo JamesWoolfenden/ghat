@@ -1,11 +1,12 @@
 package core
 
 import (
+	"os"
 	"testing"
 )
 
 func TestFlags_Action(t *testing.T) {
-
+	t.Parallel()
 	type fields struct {
 		File        string
 		Directory   string
@@ -28,6 +29,8 @@ func TestFlags_Action(t *testing.T) {
 	file := fields{"testdata/files/module.tf", "testdata/files/", gitHubToken, 0, true, nil, true}
 	noFile := fields{"testdata/files/guff.tf", "testdata/files/", gitHubToken, 0, true, nil, true}
 
+	os.Remove("testdata/empty")
+
 	tests := []struct {
 		name    string
 		fields  fields
@@ -45,8 +48,11 @@ func TestFlags_Action(t *testing.T) {
 		{"file swipe empty", dirDry, args{"swipe"}, false},
 		{"no file", noFile, args{"swipe"}, true},
 	}
+
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			myFlags := &Flags{
 				File:        tt.fields.File,
 				Directory:   tt.fields.Directory,
