@@ -41,6 +41,10 @@ func (myFlags *Flags) Action(Action string) error {
 				return myFlags.UpdateGHAS()
 			}
 		}
+	case "sift":
+		{
+			return myFlags.UpdateHooks()
+		}
 	}
 
 	return nil

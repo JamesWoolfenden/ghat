@@ -5,11 +5,12 @@ go 1.21
 require (
 	github.com/go-git/go-git/v5 v5.9.0
 	github.com/hashicorp/hcl/v2 v2.18.0
-	github.com/rs/zerolog v1.30.0
+	github.com/rs/zerolog v1.31.0
 	github.com/sergi/go-diff v1.3.1
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/zclconf/go-cty v1.14.0
 	golang.org/x/mod v0.12.0
+	gopkg.in/yaml.v3 v3.0.1
 	moul.io/banner v1.0.1
 )
 

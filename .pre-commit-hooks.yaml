@@ -9,6 +9,14 @@
   pass_filenames: false
   types: [ yaml ]
 
+- id: ghat-go-sift
+  name: sift
+  description: upgrade precommit dependencies
+  language: golang
+  entry: ghat sift -d .
+  pass_filenames: false
+  types: [ yaml ]
+
 # Build and run `ghat-docs` assuming it was installed manually
 # or via package manager
 # REQUIRES: ghat-docs to be installed and on the $PATH
@@ -20,6 +28,14 @@
   pass_filenames: false
   types: [ yaml ]
 
+- id: ghat-system-sift
+  name: sift
+  description: upgrade pre-commit dependencies
+  language: system
+  entry: ghat sift -d .
+  pass_filenames: false
+  types: [ yaml ]
+
 # Builds and runs the Docker image from the repo
 # REQUIRES: Docker installed
 - id: ghat-docker
@@ -27,5 +43,13 @@
   description: upgrade action dependencies (via Docker build)
   language: docker
   entry: ghat swot -d .
+  pass_filenames: false
+  types: [ yaml ]
+
+- id: ghat-docker-sift
+  name: sift
+  description: upgrade pre-commit dependencies (via Docker build)
+  language: docker
+  entry: ghat sift -d .
   pass_filenames: false
   types: [ yaml ]

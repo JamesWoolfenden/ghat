@@ -139,6 +139,38 @@ func main() {
 					},
 				},
 			},
+			{
+				Name:      "sift",
+				Aliases:   []string{"p"},
+				Usage:     "updates pre-commit version with  hashes",
+				UsageText: "ghat sift",
+				Action: func(*cli.Context) error {
+					return myFlags.Action("sift")
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:        "directory",
+						Aliases:     []string{"d"},
+						Usage:       "Destination to update modules",
+						Destination: &myFlags.Directory,
+						Category:    "files",
+					},
+					&cli.BoolFlag{
+						Name:        "dry-run",
+						Usage:       "show but don't write changes",
+						Destination: &myFlags.DryRun,
+						Value:       false,
+					},
+					&cli.StringFlag{
+						Name:        "token",
+						Aliases:     []string{"t"},
+						Usage:       "Github PAT token",
+						Destination: &myFlags.GitHubToken,
+						Category:    "authentication",
+						EnvVars:     []string{"GITHUB_TOKEN", "GITHUB_API"},
+					},
+				},
+			},
 		},
 		Name:     "ghat",
 		Usage:    "Update GHA dependencies",
