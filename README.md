@@ -12,7 +12,7 @@
 [![Github All Releases](https://img.shields.io/github/downloads/jameswoolfenden/ghat/total.svg)](https://github.com/JamesWoolfenden/ghat/releases)
 [![codecov](https://codecov.io/gh/JamesWoolfenden/ghat/graph/badge.svg?token=P9V791WMRE)](https://codecov.io/gh/JamesWoolfenden/ghat)
 
-Ghat is a tool  (GHAT) for updating dependencies in a GHA - GitHub Action, and now also for updating and **managing Terraform Dependencies**. It replaces insecure mutable tags with immutable commit hashes as well as using the latest released version:
+Ghat is a tool  (GHAT) for updating dependencies in a GHA - GitHub Action, **managing Terraform Dependencies** and pre-commit configs. It replaces insecure mutable tags with immutable commit hashes as well as using the latest released version:
 
 ```yml
    ## sets up go based on the version
@@ -72,10 +72,13 @@ module "ip" {
     - [Windows](#windows)
     - [Docker](#docker)
   - [Usage](#usage)
-    - [directory](#directory-scan)
-    - [file](#file-scan)
-    - [stable](#stable-releases)
-    - [pre-commit](#pre-commit)
+    - [swot](#swot)
+      - [directory](#directory-scan)
+      - [file](#file-scan)
+      - [stable](#stable-releases)
+      - [pre-commit](#pre-commit)
+    - [swipe](#swipe)
+    - [sift](#sift)
 
 <!--toc:end-->
 
@@ -134,7 +137,9 @@ docker run --tty --volume /local/path/to/repo:/repo jameswoolfenden/ghat swot -d
 To authenticate the GitHub Api you should set up your GitHub Personal Access Token as the environment variable
 *GITHUB_API* or *GITHUB_TOKEN*, it will fall back to using anonymous if you don't but RATE LIMITS.
 
-### Directory scan
+### swot
+
+#### Directory scan
 
 This will look for the .github/workflow folder and update all the files it finds there, and display a diff of the changes made to each file:
 
@@ -142,13 +147,13 @@ This will look for the .github/workflow folder and update all the files it finds
 $ghat swot -d .
 ```
 
-### File scan
+#### File scan
 
 ```bash
 $ghat swot -f .\.github\workflows\ci.yml
 ```
 
-### Stable releases
+#### Stable releases
 
 If you're concerned that the very latest release might be too fresh, and would rather have the latest from 2 weeks ago?
 I got you covered:
@@ -179,6 +184,32 @@ module "ip" {
 
 The update flag can be used to update the reference, the default behaviour is just to change the reference to a git bashed hash.
 
+### sift
+
+Sift updates pre-commit configs with the latest hooks using hashes.
+Commands are similar, but only the directory is needed:
+
+```shell
+ghat sift -d .
+```
+
+The flag dryrun is also supported. Example outcome display:
+
+```yaml
+    - hooks:
+        - id: forbid-tabs
+          exclude: binary|\.bin$|rego|\.rego$|go|\.go$
+          exclude_types:
+            - python
+            - javascript
+            - dtd
+            - markdown
+            - makefile
+            - xml
+      repo: https://github.com/Lucas-C/pre-commit-hooks
+      rev: 762c66ea96843b54b936fc680162ea67f85ec2d7
+```
+
 ## Help
 
 ```bash
@@ -188,7 +219,7 @@ The update flag can be used to update the reference, the default behaviour is ju
 / _` || ' \ / _` ||  _|
 \__, ||_||_|\__,_| \__|
 |___/
-version: v0.0.19
+version: v0.1.1
 NAME:
    ghat - Update GHA dependencies
 
@@ -196,12 +227,13 @@ USAGE:
    ghat [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.0.19
+   v0.1.1
 
 AUTHOR:
    James Woolfenden <jim.wolf@duck.com>
 
 COMMANDS:
+   sift, p     updates pre-commit version with  hashes
    swipe, w    updates Terraform module versions with versioned hashes
    swot, a     updates GHA versions for hashes
    version, v  Outputs the application version
