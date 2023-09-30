@@ -60,6 +60,10 @@ func (myFlags *Flags) UpdateHooks() error {
 
 	err = yaml.Unmarshal(data, &m)
 
+	if err != nil {
+		return fmt.Errorf("failed to unmarshall %s", *config)
+	}
+
 	var newRepos []Repo
 
 	for _, item := range m.Repos {
@@ -77,7 +81,7 @@ func (myFlags *Flags) UpdateHooks() error {
 
 		commit := myTag["commit"].(map[string]interface{})
 
-		item.Rev = commit["sha"].(string) //+ " #" + myTag["name"].(string)
+		item.Rev = commit["sha"].(string) // myTag["name"].(string)
 
 		newRepos = append(newRepos, item)
 	}
@@ -110,6 +114,10 @@ func (myFlags *Flags) UpdateHooks() error {
 func (myFlags *Flags) GetHook() (*string, error) {
 	var err error
 	myFlags.Directory, err = filepath.Abs(myFlags.Directory)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to make sense of directory %s", myFlags.Directory)
+	}
 
 	fileInfo, err := os.Stat(myFlags.Directory)
 	if err != nil {

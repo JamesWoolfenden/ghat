@@ -217,17 +217,8 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 	switch moduleType {
 	case "git":
 		{
-			//var hash string
 			newModule := strings.TrimPrefix(module, "git::")
 
-			//if strings.Contains(newModule, ",") {
-			//	commas := strings.Split(newModule, ",")
-			//
-			//	if len(commas) > 1 {
-			//		log.Info().Msgf("too many URL params")
-			//		//do something
-			//	}
-			//}
 			splitter := strings.Split(newModule, "?ref=")
 
 			root := splitter[0]
@@ -383,7 +374,15 @@ func (myFlags *Flags) UpdateGithubSource(version string, newModule string) (stri
 func (myFlags *Flags) GetGithubLatestHash(newModule string) (string, string, error) {
 	name := strings.Split(newModule, "github.com/")
 
+	if len(name) < 2 {
+		return "", "", fmt.Errorf("modules string doesnt contain github.com")
+	}
+
 	action := strings.Split(name[1], ".git")
+	if len(action) < 2 {
+		return "", "", fmt.Errorf("modules string doesnt end in .git")
+	}
+
 	payload, err := GetLatestTag(action[0], myFlags.GitHubToken)
 
 	if err != nil {

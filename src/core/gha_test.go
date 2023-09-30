@@ -302,6 +302,8 @@ func TestFlags_UpdateGHAS(t *testing.T) {
 	}{
 		{"Pass file",
 			fields{"./testdata/gha/.github/workflows/test.yml", "", gitHubToken, 0, true, []string{"./testdata/gha/.github/workflows/test.yml"}, true}, false},
+		{"Pass file not dry",
+			fields{"./testdata/gha/.github/workflows/test.yml", "", gitHubToken, 0, false, []string{"./testdata/gha/.github/workflows/test.yml"}, true}, false},
 		{"Pass dir",
 			fields{"", "./testdata/gha/.github/workflows", gitHubToken, 0, true, []string{"./testdata/gha/.github/workflows/test.yml"}, true}, false},
 	}

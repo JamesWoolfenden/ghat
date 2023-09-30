@@ -230,3 +230,72 @@ func TestFlags_UpdateSource(t *testing.T) {
 		})
 	}
 }
+
+func TestFlags_UpdateGithubSource(t *testing.T) {
+	t.Parallel()
+	type fields struct {
+		File            string
+		Directory       string
+		GitHubToken     string
+		Days            int
+		DryRun          bool
+		Entries         []string
+		Update          bool
+		ContinueOnError bool
+	}
+
+	type args struct {
+		version   string
+		newModule string
+	}
+
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    string
+		want1   string
+		wantErr bool
+	}{
+		{"Pass update", fields{Update: true, GitHubToken: gitHubToken}, args{newModule: "github.com/jameswoolfenden/terraform-http-ip.git"},
+			"git::https://github.com/jameswoolfenden/terraform-http-ip.git?ref=6e651695dc636de858961f36bc54ffe9e744e946",
+			"v0.3.13", false},
+		{"Not action", fields{Update: true}, args{newModule: "github.com/jameswoolfenden/ip.git"}, "", "", true},
+		{"Fail no .git", fields{Update: true}, args{newModule: "jameswoolfenden/ip"}, "", "", true},
+		{"Fail too short", fields{Update: true}, args{newModule: "jameswoolfenden/ip"}, "", "", true},
+		{"Pass", fields{Update: false, GitHubToken: gitHubToken}, args{newModule: "github.com/jameswoolfenden/terraform-http-ip.git"},
+			"git::https://github.com/jameswoolfenden/terraform-http-ip.git?ref=6e651695dc636de858961f36bc54ffe9e744e946",
+			"v0.3.13", false},
+		{"Pass with version",
+			fields{Update: false, GitHubToken: gitHubToken}, args{version: "81a0a7c", newModule: "github.com/jameswoolfenden/terraform-http-ip.git"},
+			"git::https://github.com/jameswoolfenden/terraform-http-ip.git?ref=81a0a7c",
+			"81a0a7c", false},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			myFlags := &Flags{
+				File:            tt.fields.File,
+				Directory:       tt.fields.Directory,
+				GitHubToken:     tt.fields.GitHubToken,
+				Days:            tt.fields.Days,
+				DryRun:          tt.fields.DryRun,
+				Entries:         tt.fields.Entries,
+				Update:          tt.fields.Update,
+				ContinueOnError: tt.fields.ContinueOnError,
+			}
+			got, got1, err := myFlags.UpdateGithubSource(tt.args.version, tt.args.newModule)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UpdateGithubSource() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("UpdateGithubSource() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("UpdateGithubSource() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}

@@ -11,7 +11,7 @@
 
 - id: ghat-go-sift
   name: sift
-  description: upgrade precommit dependencies
+  description: upgrade pre-commit dependencies
   language: golang
   entry: ghat sift -d .
   pass_filenames: false

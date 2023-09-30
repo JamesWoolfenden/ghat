@@ -29,7 +29,7 @@ func TestFlags_Action(t *testing.T) {
 	file := fields{"testdata/files/module.tf", "testdata/files/", gitHubToken, 0, true, nil, true}
 	noFile := fields{"testdata/files/guff.tf", "testdata/files/", gitHubToken, 0, true, nil, true}
 
-	os.Remove("testdata/empty")
+	_ = os.Remove("testdata/empty")
 
 	tests := []struct {
 		name    string
@@ -47,6 +47,7 @@ func TestFlags_Action(t *testing.T) {
 		{"file swot empty", dirDry, args{"swot"}, false},
 		{"file swipe empty", dirDry, args{"swipe"}, false},
 		{"no file", noFile, args{"swipe"}, true},
+		{"sift", fields{Directory: "../../"}, args{"sift"}, false},
 	}
 
 	for _, tt := range tests {
