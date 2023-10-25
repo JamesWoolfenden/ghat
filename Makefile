@@ -67,6 +67,7 @@ psbump:
 update:
 	go get -u
 	go mod tidy
+	pre-commit autoupdate
 
 lint:
 	golangci-lint run --fix

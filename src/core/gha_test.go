@@ -92,9 +92,9 @@ func Test_getHash(t *testing.T) {
 	want := map[string]interface{}{
 		"node_id": "MDM6UmVmMTk3ODE0NjI5OnJlZnMvdGFncy92NC4wLjA=",
 		"object": map[string]interface{}{
-			"sha":  "3df4ab11eba7bda6032a0b82a6bb43b11571feac",
+			"sha":  "1e31de5234b9f8995739874a8ce0492dc87873e2",
 			"type": "commit",
-			"url":  "https://api.github.com/repos/actions/checkout/git/commits/3df4ab11eba7bda6032a0b82a6bb43b11571feac",
+			"url":  "https://api.github.com/repos/actions/checkout/git/commits/1e31de5234b9f8995739874a8ce0492dc87873e2",
 		},
 		"ref": "refs/tags/v4.0.0",
 		"url": "https://api.github.com/repos/actions/checkout/git/refs/tags/v4.0.0",

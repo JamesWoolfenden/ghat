@@ -15,7 +15,7 @@ repos:
         - id: detect-aws-credentials
         - id: detect-private-key
       repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: f71fa2c1f9cf5cb705f73dffe4b21f7c61470ba9
+      rev: c4a0b883114b00d8d76b479c820ce7950211c99b
     - hooks:
         - id: forbid-tabs
           exclude: binary|\.bin$|rego|\.rego$|go|\.go$
@@ -58,7 +58,7 @@ repos:
     - hooks:
         - id: golangci-lint
       repo: https://github.com/golangci/golangci-lint
-      rev: 411e0bbbd3096aa0ee2b924160629bdf2bc81d40
+      rev: de1c391922f0e3792c862f7e8c653bbf3f198d16
     - hooks:
         - id: checkov
           language_version: python3.11
@@ -66,7 +66,7 @@ repos:
             - -d
             - .
       repo: https://github.com/bridgecrewio/checkov
-      rev: f93a812a46e8ef699409facf4370d5d6401ae587
+      rev: 3.0.4
     - hooks:
         - id: ghat-go
           name: ghat

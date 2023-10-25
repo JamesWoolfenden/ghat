@@ -95,7 +95,7 @@ func TestRegistry_GetLatest(t *testing.T) {
 		module string
 	}
 
-	want := "0.3.13"
+	want := "0.3.14"
 
 	tests := []struct {
 		name    string
