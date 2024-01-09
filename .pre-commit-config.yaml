@@ -36,7 +36,7 @@ repos:
         - id: markdownlint
           exclude: src/testdata|testdata
       repo: https://github.com/igorshubovych/markdownlint-cli
-      rev: 3f18b949d53ffddafc6d98373366533d61e00da8
+      rev: 1d2f2483dbca436b5e89d208f1ff56688ba4af9e
     - hooks:
         - id: terraform-fmt
           language_version: python3.11
@@ -46,7 +46,7 @@ repos:
         - id: gofmt
         - id: goimports
       repo: https://github.com/gruntwork-io/pre-commit
-      rev: 62acdd0e6aaf398eb04af4a6fcd97a9f3f538668
+      rev: d0bcdb35c6999a4a120b528f050d2b11778fd3d0
     - hooks:
         - id: go-test
           args:
@@ -58,7 +58,7 @@ repos:
     - hooks:
         - id: golangci-lint
       repo: https://github.com/golangci/golangci-lint
-      rev: de1c391922f0e3792c862f7e8c653bbf3f198d16
+      rev: e3c2265f4939976874989e159386b3bb7dcf8e1f
     - hooks:
         - id: checkov
           language_version: python3.11
@@ -66,7 +66,7 @@ repos:
             - -d
             - .
       repo: https://github.com/bridgecrewio/checkov
-      rev: 3.0.4
+      rev: 4f6c8f08e2b5395c37738d89ef6e099fa8667648
     - hooks:
         - id: ghat-go
           name: ghat
