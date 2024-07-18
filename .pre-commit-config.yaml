@@ -15,7 +15,7 @@ repos:
         - id: detect-aws-credentials
         - id: detect-private-key
       repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: 2c9f875913ee60ca25ce70243dc24d5b6415598c
+      rev: v4.6.0
     - hooks:
         - id: forbid-tabs
           exclude: binary|\.bin$|rego|\.rego$|go|\.go$
@@ -27,26 +27,26 @@ repos:
             - makefile
             - xml
       repo: https://github.com/Lucas-C/pre-commit-hooks
-      rev: a30f0d816e5062a67d87c8de753cfe499672b959
+      rev: v1.5.5
     - hooks:
         - id: shell-lint
       repo: https://github.com/jameswoolfenden/pre-commit-shell
-      rev: 062f0b028ae65827e04f91c1e6738cfcbe9b337f
+      rev: 0.0.2
     - hooks:
         - id: markdownlint
           exclude: src/testdata|testdata
       repo: https://github.com/igorshubovych/markdownlint-cli
-      rev: c9ea83146232fb263effdfe6f222d87f5395b27a
+      rev: v0.41.0
     - hooks:
         - id: terraform-fmt
           language_version: python3.11
       repo: https://github.com/jameswoolfenden/pre-commit
-      rev: b00d945c0dce54f230a5d1cfb7d24e285396e1f2
+      rev: v0.1.50
     - hooks:
         - id: gofmt
         - id: goimports
       repo: https://github.com/gruntwork-io/pre-commit
-      rev: d0bcdb35c6999a4a120b528f050d2b11778fd3d0
+      rev: v0.1.23
     - hooks:
         - id: go-test
           args:
@@ -54,11 +54,11 @@ repos:
         - id: go-mod-tidy
         - id: go-generate
       repo: https://github.com/syntaqx/git-hooks
-      rev: a3b888f92cd5b40b270c9a9752181fdc1717cbe5
+      rev: v0.0.18
     - hooks:
         - id: golangci-lint
       repo: https://github.com/golangci/golangci-lint
-      rev: 77a8601aa372eaab3ad2d7fa1dffa71f28005393
+      rev: v1.59.1
     - hooks:
         - id: checkov
           language_version: python3.11
@@ -66,7 +66,7 @@ repos:
             - -d
             - .
       repo: https://github.com/bridgecrewio/checkov
-      rev: 2b1db34a99faed3910588dacfa1cdd35863aa5bb
+      rev: 3.2.193
     - hooks:
         - id: ghat-go
           name: ghat
@@ -90,4 +90,4 @@ repos:
         - id: no-go-testing
         - id: go-mod-tidy
       repo: https://github.com/dnephin/pre-commit-golang
-      rev: fb24a639f7c938759fe56eeebbb7713b69d60494
+      rev: v0.5.1

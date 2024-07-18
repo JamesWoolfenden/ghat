@@ -14,3 +14,11 @@ __debug_bin.exe
 .ghat
 provider.azure.tf
 provider.azurerm.tf
+terraform-provider-*
+*.pem
+*.csr
+.destination
+tf.plan
+tf.json
+
+dist/
