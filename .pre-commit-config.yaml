@@ -1,5 +1,5 @@
 default_language_version:
-    python: python3.11
+    python: python3.12
 repos:
     - hooks:
         - id: check-json
@@ -15,7 +15,7 @@ repos:
         - id: detect-aws-credentials
         - id: detect-private-key
       repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: v4.6.0
+      rev: 2c9f875913ee60ca25ce70243dc24d5b6415598c
     - hooks:
         - id: forbid-tabs
           exclude: binary|\.bin$|rego|\.rego$|go|\.go$
@@ -27,26 +27,26 @@ repos:
             - makefile
             - xml
       repo: https://github.com/Lucas-C/pre-commit-hooks
-      rev: v1.5.5
+      rev: a30f0d816e5062a67d87c8de753cfe499672b959
     - hooks:
         - id: shell-lint
       repo: https://github.com/jameswoolfenden/pre-commit-shell
-      rev: 0.0.2
+      rev: 062f0b028ae65827e04f91c1e6738cfcbe9b337f
     - hooks:
         - id: markdownlint
           exclude: src/testdata|testdata
       repo: https://github.com/igorshubovych/markdownlint-cli
-      rev: v0.41.0
+      rev: f295829140d25717bc79368d3f966fc1f67a824f
     - hooks:
         - id: terraform-fmt
           language_version: python3.11
       repo: https://github.com/jameswoolfenden/pre-commit
-      rev: v0.1.50
+      rev: b00d945c0dce54f230a5d1cfb7d24e285396e1f2
     - hooks:
         - id: gofmt
         - id: goimports
       repo: https://github.com/gruntwork-io/pre-commit
-      rev: v0.1.23
+      rev: d0bcdb35c6999a4a120b528f050d2b11778fd3d0
     - hooks:
         - id: go-test
           args:
@@ -54,19 +54,19 @@ repos:
         - id: go-mod-tidy
         - id: go-generate
       repo: https://github.com/syntaqx/git-hooks
-      rev: v0.0.18
+      rev: a3b888f92cd5b40b270c9a9752181fdc1717cbe5
     - hooks:
         - id: golangci-lint
       repo: https://github.com/golangci/golangci-lint
-      rev: v1.59.1
+      rev: 1a55854aff4ef60cd8c4e709b650b281303ca7aa
     - hooks:
         - id: checkov
-          language_version: python3.11
+          language_version: python3.12
           args:
             - -d
             - .
       repo: https://github.com/bridgecrewio/checkov
-      rev: 3.2.193
+      rev: 49a467606b4777f75c7f53ecda4e03d32f0c2002
     - hooks:
         - id: ghat-go
           name: ghat
@@ -90,4 +90,4 @@ repos:
         - id: no-go-testing
         - id: go-mod-tidy
       repo: https://github.com/dnephin/pre-commit-golang
-      rev: v0.5.1
+      rev: fb24a639f7c938759fe56eeebbb7713b69d60494
