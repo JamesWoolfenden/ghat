@@ -57,10 +57,6 @@ func (myRegistry *Registry) GetLatest(module string) (*string, error) {
 			_ = Body.Close()
 		}(resp.Body)
 
-		if err != nil {
-			return nil, fmt.Errorf("client failed %w", err)
-		}
-
 		body, err := io.ReadAll(resp.Body)
 
 		if err != nil {

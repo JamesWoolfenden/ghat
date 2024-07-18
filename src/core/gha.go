@@ -156,7 +156,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 				continue
 			}
 
-			sha := object["sha"].(string)
+			sha, ok := object["sha"].(string)
 			if !ok {
 				log.Warn().Msgf("failed to assert string %s", err)
 				continue
