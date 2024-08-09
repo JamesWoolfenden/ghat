@@ -1,4 +1,4 @@
-module ghat
+module github.com/jameswoolfenden/ghat
 
 go 1.22.2
 
