@@ -1,5 +1,5 @@
 default_language_version:
-    python: python3.12
+    python: python3.11
 repos:
     - hooks:
         - id: check-json
@@ -61,12 +61,12 @@ repos:
       rev: 1a55854aff4ef60cd8c4e709b650b281303ca7aa
     - hooks:
         - id: checkov
-          language_version: python3.12
+          language_version: python3.11
           args:
             - -d
             - .
       repo: https://github.com/bridgecrewio/checkov
-      rev: 76041d8579b178af16e0db9c69b1f7448211626e
+      rev: c81e0929317cba5cec1712168445c021b4ec4f4d
     - hooks:
         - id: ghat-go
           name: ghat
