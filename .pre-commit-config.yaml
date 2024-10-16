@@ -1,5 +1,5 @@
 default_language_version:
-    python: python3.12
+    python: python3.11
 repos:
     - hooks:
         - id: check-json
@@ -61,7 +61,7 @@ repos:
       rev: a1d6c560de1a193a0c68ffed68cd5928ef39e884
     - hooks:
         - id: checkov
-          language_version: python3.12
+          language_version: python3.11
           args:
             - -d
             - .

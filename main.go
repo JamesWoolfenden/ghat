@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"ghat/src/core"
-	"ghat/src/version"
 	"os"
 	"sort"
 	"time"
 
+	"github.com/jameswoolfenden/ghat/src/core"
+	"github.com/jameswoolfenden/ghat/src/version"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
