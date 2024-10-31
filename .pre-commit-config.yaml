@@ -15,7 +15,7 @@ repos:
         - id: detect-aws-credentials
         - id: detect-private-key
       repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: 2c9f875913ee60ca25ce70243dc24d5b6415598c
+      rev: cef0300fd0fc4d2a87a85fa2093c6b283ea36f4b
     - hooks:
         - id: forbid-tabs
           exclude: binary|\.bin$|rego|\.rego$|go|\.go$
@@ -36,7 +36,7 @@ repos:
         - id: markdownlint
           exclude: src/testdata|testdata
       repo: https://github.com/igorshubovych/markdownlint-cli
-      rev: f295829140d25717bc79368d3f966fc1f67a824f
+      rev: aa975a18c9a869648007d33864034dbc7481fe5e
     - hooks:
         - id: terraform-fmt
           language_version: python3.11
@@ -46,7 +46,7 @@ repos:
         - id: gofmt
         - id: goimports
       repo: https://github.com/gruntwork-io/pre-commit
-      rev: d0bcdb35c6999a4a120b528f050d2b11778fd3d0
+      rev: a2d20160412a9bd26a11ff45987c0e178d7e10c3
     - hooks:
         - id: go-test
           args:
@@ -58,7 +58,7 @@ repos:
     - hooks:
         - id: golangci-lint
       repo: https://github.com/golangci/golangci-lint
-      rev: 1a55854aff4ef60cd8c4e709b650b281303ca7aa
+      rev: a1d6c560de1a193a0c68ffed68cd5928ef39e884
     - hooks:
         - id: checkov
           language_version: python3.11
@@ -66,7 +66,7 @@ repos:
             - -d
             - .
       repo: https://github.com/bridgecrewio/checkov
-      rev: c81e0929317cba5cec1712168445c021b4ec4f4d
+      rev: 30c3e8ef39e17ae515875fd83273444a00f6c412
     - hooks:
         - id: ghat-go
           name: ghat

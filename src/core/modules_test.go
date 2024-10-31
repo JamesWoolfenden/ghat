@@ -304,3 +304,44 @@ func TestFlags_UpdateGithubSource(t *testing.T) {
 		})
 	}
 }
+
+func TestFlags_UpdateModule(t *testing.T) {
+	type fields struct {
+		File            string
+		Directory       string
+		GitHubToken     string
+		Days            int
+		DryRun          bool
+		Entries         []string
+		Update          bool
+		ContinueOnError bool
+	}
+	type args struct {
+		file string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{"add version", fields{Update: true}, args{"testdata/modules/github-git/module.tf"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			myFlags := &Flags{
+				File:            tt.fields.File,
+				Directory:       tt.fields.Directory,
+				GitHubToken:     tt.fields.GitHubToken,
+				Days:            tt.fields.Days,
+				DryRun:          tt.fields.DryRun,
+				Entries:         tt.fields.Entries,
+				Update:          tt.fields.Update,
+				ContinueOnError: tt.fields.ContinueOnError,
+			}
+			if err := myFlags.UpdateModule(tt.args.file); (err != nil) != tt.wantErr {
+				t.Errorf("UpdateModule() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

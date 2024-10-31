@@ -19,6 +19,9 @@ import (
 
 func (myFlags *Flags) UpdateModule(file string) error {
 
+	var version string
+	var newValue string
+
 	src, err := os.ReadFile(file)
 	if err != nil {
 		return fmt.Errorf("failed to read %s", file)
@@ -32,7 +35,7 @@ func (myFlags *Flags) UpdateModule(file string) error {
 
 	for _, block := range root.Blocks() {
 		if block.Type() == "module" {
-			version := GetVersion(block)
+			version = GetVersion(block)
 
 			source := GetStringValue(block, "source")
 
@@ -43,7 +46,7 @@ func (myFlags *Flags) UpdateModule(file string) error {
 			if err != nil {
 				log.Info().Msgf("source type failure %s", source)
 			} else {
-				newValue, _, err := myFlags.UpdateSource(source, myType, version)
+				newValue, version, err = myFlags.UpdateSource(source, myType, version)
 				if err != nil {
 					log.Info().Msgf("failed to update module source %s", err)
 				}
@@ -56,21 +59,37 @@ func (myFlags *Flags) UpdateModule(file string) error {
 
 	var differ bool
 
-	temp := outFile.Bytes()
+	temp := string(outFile.Bytes())
 
-	if string(src) != string(temp) {
+	if version != "" {
+		find := "\"" + newValue + "\""
+		replacement := "  source = " + find + " #" + version
+
+		lines := strings.Split(temp, "\n")
+
+		for i, line := range lines {
+			if strings.Contains(line, find) {
+				lines[i] = replacement
+				break
+			}
+		}
+
+		temp = strings.Join(lines, "\n")
+	}
+
+	if string(src) != temp {
 		differ = true
 	}
 
 	dmp := diffmatchpatch.New()
-	diffs := dmp.DiffMain(string(src), string(temp), false)
+	diffs := dmp.DiffMain(string(src), temp, false)
 
 	if differ {
 		fmt.Println(dmp.DiffPrettyText(diffs))
 	}
 
 	if differ && !myFlags.DryRun {
-		err := os.WriteFile(file, outFile.Bytes(), 0666)
+		err := os.WriteFile(file, []byte(temp), 0666)
 		if err != nil {
 			log.Info().Msgf("failed to write %s", file)
 		}
