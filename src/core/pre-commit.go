@@ -46,6 +46,13 @@ type ConfigFile struct {
 	Repos []Repo `yaml:"repos"`
 }
 
+// Add constants for repeated values
+const (
+	PreCommitConfigFile = ".pre-commit-config.yaml"
+	GitHubPrefix        = "https://github.com/"
+	FilePermissions     = 0666
+)
+
 func (myFlags *Flags) UpdateHooks() error {
 	var config *string
 	var err error
@@ -54,7 +61,10 @@ func (myFlags *Flags) UpdateHooks() error {
 		return err
 	}
 
-	data, _ := os.ReadFile(*config)
+	data, err := os.ReadFile(*config)
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
 
 	var m ConfigFile
 
@@ -67,7 +77,7 @@ func (myFlags *Flags) UpdateHooks() error {
 	var newRepos []Repo
 
 	for _, item := range m.Repos {
-		action := strings.Replace(item.Repo, "https://github.com/", "", 1)
+		action := strings.Replace(item.Repo, GitHubPrefix, "", 1)
 		tag, err := GetLatestTag(action, myFlags.GitHubToken)
 
 		if err != nil {
@@ -100,7 +110,7 @@ func (myFlags *Flags) UpdateHooks() error {
 	fmt.Println(dmp.DiffPrettyText(diffs))
 
 	if !myFlags.DryRun {
-		err = os.WriteFile(*config, newData, 0666)
+		err = os.WriteFile(*config, newData, FilePermissions)
 		if err != nil {
 			log.Info().Msgf("failed to write %s", *config)
 
@@ -128,7 +138,7 @@ func (myFlags *Flags) GetHook() (*string, error) {
 		return nil, fmt.Errorf("please specify a directory")
 	}
 
-	config := filepath.Join(myFlags.Directory, ".pre-commit-config.yaml")
+	config := filepath.Join(myFlags.Directory, PreCommitConfigFile)
 	if _, err = os.Stat(config); err != nil {
 		return nil, fmt.Errorf("pre-commit config not found %s", config)
 	}

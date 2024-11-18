@@ -58,7 +58,7 @@ repos:
     - hooks:
         - id: golangci-lint
       repo: https://github.com/golangci/golangci-lint
-      rev: a1d6c560de1a193a0c68ffed68cd5928ef39e884
+      rev: 22b58c9b648f027d699f305c069a2a97ed0c5b06
     - hooks:
         - id: checkov
           language_version: python3.11
@@ -66,7 +66,7 @@ repos:
             - -d
             - .
       repo: https://github.com/bridgecrewio/checkov
-      rev: 30c3e8ef39e17ae515875fd83273444a00f6c412
+      rev: e66e08456de4c7f0c2d8ad2b3f2ab9df0999073f
     - hooks:
         - id: ghat-go
           name: ghat

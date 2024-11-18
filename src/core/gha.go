@@ -2,7 +2,6 @@ package core
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,9 +9,17 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/rs/zerolog/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
+)
+
+const (
+	githubWorkflowPath = ".github/workflows"
+	terraformDir       = ".terraform"
+	yamlExtension      = ".yml"
+	yamlAltExtension   = ".yaml"
 )
 
 func GetFiles(dir string) ([]string, error) {
@@ -24,14 +31,17 @@ func GetFiles(dir string) ([]string, error) {
 	var ParsedEntries []string
 
 	for _, entry := range Entries {
-		AbsDir, _ := filepath.Abs(dir)
+		AbsDir, err := filepath.Abs(dir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get absolute path: %w", err)
+		}
 		gitDir := filepath.Join(AbsDir, ".git")
 
 		if entry.IsDir() {
 
 			newDir := filepath.Join(AbsDir, entry.Name())
 
-			if !(strings.Contains(newDir, ".terraform")) && newDir != gitDir {
+			if !(strings.Contains(newDir, terraformDir)) && newDir != gitDir {
 				newEntries, err := GetFiles(newDir)
 
 				if err != nil {
@@ -42,7 +52,7 @@ func GetFiles(dir string) ([]string, error) {
 			}
 		} else {
 			myFile := filepath.Join(dir, entry.Name())
-			if !(strings.Contains(myFile, ".terraform")) {
+			if !(strings.Contains(myFile, terraformDir)) {
 				ParsedEntries = append(ParsedEntries, myFile)
 			}
 		}
@@ -59,7 +69,7 @@ func (myFlags *Flags) UpdateGHAS() error {
 		err = myFlags.UpdateGHA(gha)
 
 		if err != nil {
-			return fmt.Errorf("failed to update %s", gha)
+			return &ghaUpdateError{gha}
 		}
 	}
 
@@ -70,13 +80,11 @@ func (myFlags *Flags) UpdateGHAS() error {
 func (myFlags *Flags) GetGHA() []string {
 	var ghat []string
 
-	gitHubPath := filepath.Join(".github", "workflows")
-
 	for _, match := range myFlags.Entries {
 		match, _ = filepath.Abs(match)
 		entry, _ := os.Stat(match)
-		if strings.Contains(match, gitHubPath) && !entry.IsDir() {
-			if strings.Contains(match, ".yml") || (strings.Contains(match, ".yaml")) {
+		if strings.Contains(match, githubWorkflowPath) && !entry.IsDir() {
+			if strings.Contains(match, yamlExtension) || (strings.Contains(match, yamlAltExtension)) {
 				ghat = append(ghat, match)
 			}
 		}
@@ -89,7 +97,7 @@ func (myFlags *Flags) GetGHA() []string {
 func (myFlags *Flags) UpdateGHA(file string) error {
 	buffer, err := os.ReadFile(file)
 	if err != nil {
-		return fmt.Errorf("failed to open file %w", err)
+		return &ghaFileError{file}
 	}
 
 	replacement := string(buffer)
@@ -126,7 +134,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		msg, ok := body.(map[string]interface{})
 
 		if !ok {
-			return errors.New("failed to assert map[string]interface{}")
+			return &castToMapError{"body"}
 		}
 
 		if msg["tag_name"] != nil {
@@ -182,7 +190,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		err = os.WriteFile(file, newBuffer, 0644)
 
 		if err != nil {
-			return fmt.Errorf("failed to write err %w", err)
+			return &writeGHAError{file}
 		}
 	}
 
@@ -230,7 +238,9 @@ func GetGithubBody(gitHubToken string, url string) (interface{}, error) {
 		}
 
 		req.Header.Add("Authorization", "Bearer "+gitHubToken)
-		client := &http.Client{}
+		client := &http.Client{
+			Timeout: time.Second * 30}
+
 		resp, err := client.Do(req)
 
 		if resp == nil {
