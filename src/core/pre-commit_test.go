@@ -8,7 +8,7 @@ func TestFlags_UpdateHooks(t *testing.T) {
 		File            string
 		Directory       string
 		GitHubToken     string
-		Days            int
+		Days            uint
 		DryRun          bool
 		Entries         []string
 		Update          bool

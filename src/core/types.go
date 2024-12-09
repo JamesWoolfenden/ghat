@@ -4,7 +4,7 @@ type Flags struct {
 	File            string
 	Directory       string
 	GitHubToken     string
-	Days            int
+	Days            uint
 	DryRun          bool
 	Entries         []string
 	Update          bool

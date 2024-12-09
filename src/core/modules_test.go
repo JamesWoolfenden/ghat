@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+	"reflect"
 	"testing"
 )
 
@@ -10,7 +12,7 @@ func TestFlags_GetType(t *testing.T) {
 		File        string
 		Directory   string
 		GitHubToken string
-		Days        int
+		Days        uint
 		DryRun      bool
 		Entries     []string
 		Update      bool
@@ -87,7 +89,7 @@ func TestFlags_UpdateSource(t *testing.T) {
 		File        string
 		Directory   string
 		GitHubToken string
-		Days        int
+		Days        uint
 		DryRun      bool
 		Entries     []string
 		Update      bool
@@ -124,13 +126,13 @@ func TestFlags_UpdateSource(t *testing.T) {
 		{"git",
 			fields{"", "", gitHubToken, 0, false, nil, false},
 			args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git", "git", ""},
-			"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=7490e771c58f2d4a233b5c62b4fb1c4a368245c1",
-			"v2.1.0", false},
+			"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=42be407604c9ec4452f1f5bcc32a142ce9ab75a5",
+			"v2.2.0", false},
 		{"git update",
 			fields{"", "", gitHubToken, 0, false, nil, true},
 			args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git", "git", ""},
-			"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=7490e771c58f2d4a233b5c62b4fb1c4a368245c1",
-			"v2.1.0", false},
+			"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=42be407604c9ec4452f1f5bcc32a142ce9ab75a5",
+			"v2.2.0", false},
 		{"git version",
 			fields{"", "", gitHubToken, 0, false, nil, false},
 			args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=v1.0.0", "git", ""},
@@ -139,8 +141,8 @@ func TestFlags_UpdateSource(t *testing.T) {
 		{"git version update",
 			fields{"", "", gitHubToken, 0, false, nil, true},
 			args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=v1.0.0", "git", ""},
-			"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=7490e771c58f2d4a233b5c62b4fb1c4a368245c1",
-			"v2.1.0", false},
+			"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=42be407604c9ec4452f1f5bcc32a142ce9ab75a5",
+			"v2.2.0", false},
 		{"git version missing",
 			fields{"", "", gitHubToken, 0, false, nil, false},
 			args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=v1.2.0", "git", ""},
@@ -152,8 +154,8 @@ func TestFlags_UpdateSource(t *testing.T) {
 		{name: "git hash update",
 			fields:  fields{"", "", gitHubToken, 0, false, nil, true},
 			args:    args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=93facd14e9e3a66704d84a0236a8a3b813f047be", "git", ""},
-			want:    "git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=7490e771c58f2d4a233b5c62b4fb1c4a368245c1",
-			want1:   "v2.1.0",
+			want:    "git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=42be407604c9ec4452f1f5bcc32a142ce9ab75a5",
+			want1:   "v2.2.0",
 			wantErr: false},
 
 		//{"git query string", fields{}, args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git"}, "git", false},
@@ -241,7 +243,7 @@ func TestFlags_UpdateGithubSource(t *testing.T) {
 		File            string
 		Directory       string
 		GitHubToken     string
-		Days            int
+		Days            uint
 		DryRun          bool
 		Entries         []string
 		Update          bool
@@ -310,7 +312,7 @@ func TestFlags_UpdateModule(t *testing.T) {
 		File            string
 		Directory       string
 		GitHubToken     string
-		Days            int
+		Days            uint
 		DryRun          bool
 		Entries         []string
 		Update          bool
@@ -341,6 +343,93 @@ func TestFlags_UpdateModule(t *testing.T) {
 			}
 			if err := myFlags.UpdateModule(tt.args.file); (err != nil) != tt.wantErr {
 				t.Errorf("UpdateModule() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCustomErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		err      error
+		expected string
+	}{
+		{
+			name:     "URL Join Error",
+			err:      &urlJoinError{fmt.Errorf("invalid path")},
+			expected: "failed to join url: invalid path",
+		},
+		{
+			name:     "Empty Module Error",
+			err:      &moduleEmptyError{},
+			expected: "module name cannot be empty",
+		},
+		{
+			name:     "Empty URL Error",
+			err:      &emptyURL{},
+			expected: "URL is empty",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if tt.err.Error() != tt.expected {
+				t.Errorf("Error() = %v, want %v", tt.err.Error(), tt.expected)
+			}
+		})
+	}
+}
+
+func TestRegistry_GetLatest_EdgeCases(t *testing.T) {
+	t.Parallel()
+
+	type fields struct {
+		Registry      bool
+		LatestVersion string
+	}
+
+	tests := []struct {
+		name    string
+		fields  fields
+		module  string
+		want    *string
+		wantErr bool
+	}{
+		{
+			name:    "Empty Module",
+			fields:  fields{false, ""},
+			module:  "",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:    "Module With Special Characters",
+			fields:  fields{false, ""},
+			module:  "test/module/with spaces/and#special@chars",
+			want:    nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			myRegistry := &Registry{
+				Registry:      tt.fields.Registry,
+				LatestVersion: tt.fields.LatestVersion,
+			}
+			got, err := myRegistry.GetLatest(tt.module)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetLatest() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetLatest() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

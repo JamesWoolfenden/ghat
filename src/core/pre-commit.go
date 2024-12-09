@@ -58,12 +58,12 @@ func (myFlags *Flags) UpdateHooks() error {
 	var err error
 
 	if config, err = myFlags.GetHook(); err != nil {
-		return err
+		return &getHookError{err: err}
 	}
 
 	data, err := os.ReadFile(*config)
 	if err != nil {
-		return fmt.Errorf("failed to read config file: %w", err)
+		return &readConfigError{config, err}
 	}
 
 	var m ConfigFile
@@ -71,7 +71,7 @@ func (myFlags *Flags) UpdateHooks() error {
 	err = yaml.Unmarshal(data, &m)
 
 	if err != nil {
-		return fmt.Errorf("failed to unmarshall %s", *config)
+		return &unmarshalJSONError{err}
 	}
 
 	var newRepos []Repo
@@ -101,7 +101,7 @@ func (myFlags *Flags) UpdateHooks() error {
 
 	newData, err := yaml.Marshal(&newConfigFile)
 	if err != nil {
-		return fmt.Errorf("failed to marshal mew config")
+		return &marshalJSONError{err: err}
 	}
 
 	dmp := diffmatchpatch.New()

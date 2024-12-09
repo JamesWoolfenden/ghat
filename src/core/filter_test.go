@@ -10,11 +10,11 @@ func TestGetReleases(t *testing.T) {
 	type args struct {
 		action      string
 		gitHubToken string
-		delay       *int
+		delay       *uint
 	}
 
-	delay := 14
-	zero := 0
+	var delay uint = 14
+	var zero uint = 0
 	var empty map[string]interface{}
 	want := map[string]interface{}{
 		"tarball_url":  "https: //api.github.com/repos/JamesWoolfenden/test-data-action/tarball/v0.0.1",
@@ -106,6 +106,7 @@ func TestGetReleases(t *testing.T) {
 		{"Has release", args{"jameswoolfenden/test-data-action", gitHubToken, &delay}, want, false},
 		{"Has released", args{"jameswoolfenden/test-data-action", gitHubToken, &zero}, result, false},
 		{"Fake", args{"jameswoolfenden/god", gitHubToken, &zero}, nil, true},
+		{"no token", args{"actions/checkout", "", &zero}, nil, true},
 	}
 
 	for _, tt := range tests {
@@ -119,6 +120,73 @@ func TestGetReleases(t *testing.T) {
 			}
 			if !(got["tag_name"] == tt.want["tag_name"]) {
 				t.Errorf("GetReleases() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetReleasesEdgeCases(t *testing.T) {
+	t.Parallel()
+
+	var days uint = 14
+	var zero uint = 0
+
+	tests := []struct {
+		name        string
+		action      string
+		gitHubToken string
+		days        *uint
+		wantErr     bool
+		errMsg      string
+	}{
+		{
+			name:        "Empty GitHub token",
+			action:      "JamesWoolfenden/test-data-action",
+			gitHubToken: "",
+			days:        &days,
+			wantErr:     true,
+			errMsg:      "github token is empty",
+		},
+		{
+			name:        "Empty action name",
+			action:      "",
+			gitHubToken: "dummy-token",
+			days:        &days,
+			wantErr:     true,
+			errMsg:      "action is empty",
+		},
+		{
+			name:        "Zero days filter",
+			action:      "JamesWoolfenden/test-data-action",
+			gitHubToken: "dummy-token",
+			days:        &zero,
+			wantErr:     true,
+			errMsg:      "failed to request list of releases api failed with 401",
+		},
+		{
+			name:        "Valid days filter",
+			action:      "JamesWoolfenden/test-data-action",
+			gitHubToken: "dummy-token",
+			days:        &days,
+			wantErr:     true,
+			errMsg:      "failed to request list of releases api failed with 401",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := GetReleases(tt.action, tt.gitHubToken, tt.days)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetReleases() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && err.Error() != tt.errMsg {
+				t.Errorf("GetReleases() error message = %v, want %v", err.Error(), tt.errMsg)
+			}
+			if !tt.wantErr && got == nil {
+				t.Error("GetReleases() returned nil result when error not expected")
 			}
 		})
 	}

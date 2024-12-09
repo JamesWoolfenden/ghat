@@ -1,7 +1,9 @@
 package core
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -129,11 +131,11 @@ func Test_getPayload(t *testing.T) {
 	type args struct {
 		action      string
 		gitHubToken string
-		days        *int
+		days        *uint
 	}
 
-	days := 0
-	ninety := 90
+	var days uint = 0
+	var ninety uint = 90
 
 	daysMap := map[string]interface{}{
 		"html_url":         "https://github.com/JamesWoolfenden/action-pike/releases/tag/v0.1.3",
@@ -188,7 +190,7 @@ func TestFlags_GetGHA(t *testing.T) {
 		File        string
 		Directory   string
 		GitHubToken string
-		Days        int
+		Days        uint
 		DryRun      bool
 	}
 
@@ -289,7 +291,7 @@ func TestFlags_UpdateGHAS(t *testing.T) {
 		File        string
 		Directory   string
 		GitHubToken string
-		Days        int
+		Days        uint
 		DryRun      bool
 		Entries     []string
 		Update      bool
@@ -334,7 +336,7 @@ func TestFlags_UpdateGHA(t *testing.T) {
 		File            string
 		Directory       string
 		GitHubToken     string
-		Days            int
+		Days            uint
 		DryRun          bool
 		Entries         []string
 		Update          bool
@@ -365,6 +367,22 @@ func TestFlags_UpdateGHA(t *testing.T) {
 		{name: "Faulty GHA continue",
 			fields: fields{File: "./testdata/faulty/.github/workflows/test.yml", GitHubToken: gitHubToken, DryRun: true, Entries: []string{"./testdata/faulty/.github/workflows/test.yml"}, Update: true, ContinueOnError: true},
 			args:   args{file: "./testdata/faulty/.github/workflows/test.yml"}},
+		{
+			name: "Empty entries",
+			fields: fields{
+				Entries:     []string{},
+				GitHubToken: gitHubToken,
+			},
+			wantErr: true,
+		},
+		{
+			name: "Invalid file path",
+			fields: fields{
+				Entries:     []string{"./testdata/nonexistent/workflow.yml"},
+				GitHubToken: gitHubToken,
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -382,6 +400,171 @@ func TestFlags_UpdateGHA(t *testing.T) {
 			}
 			if err := myFlags.UpdateGHA(tt.args.file); (err != nil) != tt.wantErr {
 				t.Errorf("UpdateGHA() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func setupSuite(tb testing.TB) func(tb testing.TB) {
+	log.Info().Msgf("setup suite %s", tb.Name())
+	testPath, _ := filepath.Abs("./testdata/empty")
+	_ = os.Mkdir(testPath, os.ModePerm)
+	_ = os.Mkdir("./testdata/.terraform/", os.ModePerm)
+	_ = os.Mkdir("./testdata/.git/", os.ModePerm)
+
+	return func(tb testing.TB) {
+		log.Info().Msg("teardown suite")
+		_ = os.RemoveAll(testPath)
+		_ = os.RemoveAll("./testdata/.terraform/")
+		_ = os.RemoveAll("./testdata/.git/")
+
+	}
+}
+
+func TestGetFiles(t *testing.T) {
+	t.Parallel()
+
+	//teardownSuite := setupSuite(t)
+	//defer teardownSuite(t)
+
+	tests := []struct {
+		name    string
+		dir     string
+		want    int
+		wantErr bool
+	}{
+		{"Valid directory", "./testdata/gha", 1, false},
+		{"Empty directory", "./testdata/empty", 0, false},
+		{"Non-existent directory", "./testdata/nonexistent", 0, true},
+		{"Directory with .terraform", "./testdata/.terraform", 0, false},
+		{"Directory with .git", "./testdata/.git", 0, false},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			teardownSuite := setupSuite(t)
+			defer teardownSuite(t)
+			got, err := GetFiles(tt.dir)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetFiles() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && len(got) != tt.want {
+				t.Errorf("GetFiles() got = %v files, want %v", len(got), tt.want)
+			}
+		})
+	}
+}
+
+func TestReadFilesError(t *testing.T) {
+	t.Parallel()
+
+	testErr := fmt.Errorf("test error")
+	err := &readFilesError{err: testErr}
+	expected := "failed to read files: test error"
+
+	if err.Error() != expected {
+		t.Errorf("readFilesError.Error() = %v, want %v", err.Error(), expected)
+	}
+}
+
+func TestAbsolutePathError(t *testing.T) {
+	t.Parallel()
+
+	testErr := fmt.Errorf("test error")
+	testDir := "/test/dir"
+	err := &absolutePathError{directory: testDir, err: testErr}
+	expected := "failed to get absolute path: test error /test/dir "
+
+	if err.Error() != expected {
+		t.Errorf("absolutePathError.Error() = %v, want %v", err.Error(), expected)
+	}
+}
+
+func TestGetGithubBody_EdgeCases(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		gitHubToken string
+		url         string
+		wantErr     bool
+	}{
+		{
+			name:        "Invalid URL format",
+			gitHubToken: gitHubToken,
+			url:         "not-a-url",
+			wantErr:     true,
+		},
+		{
+			name:        "Empty URL",
+			gitHubToken: gitHubToken,
+			url:         "",
+			wantErr:     true,
+		},
+		{
+			name:        "Invalid JSON response",
+			gitHubToken: gitHubToken,
+			url:         "https://api.github.com/invalid-endpoint",
+			wantErr:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := GetGithubBody(tt.gitHubToken, tt.url)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetGithubBody() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestGetPayload_ErrorCases(t *testing.T) {
+	t.Parallel()
+
+	var days uint = 30
+	tests := []struct {
+		name        string
+		action      string
+		gitHubToken string
+		days        *uint
+		wantErr     bool
+	}{
+		{
+			name:        "Empty action",
+			action:      "",
+			gitHubToken: gitHubToken,
+			days:        &days,
+			wantErr:     true,
+		},
+		{
+			name:        "Invalid action format",
+			action:      "invalid-format",
+			gitHubToken: gitHubToken,
+			days:        &days,
+			wantErr:     true,
+		},
+		{
+			name:        "Nil days pointer",
+			action:      "actions/checkout",
+			gitHubToken: gitHubToken,
+			days:        nil,
+			wantErr:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := getPayload(tt.action, tt.gitHubToken, tt.days)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getPayload() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

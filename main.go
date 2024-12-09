@@ -62,7 +62,7 @@ func main() {
 						Destination: &myFlags.Directory,
 						Category:    "files",
 					},
-					&cli.IntFlag{
+					&cli.UintFlag{
 						Name:        "stable",
 						Aliases:     []string{"s"},
 						Usage:       "days to wait for stabilisation of release",

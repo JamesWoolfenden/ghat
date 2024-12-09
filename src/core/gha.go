@@ -22,10 +22,27 @@ const (
 	yamlAltExtension   = ".yaml"
 )
 
+type readFilesError struct {
+	err error
+}
+
+func (m *readFilesError) Error() string {
+	return fmt.Sprintf("failed to read files: %s", m.err)
+}
+
+type absolutePathError struct {
+	directory string
+	err       error
+}
+
+func (m *absolutePathError) Error() string {
+	return fmt.Sprintf("failed to get absolute path: %v %s ", m.err, m.directory)
+}
+
 func GetFiles(dir string) ([]string, error) {
 	Entries, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, err
+		return nil, &readFilesError{err}
 	}
 
 	var ParsedEntries []string
@@ -33,7 +50,7 @@ func GetFiles(dir string) ([]string, error) {
 	for _, entry := range Entries {
 		AbsDir, err := filepath.Abs(dir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get absolute path: %w", err)
+			return nil, &absolutePathError{dir, err}
 		}
 		gitDir := filepath.Join(AbsDir, ".git")
 
@@ -197,7 +214,12 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 	return nil
 }
 
-func getPayload(action string, gitHubToken string, days *int) (interface{}, error) {
+func getPayload(action string, gitHubToken string, days *uint) (interface{}, error) {
+
+	if days == nil {
+		return nil, &daysParameterError{}
+	}
+
 	if *days == 0 {
 		return GetLatestRelease(action, gitHubToken)
 	}
