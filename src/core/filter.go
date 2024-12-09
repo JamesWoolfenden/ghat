@@ -44,7 +44,7 @@ func GetReleases(action string, gitHubToken string, days *uint) (map[string]inte
 	}
 
 	now := time.Now()
-	interval := time.Duration(*days * uint(dayInNanos))
+	interval := time.Duration(int(*days) * dayInNanos)
 	limit := now.Add(-interval)
 
 	url := apiBaseURL + action + "/releases"
