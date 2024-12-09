@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	dayInNanos = 24 * 60 * 60 * 1000 * 1000 * 1000
-	apiBaseURL = "https://api.github.com/repos/"
+	dayInNanos int64 = 24 * 60 * 60 * 1000 * 1000 * 1000
+	apiBaseURL       = "https://api.github.com/repos/"
 )
 
 type githubTokenIsEmptyError struct{}
@@ -44,7 +44,7 @@ func GetReleases(action string, gitHubToken string, days *uint) (map[string]inte
 	}
 
 	now := time.Now()
-	interval := time.Duration(int(*days) * dayInNanos)
+	interval := time.Duration(int64(*days) * dayInNanos)
 	limit := now.Add(-interval)
 
 	url := apiBaseURL + action + "/releases"
