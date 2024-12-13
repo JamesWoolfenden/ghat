@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 )
@@ -330,4 +331,29 @@ func TestResponseNilError(t *testing.T) {
 	if err.Error() != expected {
 		t.Errorf("Expected error message '%s', got '%s'", expected, err.Error())
 	}
+}
+
+func TestTimeParsingError(t *testing.T) {
+	testErr := errors.New("test error")
+	err := timeParsingError{err: testErr}
+
+	expected := "failed to parse time test error"
+	if got := err.Error(); got != expected {
+		t.Errorf("timeParsingError.Error() = %v, want %v", got, expected)
+	}
+}
+
+func TestDaysParameterError(t *testing.T) {
+	err := daysParameterError{}
+
+	expected := "days parameter must be positive"
+	if got := err.Error(); got != expected {
+		t.Errorf("daysParameterError.Error() = %v, want %v", got, expected)
+	}
+}
+
+func TestErrorInterfaces(t *testing.T) {
+	// Verify types implement error interface
+	var _ error = timeParsingError{}
+	var _ error = daysParameterError{}
 }

@@ -10,26 +10,6 @@ const (
 	apiBaseURL       = "https://api.github.com/repos/"
 )
 
-type githubTokenIsEmptyError struct{}
-
-func (e githubTokenIsEmptyError) Error() string {
-	return "github token is empty"
-}
-
-type timeParsingError struct {
-	err error
-}
-
-func (e timeParsingError) Error() string {
-	return fmt.Sprintf("failed to parse time %v", e.err)
-}
-
-type daysParameterError struct{}
-
-func (e daysParameterError) Error() string {
-	return "days parameter must be positive"
-}
-
 func GetReleases(action string, gitHubToken string, days *uint) (map[string]interface{}, error) {
 	if days == nil {
 		return nil, &daysParameterError{}

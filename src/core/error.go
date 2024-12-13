@@ -174,3 +174,23 @@ type responseNilError struct {
 func (m *responseNilError) Error() string {
 	return "api response is nil"
 }
+
+type githubTokenIsEmptyError struct{}
+
+func (e githubTokenIsEmptyError) Error() string {
+	return "github token is empty"
+}
+
+type timeParsingError struct {
+	err error
+}
+
+func (e timeParsingError) Error() string {
+	return fmt.Sprintf("failed to parse time %v", e.err)
+}
+
+type daysParameterError struct{}
+
+func (e daysParameterError) Error() string {
+	return "days parameter must be positive"
+}
