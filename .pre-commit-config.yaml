@@ -36,7 +36,7 @@ repos:
         - id: markdownlint
           exclude: src/testdata|testdata
       repo: https://github.com/igorshubovych/markdownlint-cli
-      rev: 0d9fcb51a54f3b750b911c054b4bd1a590f1b592
+      rev: 586c3ea3f51230da42bab657c6a32e9e66c364f0
     - hooks:
         - id: terraform-fmt
           language_version: python3.11
@@ -46,7 +46,7 @@ repos:
         - id: gofmt
         - id: goimports
       repo: https://github.com/gruntwork-io/pre-commit
-      rev: a2d20160412a9bd26a11ff45987c0e178d7e10c3
+      rev: 8481dc99cc5502ae867e66c339732d9ad7f2e1da
     - hooks:
         - id: go-test
           args:
@@ -58,7 +58,7 @@ repos:
     - hooks:
         - id: golangci-lint
       repo: https://github.com/golangci/golangci-lint
-      rev: 89476e7a1eaa0a8a06c17343af960a5fd9e7edb7
+      rev: 8cffdb7d21e5b2b89f163f70c60ac9686c9d6180
     - hooks:
         - id: checkov
           language_version: python3.11
