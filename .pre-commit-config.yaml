@@ -46,7 +46,7 @@ repos:
         - id: gofmt
         - id: goimports
       repo: https://github.com/gruntwork-io/pre-commit
-      rev: 8481dc99cc5502ae867e66c339732d9ad7f2e1da
+      rev: 59fd8610ae21aaf8234f1ef17d43c3ccdee84d16
     - hooks:
         - id: go-test
           args:
@@ -58,7 +58,7 @@ repos:
     - hooks:
         - id: golangci-lint
       repo: https://github.com/golangci/golangci-lint
-      rev: 8cffdb7d21e5b2b89f163f70c60ac9686c9d6180
+      rev: 8c14421d29bd005dee63044d07aa897b7d1bf8b0
     - hooks:
         - id: checkov
           language_version: python3.11
@@ -66,7 +66,7 @@ repos:
             - -d
             - .
       repo: https://github.com/bridgecrewio/checkov
-      rev: 3.2.334
+      rev: 3.2.408
     - hooks:
         - id: ghat-go
           name: ghat
