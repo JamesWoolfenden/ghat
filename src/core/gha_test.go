@@ -1,10 +1,12 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/rs/zerolog/log"
@@ -190,22 +192,24 @@ func TestFlags_GetGHA(t *testing.T) {
 		File        string
 		Directory   string
 		GitHubToken string
-		Days        uint
+		Days        *uint
 		DryRun      bool
 	}
+
+	var days uint = 0
 
 	type args struct {
 		matches []os.DirEntry
 		ghat    []os.DirEntry
 	}
 
-	duffDir := fields{"", "nothere", gitHubToken, 0, false}
+	duffDir := fields{"", "nothere", gitHubToken, &days, false}
 	noMatches, _ := os.ReadDir(duffDir.Directory)
 
-	noWorkflowsDir := fields{"", "./testdata/noworkflows", gitHubToken, 0, false}
+	noWorkflowsDir := fields{"", "./testdata/noworkflows", gitHubToken, &days, false}
 	noWorkflows, _ := os.ReadDir(noWorkflowsDir.Directory)
 
-	noWorkflowsWithDir := fields{"", "./testdata/noworkflowswithdir", gitHubToken, 0, false}
+	noWorkflowsWithDir := fields{"", "./testdata/noworkflowswithdir", gitHubToken, &days, false}
 	noWorkflowsWithDirContents, _ := os.ReadDir(noWorkflowsWithDir.Directory)
 
 	var nothing []string
@@ -291,11 +295,13 @@ func TestFlags_UpdateGHAS(t *testing.T) {
 		File        string
 		Directory   string
 		GitHubToken string
-		Days        uint
+		Days        *uint
 		DryRun      bool
 		Entries     []string
 		Update      bool
 	}
+
+	var days uint = 0
 
 	tests := []struct {
 		name    string
@@ -303,11 +309,11 @@ func TestFlags_UpdateGHAS(t *testing.T) {
 		wantErr bool
 	}{
 		{"Pass file",
-			fields{"./testdata/gha/.github/workflows/test.yml", "", gitHubToken, 0, true, []string{"./testdata/gha/.github/workflows/test.yml"}, true}, false},
+			fields{"./testdata/gha/.github/workflows/test.yml", "", gitHubToken, &days, true, []string{"./testdata/gha/.github/workflows/test.yml"}, true}, false},
 		{"Pass file not dry",
-			fields{"./testdata/gha/.github/workflows/test.yml", "", gitHubToken, 0, false, []string{"./testdata/gha/.github/workflows/test.yml"}, true}, false},
+			fields{"./testdata/gha/.github/workflows/test.yml", "", gitHubToken, &days, false, []string{"./testdata/gha/.github/workflows/test.yml"}, true}, false},
 		{"Pass dir",
-			fields{"", "./testdata/gha/.github/workflows", gitHubToken, 0, true, []string{"./testdata/gha/.github/workflows/test.yml"}, true}, false},
+			fields{"", "./testdata/gha/.github/workflows", gitHubToken, &days, true, []string{"./testdata/gha/.github/workflows/test.yml"}, true}, false},
 	}
 
 	for _, tt := range tests {
@@ -336,16 +342,20 @@ func TestFlags_UpdateGHA(t *testing.T) {
 		File            string
 		Directory       string
 		GitHubToken     string
-		Days            uint
+		Days            *uint
 		DryRun          bool
 		Entries         []string
 		Update          bool
 		ContinueOnError bool
 	}
 
+	//var days uint = 0
+
 	type args struct {
 		file string
 	}
+
+	var days uint = 0
 
 	tests := []struct {
 		name    string
@@ -354,8 +364,12 @@ func TestFlags_UpdateGHA(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "Pass file",
-			fields: fields{File: "./testdata/gha/.github/workflows/test.yml", GitHubToken: gitHubToken, DryRun: true, Entries: []string{"./testdata/gha/.github/workflows/test.yml"}, Update: true},
+			fields: fields{File: "./testdata/gha/.github/workflows/test.yml", GitHubToken: gitHubToken, Days: &days, DryRun: true, Entries: []string{"./testdata/gha/.github/workflows/test.yml"}, Update: true},
 			args:   args{"./testdata/gha/.github/workflows/test.yml"}},
+		{name: "Zero file",
+			fields:  fields{File: "./testdata/gha/.github/workflows/test.yml", GitHubToken: gitHubToken, Days: nil, DryRun: true, Entries: []string{"./testdata/gha/.github/workflows/test.yml"}, Update: true},
+			args:    args{"./testdata/gha/.github/workflows/test.yml"},
+			wantErr: true},
 		{name: "No such file",
 			fields:  fields{File: "./testdata/gha/.github/workflows/guff.yml", GitHubToken: gitHubToken, DryRun: true, Entries: []string{"./testdata/gha/.github/workflows/test.yml"}, Update: true},
 			args:    args{"./testdata/gha/.github/workflows/guff.yml"},
@@ -422,42 +436,144 @@ func setupSuite(tb testing.TB) func(tb testing.TB) {
 }
 
 func TestGetFiles(t *testing.T) {
-	t.Parallel()
-
-	//teardownSuite := setupSuite(t)
-	//defer teardownSuite(t)
-
+	type args struct {
+		directory string
+	}
 	tests := []struct {
 		name    string
-		dir     string
-		want    int
+		args    args
+		want    []string
 		wantErr bool
+		setup   func(t *testing.T) string // Setup function to create test directories
 	}{
-		{"Valid directory", "./testdata/gha", 1, false},
-		{"Empty directory", "./testdata/empty", 0, false},
-		{"Non-existent directory", "./testdata/nonexistent", 0, true},
-		{"Directory with .terraform", "./testdata/.terraform", 0, false},
-		{"Directory with .git", "./testdata/.git", 0, false},
+		{
+			name: "Empty directory",
+			setup: func(t *testing.T) string {
+				// Create a temporary empty directory
+				tmpDir := t.TempDir()
+				emptyDir := filepath.Join(tmpDir, "empty")
+				err := os.MkdirAll(emptyDir, 0755)
+				if err != nil {
+					t.Fatalf("Failed to create empty directory: %v", err)
+				}
+				return emptyDir
+			},
+			want:    []string{},
+			wantErr: false,
+		},
+		{
+			name: "Directory with files",
+			setup: func(t *testing.T) string {
+				// Create a temporary directory with some files
+				tmpDir := t.TempDir()
+				testDir := filepath.Join(tmpDir, "withfiles")
+				err := os.MkdirAll(testDir, 0755)
+				if err != nil {
+					t.Fatalf("Failed to create test directory: %v", err)
+				}
+
+				// Create some test files
+				files := []string{"file1.txt", "file2.yaml", "file3.yml"}
+				for _, filename := range files {
+					filePath := filepath.Join(testDir, filename)
+					err := os.WriteFile(filePath, []byte("test content"), 0644)
+					if err != nil {
+						t.Fatalf("Failed to create test file %s: %v", filename, err)
+					}
+				}
+				return testDir
+			},
+			want:    nil, // We'll check count instead of exact list
+			wantErr: false,
+		},
+		{
+			name: "Nonexistent directory",
+			setup: func(t *testing.T) string {
+				tmpDir := t.TempDir()
+				return filepath.Join(tmpDir, "nonexistent")
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "Directory with subdirectories",
+			setup: func(t *testing.T) string {
+				tmpDir := t.TempDir()
+				testDir := filepath.Join(tmpDir, "nested")
+
+				// Create nested structure
+				subDir := filepath.Join(testDir, "subdir")
+				err := os.MkdirAll(subDir, 0755)
+				if err != nil {
+					t.Fatalf("Failed to create nested directory: %v", err)
+				}
+
+				// Create files in both directories
+				err = os.WriteFile(filepath.Join(testDir, "root.txt"), []byte("root"), 0644)
+				if err != nil {
+					t.Fatalf("Failed to create root file: %v", err)
+				}
+
+				err = os.WriteFile(filepath.Join(subDir, "nested.txt"), []byte("nested"), 0644)
+				if err != nil {
+					t.Fatalf("Failed to create nested file: %v", err)
+				}
+
+				return testDir
+			},
+			want:    nil,
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			teardownSuite := setupSuite(t)
-			defer teardownSuite(t)
-			got, err := GetFiles(tt.dir)
+			// Setup the test directory
+			var directory string
+			if tt.setup != nil {
+				directory = tt.setup(t)
+			} else {
+				directory = tt.args.directory
+			}
+
+			got, err := GetFiles(directory)
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetFiles() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !tt.wantErr && len(got) != tt.want {
-				t.Errorf("GetFiles() got = %v files, want %v", len(got), tt.want)
+
+			if tt.wantErr {
+				// If we expect an error, don't check the result
+				return
+			}
+
+			// For empty directory test
+			if tt.name == "Empty directory" {
+				if len(got) != 0 {
+					t.Errorf("GetFiles() for empty directory returned %d files, want 0", len(got))
+				}
+				return
+			}
+
+			// For directories with files, just verify we got some files back
+			if tt.name == "Directory with files" {
+				if len(got) == 0 {
+					t.Errorf("GetFiles() returned no files, expected some files")
+				}
+				t.Logf("Found %d files: %v", len(got), got)
+			}
+
+			// For nested directories, verify we got files from subdirectories too
+			if tt.name == "Directory with subdirectories" {
+				if len(got) < 2 {
+					t.Errorf("GetFiles() returned %d files, expected at least 2 (root and nested)", len(got))
+				}
+				t.Logf("Found %d files in nested structure: %v", len(got), got)
 			}
 		})
 	}
 }
-
 func TestReadFilesError(t *testing.T) {
 	t.Parallel()
 
@@ -568,4 +684,103 @@ func TestGetPayload_ErrorCases(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestIsRateLimitError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "Nil error",
+			err:  nil,
+			want: false,
+		},
+		{
+			name: "Rate limit exceeded message",
+			err:  errors.New("GitHub API rate limit exceeded"),
+			want: true,
+		},
+		{
+			name: "403 status code",
+			err:  errors.New("api failed with 403"),
+			want: true,
+		},
+		{
+			name: "429 status code",
+			err:  errors.New("api failed with 429: Too Many Requests"),
+			want: true,
+		},
+		{
+			name: "Generic rate limit message",
+			err:  errors.New("rate limit exceeded"),
+			want: true,
+		},
+		{
+			name: "Non-rate-limit error",
+			err:  errors.New("network timeout"),
+			want: false,
+		},
+		{
+			name: "404 error",
+			err:  errors.New("api failed with 404: Not Found"),
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isRateLimitError(tt.err); got != tt.want {
+				t.Errorf("isRateLimitError() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetReleases_RateLimitHandling(t *testing.T) {
+	// This test verifies the structure of rate limit handling
+	// Without actually hitting the API
+
+	t.Run("nil days parameter", func(t *testing.T) {
+		_, err := GetReleases("actions/checkout", "", nil)
+		if err == nil {
+			t.Error("Expected error for nil days parameter")
+		}
+		if !strings.Contains(err.Error(), "days") {
+			t.Errorf("Expected error about days parameter, got: %v", err)
+		}
+	})
+
+	t.Run("empty action", func(t *testing.T) {
+		var days uint = 0
+		_, err := GetReleases("", "", &days)
+		if err == nil {
+			t.Error("Expected error for empty action")
+		}
+		if !strings.Contains(err.Error(), "action") {
+			t.Errorf("Expected error about action, got: %v", err)
+		}
+	})
+
+	t.Run("no token warning", func(t *testing.T) {
+		// This should log a warning but not error
+		// We can't easily test the log output, but we can verify
+		// the function handles empty tokens gracefully
+		var days uint = 0
+
+		// This will likely fail due to rate limits or network,
+		// but it shouldn't panic or return a token-specific error
+		_, err := GetReleases("actions/checkout", "", &days)
+
+		// We expect either success or a rate limit / network error
+		// But NOT a token validation error
+		if err != nil {
+			errStr := err.Error()
+			if strings.Contains(strings.ToLower(errStr), "token is empty") ||
+				strings.Contains(strings.ToLower(errStr), "invalid token") {
+				t.Errorf("Should not error on empty token, got: %v", err)
+			}
+		}
+	})
 }

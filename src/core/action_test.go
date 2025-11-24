@@ -11,7 +11,7 @@ func TestFlags_Action(t *testing.T) {
 		File        string
 		Directory   string
 		GitHubToken string
-		Days        uint
+		Days        *uint
 		DryRun      bool
 		Entries     []string
 		Update      bool
@@ -21,13 +21,17 @@ func TestFlags_Action(t *testing.T) {
 		Action string
 	}
 
-	dir := fields{"", "testdata/files/", gitHubToken, 0, false, nil, true}
-	bogus := fields{"", "testdata/bogus/", gitHubToken, 0, false, nil, true}
-	empty := fields{"", "testdata/empty", gitHubToken, 0, false, nil, true}
-	dirDry := fields{"", "testdata/files/", gitHubToken, 0, true, nil, true}
-	fileGHA := fields{"testdata/files/ci.yml", "testdata/files/", gitHubToken, 0, true, nil, true}
-	file := fields{"testdata/files/module.tf", "testdata/files/", gitHubToken, 0, true, nil, true}
-	noFile := fields{"testdata/files/guff.tf", "testdata/files/", gitHubToken, 0, true, nil, true}
+	var days uint
+
+	days = 0
+
+	dir := fields{"", "testdata/files/", gitHubToken, &days, false, nil, true}
+	bogus := fields{"", "testdata/bogus/", gitHubToken, &days, false, nil, true}
+	empty := fields{"", "testdata/empty", gitHubToken, &days, false, nil, true}
+	dirDry := fields{"", "testdata/files/", gitHubToken, &days, true, nil, true}
+	fileGHA := fields{"testdata/files/ci.yml", "testdata/files/", gitHubToken, &days, true, nil, true}
+	file := fields{"testdata/files/module.tf", "testdata/files/", gitHubToken, &days, true, nil, true}
+	noFile := fields{"testdata/files/guff.tf", "testdata/files/", gitHubToken, &days, true, nil, true}
 
 	_ = os.Remove("testdata/empty")
 
