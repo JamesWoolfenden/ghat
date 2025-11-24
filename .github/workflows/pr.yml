@@ -13,13 +13,13 @@ jobs:
         uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
           go-version: 1.24.x
-      - name: Restore cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-mod-
+#      - name: Restore cache
+#        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+#        with:
+#          path: ~/go/pkg/mod
+#          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+#          restore-keys: |
+#            ${{ runner.os }}-go-mod-
 #      - name: gofumpt
 #        uses: jameswoolfenden/auto-gofmt@99a3ed2b78b6c01d70db1740ba16d3dff60003df # v0.0.3
   test:
@@ -35,13 +35,13 @@ jobs:
         uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
           go-version: ${{ matrix.go-version }}
-      - name: Restore cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-mod-
+#      - name: Restore cache
+#        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+#        with:
+#          path: ~/go/pkg/mod
+#          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+#          restore-keys: |
+#            ${{ runner.os }}-go-mod-
       - name: Build
         run: go build ./...
 
