@@ -12,7 +12,7 @@ func TestFlags_GetType(t *testing.T) {
 		File        string
 		Directory   string
 		GitHubToken string
-		Days        uint
+		Days        *uint
 		DryRun      bool
 		Entries     []string
 		Update      bool
@@ -89,11 +89,14 @@ func TestFlags_UpdateSource(t *testing.T) {
 		File        string
 		Directory   string
 		GitHubToken string
-		Days        uint
+		Days        *uint
 		DryRun      bool
 		Entries     []string
 		Update      bool
 	}
+
+	var days uint = 0
+
 	type args struct {
 		module     string
 		moduleType string
@@ -112,7 +115,7 @@ func TestFlags_UpdateSource(t *testing.T) {
 		{"Local paths not found", fields{}, args{"./somewhere", "local", ""}, "./somewhere", "", false},
 
 		{"github",
-			fields{"", "", gitHubToken, 0, false, nil, true},
+			fields{"", "", gitHubToken, &days, false, nil, true},
 			args{"github.com/hashicorp/terraform-aws-consul", "github", ""},
 			"git::https://github.com/hashicorp/terraform-aws-consul.git?ref=e9ceb573687c3d28516c9e3714caca84db64a766",
 			"v0.11.0",
@@ -124,38 +127,38 @@ func TestFlags_UpdateSource(t *testing.T) {
 			"",
 			true},
 		{"git",
-			fields{"", "", gitHubToken, 0, false, nil, false},
+			fields{"", "", gitHubToken, &days, false, nil, false},
 			args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git", "git", ""},
-			"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=2c24bd2b005d804cddaa4a09aa39a5a82d0ee9fb",
-			"v2.3.0", false},
+			"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=b67d63d7f4b1cd7886909fa5c5c5893ecad55734",
+			"v3.0.0", false},
 		{"git update",
-			fields{"", "", gitHubToken, 0, false, nil, true},
+			fields{"", "", gitHubToken, &days, false, nil, true},
 			args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git", "git", ""},
-			"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=2c24bd2b005d804cddaa4a09aa39a5a82d0ee9fb",
-			"v2.3.0", false},
+			"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=b67d63d7f4b1cd7886909fa5c5c5893ecad55734",
+			"v3.0.0", false},
 		{"git version",
-			fields{"", "", gitHubToken, 0, false, nil, false},
+			fields{"", "", gitHubToken, &days, false, nil, false},
 			args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=v1.0.0", "git", ""},
 			"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=c1a0698ae1ae4ced03399809ef3e0253b07c44a9",
 			"v1.0.0", false},
 		{"git version update",
-			fields{"", "", gitHubToken, 0, false, nil, true},
+			fields{"", "", gitHubToken, &days, false, nil, true},
 			args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=v1.0.0", "git", ""},
-			"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=2c24bd2b005d804cddaa4a09aa39a5a82d0ee9fb",
-			"v2.3.0", false},
+			"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=b67d63d7f4b1cd7886909fa5c5c5893ecad55734",
+			"v3.0.0", false},
 		{"git version missing",
-			fields{"", "", gitHubToken, 0, false, nil, false},
+			fields{"", "", gitHubToken, &days, false, nil, false},
 			args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=v1.2.0", "git", ""},
 			"", "", true},
 		{"git hash",
-			fields{"", "", gitHubToken, 0, false, nil, false},
+			fields{"", "", gitHubToken, &days, false, nil, false},
 			args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=c6d56c1", "git", ""},
 			"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=c6d56c1", "c6d56c1", false},
 		{name: "git hash update",
-			fields:  fields{"", "", gitHubToken, 0, false, nil, true},
+			fields:  fields{"", "", gitHubToken, &days, false, nil, true},
 			args:    args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=93facd14e9e3a66704d84a0236a8a3b813f047be", "git", ""},
-			want:    "git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=2c24bd2b005d804cddaa4a09aa39a5a82d0ee9fb",
-			want1:   "v2.3.0",
+			want:    "git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git?ref=b67d63d7f4b1cd7886909fa5c5c5893ecad55734",
+			want1:   "v3.0.0",
 			wantErr: false},
 
 		//{"git query string", fields{}, args{"git::https://github.com/terraform-aws-modules/terraform-aws-memory-db.git"}, "git", false},
@@ -195,13 +198,13 @@ func TestFlags_UpdateSource(t *testing.T) {
 			"",
 			false},
 		{"subdir registry",
-			fields{"", "", gitHubToken, 0, false, nil, true},
+			fields{"", "", gitHubToken, &days, false, nil, true},
 			args{"hashicorp/consul/aws//modules/consul-cluster", "registry", ""},
 			"git::https://github.com/hashicorp/terraform-aws-consul.git//modules/consul-cluster?ref=e9ceb573687c3d28516c9e3714caca84db64a766",
 			"v0.11.0",
 			false},
 		{"subdir github",
-			fields{"", "", gitHubToken, 0, false, nil, true},
+			fields{"", "", gitHubToken, &days, false, nil, true},
 			args{"github.com/hashicorp/terraform-aws-consul//modules/consul-cluster", "github", ""},
 			"git::https://github.com/hashicorp/terraform-aws-consul.git//modules/consul-cluster?ref=e9ceb573687c3d28516c9e3714caca84db64a766",
 			"v0.11.0",
@@ -243,7 +246,7 @@ func TestFlags_UpdateGithubSource(t *testing.T) {
 		File            string
 		Directory       string
 		GitHubToken     string
-		Days            uint
+		Days            *uint
 		DryRun          bool
 		Entries         []string
 		Update          bool
@@ -312,7 +315,7 @@ func TestFlags_UpdateModule(t *testing.T) {
 		File            string
 		Directory       string
 		GitHubToken     string
-		Days            uint
+		Days            *uint
 		DryRun          bool
 		Entries         []string
 		Update          bool

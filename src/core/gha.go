@@ -133,12 +133,12 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		action := strings.Split(match[1], "@")
 
 		action[0] = strings.TrimSpace(action[0])
-		body, err := getPayload(action[0], myFlags.GitHubToken, &myFlags.Days)
+		body, err := getPayload(action[0], myFlags.GitHubToken, myFlags.Days)
 
 		if err != nil {
 			splitter := strings.SplitN(action[0], "/", 3)
 			newUrl = splitter[0] + "/" + splitter[1]
-			body, err = getPayload(newUrl, myFlags.GitHubToken, &myFlags.Days)
+			body, err = getPayload(newUrl, myFlags.GitHubToken, myFlags.Days)
 			if err != nil {
 				if myFlags.ContinueOnError {
 					log.Info().Err(err)
@@ -249,63 +249,81 @@ func getHash(action string, tag string, gitHubToken string) (interface{}, error)
 	return GetGithubBody(gitHubToken, url)
 }
 
-// GetGithubBody requests a URL using gitHub PAT for auth
-func GetGithubBody(gitHubToken string, url string) (interface{}, error) {
-	var body []byte
-
-	if gitHubToken != "" {
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			return nil, fmt.Errorf("request failed %w", err)
-		}
-
-		req.Header.Add("Authorization", "Bearer "+gitHubToken)
-		client := &http.Client{
-			Timeout: time.Second * 30}
-
-		resp, err := client.Do(req)
-
-		if resp == nil {
-			return nil, fmt.Errorf("api failed to respond")
-		}
-
-		if resp.StatusCode != 200 {
-			return nil, fmt.Errorf("api failed with %d", resp.StatusCode)
-		}
-
-		defer func(Body io.ReadCloser) {
-			_ = Body.Close()
-		}(resp.Body)
-
-		if err != nil {
-			return nil, fmt.Errorf("client failed %w", err)
-		}
-
-		body, err = io.ReadAll(resp.Body)
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to read body %w", err)
-		}
-
-	} else {
-		log.Warn().Msgf("failing back to anonymous auth")
-		resp, err := http.Get(url)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get url %w", err)
-		}
-
-		body, err = io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read body %w", err)
+// GetGithubBodyWithCache fetches data from GitHub API with caching support
+func GetGithubBodyWithCache(token, url string, cache *Cache) (interface{}, error) {
+	// Try cache first
+	if cache != nil && cache.enabled {
+		if cached, found := cache.Get(url); found {
+			log.Debug().Str("url", url).Msg("Using cached response")
+			return cached, nil
 		}
 	}
 
-	var msg interface{}
-
-	err := json.Unmarshal(body, &msg)
+	// Fetch from API
+	log.Debug().Str("url", url).Msg("Fetching from GitHub API")
+	data, err := GetGithubBody(token, url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal %w", err)
+		return nil, err
 	}
 
-	return msg, nil
+	// Store in cache
+	if cache != nil && cache.enabled {
+		if err := cache.Set(url, data); err != nil {
+			log.Warn().Err(err).Msg("Failed to cache response")
+		}
+	}
+
+	return data, nil
+}
+
+// GetGithubBody fetches data from GitHub API (existing function, keep as-is for compatibility)
+func GetGithubBody(token, url string) (interface{}, error) {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add authentication if token provided
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	// Set user agent
+	req.Header.Set("User-Agent", "ghat")
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check rate limiting
+	if resp.StatusCode == 403 {
+		if resp.Header.Get("X-RateLimit-Remaining") == "0" {
+			resetTime := resp.Header.Get("X-RateLimit-Reset")
+			return nil, fmt.Errorf("GitHub API rate limit exceeded, resets at %s", resetTime)
+		}
+	}
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var result interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	return result, nil
 }

@@ -18,7 +18,6 @@ import (
 )
 
 func (myFlags *Flags) UpdateModule(file string) error {
-
 	var version string
 	var newValue string
 
@@ -28,10 +27,12 @@ func (myFlags *Flags) UpdateModule(file string) error {
 	}
 
 	inFile, _ := hclwrite.ParseConfig(src, "", hcl.Pos{Line: 1, Column: 1})
-	outFile := hclwrite.NewEmptyFile()
 
-	newBody := outFile.Body()
-	root := inFile.Body()
+	// FIX: Don't create a new file! Work with the original inFile
+	// outFile := hclwrite.NewEmptyFile()  // REMOVE THIS LINE
+	// newBody := outFile.Body()            // REMOVE THIS LINE
+
+	root := inFile.Body() // Work directly with the original file's body
 
 	for _, block := range root.Blocks() {
 		if block.Type() == "module" {
@@ -49,17 +50,20 @@ func (myFlags *Flags) UpdateModule(file string) error {
 				newValue, version, err = myFlags.UpdateSource(source, myType, version)
 				if err != nil {
 					log.Info().Msgf("failed to update module source %s", err)
+				} else {
+					block.Body().SetAttributeValue("source", cty.StringVal(newValue))
 				}
-				block.Body().SetAttributeValue("source", cty.StringVal(newValue))
 			}
 		}
 
-		newBody.AppendBlock(block)
+		// FIX: Don't append blocks - they're already in the original file!
+		// newBody.AppendBlock(block)  // REMOVE THIS LINE
 	}
 
 	var differ bool
 
-	temp := string(outFile.Bytes())
+	// FIX: Use inFile instead of outFile
+	temp := string(inFile.Bytes())
 
 	if version != "" {
 		find := "\"" + newValue + "\""
@@ -428,12 +432,8 @@ func (myFlags *Flags) GetGithubLatestHash(newModule string) (string, string, err
 }
 
 func (myFlags *Flags) GetGithubHash(newModule string, tag string) (string, error) {
-	var err error
-
 	var hash string
-
 	var url string
-
 	var payload interface{}
 
 	name := strings.Split(newModule, "github.com/")
@@ -443,30 +443,90 @@ func (myFlags *Flags) GetGithubHash(newModule string, tag string) (string, error
 
 	if valid {
 		url = "https://api.github.com/repos/" + action[0] + "/git/ref/tags/" + tag
-		payload, err = GetGithubBody(myFlags.GitHubToken, url)
+
+		// Use cached version if cache is available
+		var err error
+		if myFlags.Cache != nil {
+			payload, err = GetGithubBodyWithCache(myFlags.GitHubToken, url, myFlags.Cache)
+		} else {
+			payload, err = GetGithubBody(myFlags.GitHubToken, url)
+		}
 
 		if err != nil {
 			// retry as version is truncated
 			if strings.Count(tag, ".") == 1 {
 				tag = tag + ".0"
 				url = "https://api.github.com/repos/" + action[0] + "/git/ref/tags/" + tag
-				payload, err = GetGithubBody(myFlags.GitHubToken, url)
+
+				if myFlags.Cache != nil {
+					payload, err = GetGithubBodyWithCache(myFlags.GitHubToken, url, myFlags.Cache)
+				} else {
+					payload, err = GetGithubBody(myFlags.GitHubToken, url)
+				}
+
 				if err != nil {
 					log.Info().Msgf("failed to find tag %s", tag)
 					return "", err
 				}
 			} else {
+				log.Info().Msgf("failed to understand %s", tag)
 				return "", err
 			}
-		} else {
-			log.Info().Msgf("failed to understand %s", tag)
 		}
 
-		assertedPayload := payload.(map[string]interface{})
+		if payload == nil {
+			return "", fmt.Errorf("received nil payload for tag %s", tag)
+		}
 
-		object := assertedPayload["object"].(map[string]interface{})
+		assertedPayload, ok := payload.(map[string]interface{})
+		if !ok {
+			return "", fmt.Errorf("unexpected payload type for tag %s: %T", tag, payload)
+		}
 
-		hash = object["sha"].(string)
+		// GitHub API response structure:
+		// For git/ref/tags endpoint, response is:
+		// {
+		//   "ref": "refs/tags/v0.3.12",
+		//   "node_id": "...",
+		//   "url": "...",
+		//   "object": {
+		//     "sha": "commit-hash",
+		//     "type": "commit" or "tag",
+		//     "url": "..."
+		//   }
+		// }
+
+		object, ok := assertedPayload["object"].(map[string]interface{})
+		if !ok {
+			return "", fmt.Errorf("missing or invalid 'object' field in response for tag %s. Response: %+v", tag, assertedPayload)
+		}
+
+		// Get the type to determine if we need to dereference an annotated tag
+		objectType, _ := object["type"].(string)
+		sha, ok := object["sha"].(string)
+		if !ok {
+			return "", fmt.Errorf("missing or invalid 'sha' field in object for tag %s", tag)
+		}
+
+		// If it's an annotated tag, we need to dereference it to get the commit
+		if objectType == "tag" {
+			// Fetch the tag object to get the actual commit SHA
+			tagUrl, _ := object["url"].(string)
+			if tagUrl != "" {
+				tagPayload, err := GetGithubBody(myFlags.GitHubToken, tagUrl)
+				if err == nil && tagPayload != nil {
+					if tagMap, ok := tagPayload.(map[string]interface{}); ok {
+						if tagObject, ok := tagMap["object"].(map[string]interface{}); ok {
+							if commitSha, ok := tagObject["sha"].(string); ok {
+								sha = commitSha
+							}
+						}
+					}
+				}
+			}
+		}
+
+		hash = sha
 	} else {
 		if len(tag) == 40 || len(tag) == 7 {
 			hash = tag
@@ -475,5 +535,5 @@ func (myFlags *Flags) GetGithubHash(newModule string, tag string) (string, error
 		}
 	}
 
-	return hash, err
+	return hash, nil
 }
