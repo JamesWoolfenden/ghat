@@ -12,7 +12,7 @@
 [![Github All Releases](https://img.shields.io/github/downloads/jameswoolfenden/ghat/total.svg)](https://github.com/JamesWoolfenden/ghat/releases)
 [![codecov](https://codecov.io/gh/JamesWoolfenden/ghat/graph/badge.svg?token=P9V791WMRE)](https://codecov.io/gh/JamesWoolfenden/ghat)
 
-Ghat is a tool  (GHAT) for updating dependencies in a GHA - GitHub Action, **managing Terraform Dependencies** and pre-commit configs. It replaces insecure mutable tags with immutable commit hashes as well as using the latest released version:
+Ghat is a tool (GHAT) for updating dependencies in GitHub Actions, GitLab CI/CD, **managing Terraform module and provider versions**, and pre-commit configs. It replaces insecure mutable tags with immutable commit hashes and container image digests, and updates provider versions to their latest stable releases:
 
 ```yml
    ## sets up go based on the version
@@ -42,7 +42,53 @@ Becomes
 
 Ghat will use your GitHub credentials, if available, from your environment using the environmental variables GITHUB_TOKEN or GITHUB_API, but it can also drop back to anonymous access, the drawback is that this is severely rate limited by gitHub.
 
-Ghat also manages Terraform modules, to give you the most secure reference, so:
+Ghat also manages GitLab CI/CD container images by replacing mutable tags with immutable SHA256 digests:
+
+```yaml
+build-job:
+  stage: build
+  image: golang:1.21
+  script:
+    - go build
+```
+
+Becomes:
+
+```yaml
+build-job:
+  stage: build
+  image: golang@sha256:4746d26432a9117a5f58e95cb9f954ddf0de128e9d5816886514199316e4a2fb # 1.21
+  script:
+    - go build
+```
+
+It manages Terraform provider versions by querying the Terraform Registry and updating to the latest stable versions:
+
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+```
+
+Becomes:
+
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "6.22.1"
+    }
+  }
+}
+```
+
+And it manages Terraform modules, to give you the most secure reference, so:
 
 ```terraform
 module "ip" {
@@ -76,9 +122,15 @@ module "ip" {
       - [directory](#directory-scan)
       - [file](#file-scan)
       - [stable](#stable-releases)
-      - [pre-commit](#pre-commit)
+    - [stun](#stun)
+      - [directory scan](#directory-scan-1)
+      - [dry-run](#dry-run)
+    - [shake](#shake)
+      - [directory scan](#directory-scan-2)
+      - [file scan](#file-scan-1)
     - [swipe](#swipe)
     - [sift](#sift)
+    - [pre-commit](#pre-commit)
 
 <!--toc:end-->
 
@@ -162,6 +214,106 @@ I got you covered:
 $ghat swot -d . --stable 14
 ```
 
+### stun
+
+Stun updates GitLab CI/CD container image references to use immutable SHA256 digests instead of mutable tags. This prevents supply chain attacks through image tampering and ensures build reproducibility.
+
+#### Directory scan
+
+This will look for `.gitlab-ci.yml` in the directory and update all container image references:
+
+```bash
+$ghat stun -d .
+```
+
+#### Dry-run
+
+Preview changes without modifying the file:
+
+```bash
+$ghat stun -d . --dry-run
+```
+
+**Features:**
+
+- Supports both simple (`image: golang:1.21`) and complex (`image: { name: golang:1.21 }`) image formats
+- Works with Docker Hub, GitHub Container Registry (ghcr.io), and custom OCI registries
+- Automatically skips GitLab CI variables (e.g., `$CI_REGISTRY_IMAGE`)
+- Preserves original tag as a comment for readability
+- Shows colored diff of changes
+
+**Example output:**
+
+```yaml
+# Before
+image: node:18-alpine
+
+# After
+image: node@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e # 18-alpine
+```
+
+### shake
+
+Shake updates Terraform provider versions to their latest stable releases by querying the Terraform Registry API. It replaces version constraints with specific version numbers.
+
+#### Directory scan
+
+Scan all Terraform files in a directory for provider updates:
+
+```bash
+$ghat shake -d .
+```
+
+#### File scan
+
+Update providers in a specific file:
+
+```bash
+$ghat shake -f providers.tf
+```
+
+**Features:**
+
+- Queries the official Terraform Registry API for latest versions
+- Replaces version constraints (`~>`, `>=`, etc.) with specific versions
+- Supports all Terraform Registry providers
+- Skips pre-release versions by default
+- Shows colored diff of changes
+- `--dryrun` flag for preview
+- `--continue-on-error` flag to process all files even if some fail
+
+**Example:**
+
+```hcl
+# Before
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.0"
+    }
+  }
+}
+
+# After
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "6.22.1"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "3.7.2"
+    }
+  }
+}
+```
+
 ### Swipe
 
 Updates Terraform modules to use secure module references, and displays a file diff:
@@ -234,6 +386,8 @@ AUTHOR:
 
 COMMANDS:
    sift, p     updates pre-commit version with  hashes
+   shake, k    updates Terraform provider versions to latest stable releases
+   stun, t     updates GitLab CI/CD container images with SHA256 digests
    swipe, w    updates Terraform module versions with versioned hashes
    swot, a     updates GHA versions for hashes
    version, v  Outputs the application version

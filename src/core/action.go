@@ -10,6 +10,7 @@ const (
 	ActionSwot  = "swot"
 	ActionSift  = "sift"
 	ActionStun  = "stun"
+	ActionShake = "shake"
 )
 
 func (myFlags *Flags) Action(action string) error {
@@ -76,6 +77,10 @@ func executeAction(action string, myFlags *Flags) error {
 	case ActionStun:
 		{
 			return myFlags.UpdateGitlab()
+		}
+	case ActionShake:
+		{
+			return myFlags.UpdateProviders()
 		}
 	}
 

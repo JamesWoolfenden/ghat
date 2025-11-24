@@ -57,6 +57,13 @@ func TestGetBody(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := GetGithubBody(tt.args.gitHubToken, tt.args.url)
+
+			// Handle rate limit errors for anonymous requests (no token)
+			if err != nil && tt.args.gitHubToken == "" && strings.Contains(err.Error(), "rate limit") {
+				t.Skipf("Skipping test due to GitHub API rate limit (expected for anonymous requests): %v", err)
+				return
+			}
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetGithubBody() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -22,3 +22,4 @@ tf.plan
 tf.json
 ghat-test
 dist/
+.claude/

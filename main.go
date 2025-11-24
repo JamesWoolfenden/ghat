@@ -155,6 +155,7 @@ func main() {
 					},
 				},
 			},
+			shakeCmd,
 			cacheCmd,
 			swotCmd,
 		},
@@ -264,6 +265,42 @@ var swotCmd = &cli.Command{
 }
 
 // Add similar flags to swipe and sift commands
+var shakeCmd = &cli.Command{
+	Name:    "shake",
+	Aliases: []string{"k"},
+	Usage:   "updates Terraform provider versions to latest",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "directory",
+			Aliases: []string{"d"},
+			Usage:   "Directory to scan for Terraform files",
+			Value:   ".",
+		},
+		&cli.StringFlag{
+			Name:    "file",
+			Aliases: []string{"f"},
+			Usage:   "Specific Terraform file to update",
+		},
+		&cli.BoolFlag{
+			Name:  "dryrun",
+			Usage: "Show changes without modifying files",
+		},
+		&cli.BoolFlag{
+			Name:  "continue-on-error",
+			Usage: "Continue processing files even if errors occur",
+		},
+	},
+	Action: func(c *cli.Context) error {
+		myFlags := core.NewFlags()
+		myFlags.Directory = c.String("directory")
+		myFlags.File = c.String("file")
+		myFlags.DryRun = c.Bool("dryrun")
+		myFlags.ContinueOnError = c.Bool("continue-on-error")
+
+		return myFlags.Action("shake")
+	},
+}
+
 var cacheCmd = &cli.Command{
 	Name:  "cache",
 	Usage: "Manage API response cache",
