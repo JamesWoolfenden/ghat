@@ -1,0 +1,26 @@
+stages:
+  - build
+  - test
+
+variables:
+  DOCKER_DRIVER: overlay2
+
+build-job:
+  stage: build
+  image: golang:1.21
+  script:
+    - go build
+
+test-job:
+  stage: test
+  image: node:18-alpine
+  script:
+    - npm test
+
+docker-build:
+  stage: build
+  image:
+    name: docker:24.0.5
+    entrypoint: [""]
+  script:
+    - docker build .

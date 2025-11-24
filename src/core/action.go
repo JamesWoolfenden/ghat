@@ -9,6 +9,7 @@ const (
 	ActionSwipe = "swipe"
 	ActionSwot  = "swot"
 	ActionSift  = "sift"
+	ActionStun  = "stun"
 )
 
 func (myFlags *Flags) Action(action string) error {
@@ -71,6 +72,10 @@ func executeAction(action string, myFlags *Flags) error {
 	case ActionSift:
 		{
 			return myFlags.UpdateHooks()
+		}
+	case ActionStun:
+		{
+			return myFlags.UpdateGitlab()
 		}
 	}
 

@@ -1,0 +1,297 @@
+include:
+  - project: engineering-productivity/ci-templates
+    ref: master
+    file: output/docker/base.yaml
+  - project: engineering-productivity/ci-templates
+    ref: master
+    file: output/security/base.yaml
+
+stages:
+  - check
+  - review
+  - end_review
+  - static-analysis
+  - security
+  - pre-config
+  - test
+  - terraform
+  - publish
+  - deploy
+  - documentation
+  - post-publish
+
+
+
+variables:
+  GIT_SUBMODULE_STRATEGY: normal
+  GCP_PROJECT: pangpt
+  CONFIG: dev
+  SECURE_CICD_BD_BEFORE_SCRIPT: pip3 install -r requirements.txt
+  DETECT_PIP_REQUIREMENTS_PATH: requirements.txt
+  DETECT_DETECTOR_SEARCH_DEPTH: 3
+
+
+.static:
+  image: docker-aisb.art.code.pan.run/static:latest
+  before_script:
+    - pip install -r requirements.txt --user --trusted-host=art.code.pan.run --index-url=https://art.code.pan.run/artifactory/api/pypi/pypi.org/simple/ --trusted-host=pypi.python.org --trusted-host=pypi.org --trusted-host=files.pythonhosted.org
+    - export PATH="${PATH}:$(python -c 'import site; print(site.USER_BASE)')/bin"
+
+.terragrunt:
+  image: docker-aisb.art.code.pan.run/terragrunt:e3b32f06
+  before_script:
+    - ./build/terraform/auth.sh
+    - gcloud auth activate-service-account --key-file ${CI_PROJECT_DIR}/infrastructure/env/.creds.json
+    - gcloud config set project ${GCP_PROJECT}
+
+.deployment:
+  image:
+    name: docker-aisb.art.code.pan.run/deployment:latest
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "develop"
+      variables:
+        GCP_PROJECT: pangpt
+        REACT_APP_DEV_URL: https://api.dev.chat.pan.dev
+        FRONTEND_DOMAIN: dev.chat.pan.dev.
+        BACKEND_DOMAIN: api.dev.chat.pan.dev.
+    - if: $CI_COMMIT_BRANCH == "main"
+      variables:
+        GCP_PROJECT: pangpt-prod
+        CONFIG: prod
+        REACT_APP_DEV_URL: https://api.chat.pan.dev
+        FRONTEND_DOMAIN: chat.pan.dev.
+        BACKEND_DOMAIN: api.chat.pan.dev.
+    - if: $CI_COMMIT_TAG =~ /^v(?:\d+.){2}(?:\d+)$/
+      variables:
+        GCP_PROJECT: pangpt-prod
+        CONFIG: prod
+        REACT_APP_DEV_URL: https://api.chat.pan.dev
+        FRONTEND_DOMAIN: chat.pan.dev.
+        BACKEND_DOMAIN: api.chat.pan.dev.
+
+lint:
+  stage: static-analysis
+  extends: .static
+  script:
+    - ./build/lint.sh
+
+pre-config-gcp:
+  stage: pre-config
+  extends: .terragrunt
+  rules:
+    - if: $CI_COMMIT_BRANCH == "infra" || $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+  script:
+    - ./build/config-gcp.sh
+
+terraform-plan:
+  stage: terraform
+  extends: .terragrunt
+  rules:
+    - if: $CI_COMMIT_BRANCH == "infra" || $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+  script:
+    - ./build/terraform/plan.sh
+
+terraform-apply:
+  stage: terraform
+  extends: .terragrunt
+  needs: ["terraform-plan"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "infra" || $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+  script:
+    - ./build/terraform/apply.sh
+
+backend:
+  stage: publish
+  extends: .kaniko upload gar
+  rules:
+    - if: $CI_COMMIT_BRANCH == "infra" || $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+  variables:
+    KANIKO_BEFORE_ENV: $CI_PROJECT_DIR/build/env.sh
+    DOCKERFILE: Dockerfile
+    CONTEXT_DIR: $CI_PROJECT_DIR/src/backend
+    GAR_PROJECT: $GCP_PROJECT
+    IMAGE_NAME_TEMPLATE: pangpt/backend
+
+frontend:
+  stage: publish
+  extends: .kaniko upload gar
+  rules:
+    - if: $CI_COMMIT_BRANCH == "infra" || $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+  variables:
+    KANIKO_BEFORE_ENV: $CI_PROJECT_DIR/build/env.sh
+    DOCKERFILE: Dockerfile
+    CONTEXT_DIR: $CI_PROJECT_DIR/src/frontend
+    GAR_PROJECT: $GCP_PROJECT
+    IMAGE_NAME_TEMPLATE: pangpt/frontend
+
+slack:
+  stage: publish
+  extends: .kaniko upload gar
+  rules:
+    - if: $CI_COMMIT_BRANCH == "infra" || $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+  variables:
+    KANIKO_BEFORE_ENV: $CI_PROJECT_DIR/build/env.sh
+    DOCKERFILE: slack/Dockerfile
+    CONTEXT_DIR: $CI_PROJECT_DIR/src
+    GAR_PROJECT: $GCP_PROJECT
+    IMAGE_NAME_TEMPLATE: pangpt/slack
+
+web-search:
+  stage: publish
+  extends: .kaniko upload gar
+  rules:
+    - if: $CI_COMMIT_BRANCH == "infra" || $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+  variables:
+    KANIKO_BEFORE_ENV: $CI_PROJECT_DIR/build/env.sh
+    DOCKERFILE: Dockerfile
+    CONTEXT_DIR: $CI_PROJECT_DIR/src/web-search
+    GAR_PROJECT: $GCP_PROJECT
+    IMAGE_NAME_TEMPLATE: pangpt/web-search
+
+
+deploy:
+  stage: deploy
+  extends: .deployment
+  rules:
+    - if: $CI_COMMIT_BRANCH == "infra" || $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+  script:
+    - ./build/configure.sh
+    - ./build/deploy.sh
+
+
+twistcli-scan-backend:
+  extends: .twistcli gar
+  image: docker.art.code.pan.run/build-tools--image-gcloud-twistcli:448.0.0.ep6
+  stage: post-publish
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+  variables:
+    IMAGE_URL: us-central1-docker.pkg.dev/${GCP_PROJECT}/pangpt/backend:latest
+
+twistcli-scan-frontend:
+  extends: .twistcli gar
+  image: docker.art.code.pan.run/build-tools--image-gcloud-twistcli:448.0.0.ep6
+  stage: post-publish
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+  variables:
+    IMAGE_URL: us-central1-docker.pkg.dev/${GCP_PROJECT}/pangpt/frontend:latest
+
+twistcli-scan-slack:
+  extends: .twistcli gar
+  image: docker.art.code.pan.run/build-tools--image-gcloud-twistcli:448.0.0.ep6
+  stage: post-publish
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+  variables:
+    IMAGE_URL: us-central1-docker.pkg.dev/${GCP_PROJECT}/pangpt/slack:latest
+
+stop_review:
+  extends: .terragrunt
+  stage: end_review
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
+      when: never
+    - if: $CI_COMMIT_REF_NAME =~ /(?i)\bstack\b/
+  when: manual
+  variables:
+    stack: $CI_COMMIT_REF_NAME
+  script:
+    - ./build/configure.sh $CI_COMMIT_REF_NAME
+    - ./build/delete.sh $CI_COMMIT_REF_SLUG
+  environment:
+    name: review/$CI_COMMIT_REF_SLUG
+    action: stop
+
+create_stack:
+  stage: review
+  script:
+    - echo "deploying $CI_COMMIT_REF_NAME"
+  environment:
+    name: review/$CI_COMMIT_REF_SLUG
+    url: https://$CI_COMMIT_REF_SLUG.build.dev.chat.pan.dev
+    on_stop: stop_review
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
+      when: never
+    - if: $CI_COMMIT_REF_NAME =~ /(?i)\bstack\b/
+
+stack-backend:
+  stage: review
+  extends: .kaniko upload gar
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
+      when: never
+    - if: $CI_COMMIT_REF_NAME =~ /(?i)\bstack\b/
+  variables:
+    KANIKO_BEFORE_ENV: $CI_PROJECT_DIR/build/env.sh
+    DOCKERFILE: Dockerfile
+    CONTEXT_DIR: $CI_PROJECT_DIR/src/backend
+    GAR_PROJECT: $GCP_PROJECT
+    IMAGE_NAME_TEMPLATE: ephemeral/backend
+
+stack-frontend:
+  stage: review
+  extends: .kaniko upload gar
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
+      when: never
+    - if: $CI_COMMIT_REF_NAME =~ /(?i)\bstack\b/
+  variables:
+    KANIKO_BEFORE_ENV: $CI_PROJECT_DIR/build/env-frontend.sh
+    DOCKERFILE: Dockerfile
+    CONTEXT_DIR: $CI_PROJECT_DIR/src/frontend
+    GAR_PROJECT: $GCP_PROJECT
+    IMAGE_NAME_TEMPLATE: ephemeral/frontend
+
+stack-deploy:
+  extends: .terragrunt
+  stage: deploy
+  needs: ["stack-frontend", "stack-backend"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "develop"
+      when: never
+    - if: $CI_COMMIT_REF_NAME =~ /(?i)\bstack\b/
+  variables:
+    stack: $CI_COMMIT_REF_NAME
+  script:
+    - ./build/configure.sh $CI_COMMIT_REF_NAME
+    - ./build/deploy.sh $CI_COMMIT_REF_NAME
+    - ./build/dns-create.sh $CI_COMMIT_REF_SLUG
+
+auto secure cicd:
+  stage: security
+  variables:
+    SECURE_CICD_BD_BEFORE_SCRIPT: "pip install -r requirements.txt --index-url=https://art.code.pan.run/artifactory/api/pypi/pypi.org/simple/"
+  trigger:
+    include:
+      - project: 'engineering-productivity/ci-templates'
+        ref: master
+        file: 'output/security/auto-securecicd.yaml'
+    strategy: depend
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+unittest-backend:
+  image: docker-aisb.art.code.pan.run/static:latest
+  stage: test
+  rules:
+  script:
+    - cd src/backend
+    - pip config set global.trusted-host "pypi.org files.pythonhosted.org pypi.python.org"
+    - pip install --trusted-host art.code.pan.run/artifactory/api/pypi/pypi-aisb -r ./requirements.txt
+    - pytest
+
+unittest-frontend:
+  image: node
+  stage: test
+  rules:
+  needs: [ 'unittest-backend']
+  script:
+    - cd src/frontend
+    - npm install --registry=https://art.code.pan.run/artifactory/api/npm/npm-registry/
+    - npm run build
+    - npm run test

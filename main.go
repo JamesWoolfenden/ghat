@@ -38,61 +38,45 @@ func main() {
 					return nil
 				},
 			},
-			//{
-			//	Name:      "swot",
-			//	Aliases:   []string{"a"},
-			//	Usage:     "updates GHA versions for hashes",
-			//	UsageText: "ghat swot",
-			//	Action: func(*cli.Context) error {
-			//		return myFlags.Action("swot")
-			//	},
-			//	Flags: []cli.Flag{
-			//		&cli.StringFlag{
-			//			Name:        "file",
-			//			Aliases:     []string{"f"},
-			//			Usage:       "GHA file to parse",
-			//			Destination: &myFlags.File,
-			//			Category:    "files",
-			//		},
-			//		&cli.StringFlag{
-			//			Name:        "directory",
-			//			Aliases:     []string{"d"},
-			//			Usage:       "Destination to update GHAs",
-			//			Value:       ".",
-			//			Destination: &myFlags.Directory,
-			//			Category:    "files",
-			//		},
-			//		&cli.UintFlag{
-			//			Name:        "stable",
-			//			Aliases:     []string{"s"},
-			//			Usage:       "days to wait for stabilisation of release",
-			//			Value:       0,
-			//			Destination: myFlags.Days,
-			//			DefaultText: "0",
-			//			Category:    "delay",
-			//		},
-			//		&cli.StringFlag{
-			//			Name:        "token",
-			//			Aliases:     []string{"t"},
-			//			Usage:       "Github PAT token",
-			//			Destination: &myFlags.GitHubToken,
-			//			Category:    "authentication",
-			//			EnvVars:     []string{"GITHUB_TOKEN", "GITHUB_API"},
-			//		},
-			//		&cli.BoolFlag{
-			//			Name:        "dry-run",
-			//			Usage:       "show but don't write changes",
-			//			Destination: &myFlags.DryRun,
-			//			Value:       false,
-			//		},
-			//		&cli.BoolFlag{
-			//			Name:        "continue-on-error",
-			//			Usage:       "just keep going",
-			//			Destination: &myFlags.ContinueOnError,
-			//			Value:       false,
-			//		},
-			//	},
-			//},
+			{
+				Name:      "stun",
+				Aliases:   []string{"t"},
+				Usage:     "updates Gitlab versions for hashes",
+				UsageText: "ghat stun",
+				Action: func(c *cli.Context) error {
+					myFlags.Directory = c.String("directory")
+					myFlags.DryRun = c.Bool("dry-run")
+
+					if c.IsSet("stable") {
+						stable := c.Uint("stable")
+						myFlags.Days = &stable
+					}
+
+					return myFlags.Action("stun")
+				},
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:     "directory",
+						Aliases:  []string{"d"},
+						Usage:    "repository Destination",
+						Value:    ".",
+						Category: "files",
+					},
+					&cli.UintFlag{
+						Name:        "stable",
+						Aliases:     []string{"s"},
+						Usage:       "days to wait for stabilisation of release",
+						Value:       0,
+						DefaultText: "0",
+						Category:    "delay",
+					},
+					&cli.BoolFlag{
+						Name:  "dry-run",
+						Usage: "show but don't write changes",
+						Value: false,
+					},
+				},
+			},
 			{
 				Name:      "swipe",
 				Aliases:   []string{"w"},
