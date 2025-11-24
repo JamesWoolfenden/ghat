@@ -21,7 +21,7 @@ jobs:
 #          restore-keys: |
 #            ${{ runner.os }}-go-mod-
       - name: gofumpt
-        uses: jameswoolfenden/auto-gofmt@v0.0.4
+        uses: jameswoolfenden/auto-gofmt@1cbf4876b8bf705bb47dffac024c3a96883c1e35 # v0.0.4
   test:
     strategy:
       matrix:
