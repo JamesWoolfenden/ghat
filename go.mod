@@ -3,7 +3,7 @@ module github.com/jameswoolfenden/ghat
 go 1.24.1
 
 require (
-	github.com/go-git/go-git/v5 v5.16.4
+	github.com/go-git/go-git/v5 v5.16.5
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/rs/zerolog v1.34.0
 	github.com/sergi/go-diff v1.4.0
