@@ -195,6 +195,10 @@ var swotCmd = &cli.Command{
 			Name:  "dryrun",
 			Usage: "Show changes without modifying files",
 		},
+		&cli.BoolFlag{
+			Name:  "continue-on-error",
+			Usage: "Continue processing files even if errors occur",
+		},
 		&cli.UintFlag{
 			Name:  "stable",
 			Usage: "Use releases from N days ago (more stable)",
@@ -220,6 +224,7 @@ var swotCmd = &cli.Command{
 		myFlags.Directory = c.String("directory")
 		myFlags.File = c.String("file")
 		myFlags.DryRun = c.Bool("dryrun")
+		myFlags.ContinueOnError = c.Bool("continue-on-error")
 
 		if c.IsSet("stable") {
 			stable := c.Uint("stable")

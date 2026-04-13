@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -139,6 +140,9 @@ func extractImages(content string) ([]string, error) {
 
 	// Recursively search for image fields
 	findImages(data, &images)
+
+	// Map iteration order is randomized; sort so callers/tests get a stable result.
+	sort.Strings(images)
 
 	return images, nil
 }
