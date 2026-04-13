@@ -53,6 +53,42 @@ const (
 	FilePermissions     = 0666
 )
 
+type revPin struct {
+	sha string
+	tag string
+}
+
+// rewritePreCommitRevs replaces each `rev:` line with `<sha> # <tag>` for repos
+// present in pins. Line-based so comments and formatting are preserved
+// (consistent with swot's behaviour in gha.go).
+func rewritePreCommitRevs(data string, pins map[string]revPin) string {
+	lines := strings.Split(data, "\n")
+	var currentRepo string
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(strings.SplitN(line, "#", 2)[0])
+
+		if after, ok := strings.CutPrefix(trimmed, "- repo:"); ok {
+			currentRepo = strings.TrimSpace(after)
+			continue
+		}
+
+		if !strings.HasPrefix(trimmed, "rev:") {
+			continue
+		}
+
+		p, ok := pins[currentRepo]
+		if !ok {
+			continue
+		}
+
+		indent := line[:strings.Index(line, "rev:")]
+		lines[i] = indent + "rev: " + p.sha + " # " + p.tag
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 func (myFlags *Flags) UpdateHooks() error {
 	var config *string
 	var err error
@@ -74,43 +110,39 @@ func (myFlags *Flags) UpdateHooks() error {
 		return &unmarshalJSONError{err}
 	}
 
-	var newRepos []Repo
+	// Resolve latest tag name + commit SHA for each GitHub-hosted repo.
+	pins := map[string]revPin{}
 
 	for _, item := range m.Repos {
-		action := strings.Replace(item.Repo, GitHubPrefix, "", 1)
+		if !strings.HasPrefix(item.Repo, GitHubPrefix) {
+			continue
+		}
+
+		action := strings.TrimPrefix(item.Repo, GitHubPrefix)
 		tag, err := GetLatestTag(action, myFlags.GitHubToken)
 
 		if err != nil {
 			log.Info().Msgf("failed to find %s", item.Repo)
-			// i dont want to delete hook
-			newRepos = append(newRepos, item)
 			continue
 		}
 
 		myTag := tag.(map[string]interface{})
-
 		commit := myTag["commit"].(map[string]interface{})
-
-		item.Rev = commit["sha"].(string) // myTag["name"].(string)
-
-		newRepos = append(newRepos, item)
+		pins[item.Repo] = revPin{
+			sha: commit["sha"].(string),
+			tag: myTag["name"].(string),
+		}
 	}
 
-	newConfigFile := m
-	newConfigFile.Repos = newRepos
-
-	newData, err := yaml.Marshal(&newConfigFile)
-	if err != nil {
-		return &marshalJSONError{err: err}
-	}
+	replacement := rewritePreCommitRevs(string(data), pins)
 
 	dmp := diffmatchpatch.New()
-	diffs := dmp.DiffMain(string(data), string(newData), false)
+	diffs := dmp.DiffMain(string(data), replacement, false)
 
 	fmt.Println(dmp.DiffPrettyText(diffs))
 
 	if !myFlags.DryRun {
-		err = os.WriteFile(*config, newData, FilePermissions)
+		err = os.WriteFile(*config, []byte(replacement), FilePermissions)
 		if err != nil {
 			log.Info().Msgf("failed to write %s", *config)
 

@@ -27,7 +27,7 @@ repos:
             - makefile
             - xml
       repo: https://github.com/Lucas-C/pre-commit-hooks
-      rev: a30f0d816e5062a67d87c8de753cfe499672b959
+      rev: ad1b27d73581aa16cca06fc4a0761fc563ffe8e8
     - hooks:
         - id: shell-lint
       repo: https://github.com/jameswoolfenden/pre-commit-shell
@@ -36,7 +36,7 @@ repos:
         - id: markdownlint
           exclude: src/testdata|testdata
       repo: https://github.com/igorshubovych/markdownlint-cli
-      rev: c8fd5003603dd6f12447314ecd935ba87c09aff5
+      rev: e72a3ca1632f0b11a07d171449fe447a7ff6795e
     - hooks:
         - id: terraform-fmt
           language_version: python3.11
@@ -58,7 +58,7 @@ repos:
     - hooks:
         - id: golangci-lint
       repo: https://github.com/golangci/golangci-lint
-      rev: dc16cf43c85d53f03e00a2f7b93a5e03a1435793
+      rev: 8f3b0c7ed018e57905fbd873c697e0b1ede605a5
     - hooks:
         - id: checkov
           language_version: python3.11
@@ -66,7 +66,7 @@ repos:
             - -d
             - .
       repo: https://github.com/bridgecrewio/checkov
-      rev: 9ea6d83d477afb3691795eda79d8f4dd56851d4b
+      rev: 46a6eeb0c061ecbc8cc690247fba47926ceb50ef
     - hooks:
         - id: ghat-go
           name: ghat
