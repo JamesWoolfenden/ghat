@@ -1,17 +1,16 @@
 package core
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path"
 	"regexp"
 	"sort"
 	"strings"
-	"time"
 
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/rs/zerolog/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"gopkg.in/yaml.v3"
@@ -233,158 +232,33 @@ func parseImageReference(image string) ImageReference {
 	return ref
 }
 
-// getImageDigest retrieves the SHA256 digest for a container image
+// getImageDigest retrieves the SHA256 digest for a container image.
+//
+// go-containerregistry's default keychain reads ~/.docker/config.json plus any
+// configured credential helpers, which transparently covers Docker Hub's
+// anonymous-token dance, GCR/AR, ECR, and any registry the user has run
+// `docker login` against (notably internal Artifactory). It also sends the
+// full Accept header set (manifest list / OCI index), so multi-arch images
+// resolve to the index digest rather than a single-arch manifest.
 func (myFlags *Flags) getImageDigest(ref ImageReference) (string, error) {
-	// For Docker Hub and standard registries
-	if ref.Registry == "docker.io" || ref.Registry == "registry.hub.docker.com" {
-		return getDockerHubDigest(ref.Repository, ref.Tag)
-	}
-
-	// For GitHub Container Registry
-	if ref.Registry == "ghcr.io" {
-		return getGHCRDigest(ref.Repository, ref.Tag, myFlags.GitHubToken)
-	}
-
-	// For other registries, try generic OCI registry API
-	return getOCIRegistryDigest(ref.Registry, ref.Repository, ref.Tag)
-}
-
-// getDockerHubDigest gets the digest from Docker Hub
-func getDockerHubDigest(repository, tag string) (string, error) {
-	// First, get auth token
-	tokenURL := fmt.Sprintf("https://auth.docker.io/token?service=registry.docker.io&scope=repository:%s:pull", repository)
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get(tokenURL)
+	parsed, err := name.ParseReference(ref.Original)
 	if err != nil {
-		return "", fmt.Errorf("failed to get auth token: %w", err)
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Warn().Err(err).Msg("failed to close response body")
-		}
-	}(resp.Body)
-
-	var tokenResp struct {
-		Token string `json:"token"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return "", fmt.Errorf("failed to parse token response: %w", err)
+		return "", fmt.Errorf("parse %q: %w", ref.Original, err)
 	}
 
-	// Now get the manifest
-	manifestURL := fmt.Sprintf("https://registry-1.docker.io/v2/%s/manifests/%s", repository, tag)
-	req, err := http.NewRequest("GET", manifestURL, nil)
+	opts := []remote.Option{remote.WithAuthFromKeychain(authn.DefaultKeychain)}
+	// Preserve the existing --github-token flag for ghcr.io so callers without
+	// a local docker login keep working.
+	if myFlags.GitHubToken != "" && parsed.Context().RegistryStr() == "ghcr.io" {
+		opts = []remote.Option{remote.WithAuth(&authn.Bearer{Token: myFlags.GitHubToken})}
+	}
+
+	desc, err := remote.Head(parsed, opts...)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return "", fmt.Errorf("resolve digest for %q: %w", ref.Original, err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+tokenResp.Token)
-	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-
-	resp, err = client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to get manifest: %w", err)
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Warn().Err(err).Msg("failed to close response body")
-		}
-	}(resp.Body)
-
-	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("manifest request failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	// Get digest from Docker-Content-Digest header
-	digest := resp.Header.Get("Docker-Content-Digest")
-	if digest == "" {
-		return "", fmt.Errorf("no digest found in response")
-	}
-
-	return digest, nil
-}
-
-// getGHCRDigest gets the digest from GitHub Container Registry
-func getGHCRDigest(repository, tag, token string) (string, error) {
-	manifestURL := fmt.Sprintf("https://ghcr.io/v2/%s/manifests/%s", repository, tag)
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	req, err := http.NewRequest("GET", manifestURL, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to get manifest: %w", err)
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Warn().Err(err).Msg("failed to close response body")
-		}
-	}(resp.Body)
-
-	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("manifest request failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	digest := resp.Header.Get("Docker-Content-Digest")
-	if digest == "" {
-		return "", fmt.Errorf("no digest found in response")
-	}
-
-	return digest, nil
-}
-
-// getOCIRegistryDigest gets digest from generic OCI registry
-func getOCIRegistryDigest(registry, repository, tag string) (string, error) {
-	manifestURL := fmt.Sprintf("https://%s/v2/%s/manifests/%s", registry, repository, tag)
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	req, err := http.NewRequest("GET", manifestURL, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to get manifest: %w", err)
-	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			log.Warn().Err(err).Msg("failed to close response body")
-		}
-	}(resp.Body)
-
-	if resp.StatusCode == 401 {
-		return "", fmt.Errorf("authentication required for registry %s", registry)
-	}
-
-	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("manifest request failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	digest := resp.Header.Get("Docker-Content-Digest")
-	if digest == "" {
-		return "", fmt.Errorf("no digest found in response")
-	}
-
-	return digest, nil
+	return desc.Digest.String(), nil
 }
 
 // formatImageWithDigest creates the new image reference with digest
