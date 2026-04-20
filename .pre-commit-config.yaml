@@ -66,7 +66,7 @@ repos:
             - -d
             - .
       repo: https://github.com/bridgecrewio/checkov
-      rev: 46a6eeb0c061ecbc8cc690247fba47926ceb50ef
+      rev: 68c02db9f1fb66ac561e7deb068be23413ace6bb
     - hooks:
         - id: ghat-go
           name: ghat
