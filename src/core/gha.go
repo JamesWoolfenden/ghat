@@ -147,7 +147,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			body, err = getPayload(newUrl, myFlags.GitHubToken, myFlags.Days)
 			if err != nil {
 				if myFlags.ContinueOnError {
-					log.Info().Err(err)
+					log.Info().Err(err).Msgf("skipping action %s", action[0])
 					continue
 				}
 				return fmt.Errorf("failed to retrieve data for action %s with %s", action[0], err)

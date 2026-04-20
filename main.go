@@ -219,28 +219,23 @@ var swotCmd = &cli.Command{
 		},
 	},
 	Action: func(c *cli.Context) error {
-		// Initialize flags
 		myFlags := core.NewFlags()
 		myFlags.Directory = c.String("directory")
 		myFlags.File = c.String("file")
 		myFlags.DryRun = c.Bool("dryrun")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
+		myFlags.GitHubToken = os.Getenv("GITHUB_TOKEN")
 
-		if c.IsSet("stable") {
-			stable := c.Uint("stable")
-			myFlags.Stable = &stable
-		}
+		stable := c.Uint("stable")
+		myFlags.Days = &stable
 
-		// Cache configuration
 		myFlags.CacheEnabled = !c.Bool("no-cache")
 		myFlags.CacheTTL = c.Duration("cache-ttl")
 
-		// Initialize cache
 		if err := myFlags.InitializeCache(); err != nil {
 			return fmt.Errorf("failed to initialize cache: %w", err)
 		}
 
-		// Clear cache if requested
 		if c.Bool("clear-cache") && myFlags.Cache != nil {
 			if err := myFlags.Cache.Clear(); err != nil {
 				log.Warn().Err(err).Msg("Failed to clear cache")
@@ -249,23 +244,16 @@ var swotCmd = &cli.Command{
 			}
 		}
 
-		// Show cache stats at the end
 		defer func() {
 			if myFlags.Cache != nil && myFlags.Cache.IsEnabled() {
 				count, size, err := myFlags.Cache.Stats()
 				if err == nil {
-					log.Info().
-						Int("entries", count).
-						Int64("size_bytes", size).
-						Msg("Cache statistics")
+					log.Info().Int("entries", count).Int64("size_bytes", size).Msg("Cache statistics")
 				}
 			}
 		}()
 
-		// Your existing command logic here
-		// ...
-
-		return nil
+		return myFlags.Action("swot")
 	},
 }
 
