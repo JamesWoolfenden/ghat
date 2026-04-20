@@ -133,6 +133,12 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		action := strings.Split(match[1], "@")
 
 		action[0] = strings.TrimSpace(action[0])
+
+		// Extract current SHA and tag if already pinned ("sha # tag" format)
+		var currentSHA, currentTag string
+		if len(action) > 1 {
+			currentSHA, currentTag = parsePinnedRef(action[1])
+		}
 		body, err := getPayload(action[0], myFlags.GitHubToken, myFlags.Days)
 
 		if err != nil {
@@ -187,6 +193,11 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 				continue
 			}
 
+			if isTagMutation(currentSHA, currentTag, sha, tag) {
+				log.Warn().Msgf("SUSPICIOUS: %s@%s — SHA changed from %s to %s with the same tag. "+
+					"The tag may have been moved to a different commit. Verify this is intentional before accepting.", action[0], tag, currentSHA, sha)
+			}
+
 			oldAction := action[0] + "@" + action[1]
 			newAction := action[0] + "@" + sha + " # " + tag //GET /repos/{owner}/{repo}/git/ref/tags/{tag_name}
 
@@ -212,6 +223,22 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 	}
 
 	return nil
+}
+
+// parsePinnedRef extracts the SHA and tag from a ref already pinned in "sha # tag" format.
+// Returns empty strings if the ref is not in that format.
+func parsePinnedRef(ref string) (sha, tag string) {
+	re := regexp.MustCompile(`^([0-9a-f]{40})\s+#\s+(.+)$`)
+	if m := re.FindStringSubmatch(strings.TrimSpace(ref)); m != nil {
+		return m[1], strings.TrimSpace(m[2])
+	}
+	return "", ""
+}
+
+// isTagMutation returns true when the same version tag now points to a different commit,
+// which may indicate a supply chain attack (mutable tag rewrite).
+func isTagMutation(currentSHA, currentTag, newSHA, newTag string) bool {
+	return currentSHA != "" && currentTag == newTag && newSHA != currentSHA
 }
 
 func getPayload(action string, gitHubToken string, days *uint) (interface{}, error) {
@@ -300,7 +327,7 @@ func GetGithubBody(token, url string) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	// Check rate limiting
 	if resp.StatusCode == 403 {

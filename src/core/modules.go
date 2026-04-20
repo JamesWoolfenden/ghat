@@ -197,7 +197,7 @@ func (myFlags *Flags) GetType(module string) (string, error) {
 	// gitHub registry format and sub dirs
 	splitter := strings.Split(module, "/")
 
-	if len(splitter) == 3 && !(strings.Contains(module, "git::") || strings.Contains(module, "https:")) {
+	if len(splitter) == 3 && !strings.Contains(module, "git::") && !strings.Contains(module, "https:") {
 		if strings.Contains(module, "github.com") {
 			return "github", nil
 		}

@@ -214,6 +214,17 @@ I got you covered:
 $ghat swot -d . --stable 14
 ```
 
+#### Tag mutation detection
+
+When `swot` processes a workflow file that already has a pinned action (`action@sha # vX.Y.Z`), it checks whether the SHA GitHub now resolves for that same tag matches what was previously pinned. If the tag name is unchanged but the SHA has changed, ghat emits a warning:
+
+```text
+WARN  SUSPICIOUS: actions/checkout@v4.2.2 — SHA changed from abc123... to def456... with the same tag.
+      The tag may have been moved to a different commit. Verify this is intentional before accepting.
+```
+
+This is a sign that a repository maintainer (or attacker) has rewritten a published tag to point to a different commit — the pattern behind supply chain attacks like those reported via Dependabot. **Do not accept the update without reviewing the new commit.**
+
 ### stun
 
 Stun updates GitLab CI/CD container image references to use immutable SHA256 digests instead of mutable tags. This prevents supply chain attacks through image tampering and ensures build reproducibility.

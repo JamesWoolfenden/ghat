@@ -175,12 +175,6 @@ func (m *responseNilError) Error() string {
 	return "api response is nil"
 }
 
-type githubTokenIsEmptyError struct{}
-
-func (e githubTokenIsEmptyError) Error() string {
-	return "github token is empty"
-}
-
 type timeParsingError struct {
 	err error
 }

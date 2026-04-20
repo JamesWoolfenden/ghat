@@ -11,7 +11,7 @@ func TestCache_SetAndGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create cache: %v", err)
 	}
-	defer cache.Clear()
+	defer func() { _ = cache.Clear() }()
 
 	url := "https://api.github.com/repos/test/repo"
 	testData := map[string]interface{}{
@@ -47,13 +47,13 @@ func TestCache_Expiration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create cache: %v", err)
 	}
-	defer cache.Clear()
+	defer func() { _ = cache.Clear() }()
 
 	url := "https://api.github.com/repos/test/repo"
 	testData := "test data"
 
 	// Set cache
-	cache.Set(url, testData)
+	_ = cache.Set(url, testData)
 
 	// Should be cached immediately
 	if _, found := cache.Get(url); !found {
@@ -83,7 +83,7 @@ func TestCache_Disabled(t *testing.T) {
 	testData := "test"
 
 	// Set should do nothing
-	cache.Set(url, testData)
+	_ = cache.Set(url, testData)
 
 	// Get should return not found
 	if _, found := cache.Get(url); found {
@@ -96,12 +96,12 @@ func TestCache_Clear(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create cache: %v", err)
 	}
-	defer cache.Clear()
+	defer func() { _ = cache.Clear() }()
 
 	// Add multiple entries
 	for i := 0; i < 5; i++ {
 		url := fmt.Sprintf("https://api.github.com/test/%d", i)
-		cache.Set(url, fmt.Sprintf("data-%d", i))
+		_ = cache.Set(url, fmt.Sprintf("data-%d", i))
 	}
 
 	// Verify entries exist
@@ -134,12 +134,12 @@ func TestCache_Stats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create cache: %v", err)
 	}
-	defer cache.Clear()
+	defer func() { _ = cache.Clear() }()
 
 	// Add entries
 	for i := 0; i < 3; i++ {
 		url := fmt.Sprintf("https://api.github.com/test/%d", i)
-		cache.Set(url, map[string]interface{}{"id": i})
+		_ = cache.Set(url, map[string]interface{}{"id": i})
 	}
 
 	count, size, err := cache.Stats()
@@ -163,11 +163,11 @@ func TestCache_ClearExpired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create cache: %v", err)
 	}
-	defer cache.Clear()
+	defer func() { _ = cache.Clear() }()
 
 	// Add entries
-	cache.Set("https://api.github.com/test/1", "data1")
-	cache.Set("https://api.github.com/test/2", "data2")
+	_ = cache.Set("https://api.github.com/test/1", "data1")
+	_ = cache.Set("https://api.github.com/test/2", "data2")
 
 	// Wait for expiration
 	time.Sleep(150 * time.Millisecond)
@@ -175,7 +175,7 @@ func TestCache_ClearExpired(t *testing.T) {
 	// Add new entry (not expired)
 	cache2, _ := NewCache(1*time.Hour, true)
 	cache2.dir = cache.dir // Use same cache dir
-	cache2.Set("https://api.github.com/test/3", "data3")
+	_ = cache2.Set("https://api.github.com/test/3", "data3")
 
 	// Clear expired
 	err = cache.ClearExpired()

@@ -21,9 +21,7 @@ func TestFlags_Action(t *testing.T) {
 		Action string
 	}
 
-	var days uint
-
-	days = 0
+	var days uint = 0
 
 	dir := fields{"", "testdata/files/", gitHubToken, &days, false, nil, true}
 	bogus := fields{"", "testdata/bogus/", gitHubToken, &days, false, nil, true}

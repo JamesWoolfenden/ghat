@@ -426,22 +426,6 @@ func TestFlags_UpdateGHA(t *testing.T) {
 	}
 }
 
-func setupSuite(tb testing.TB) func(tb testing.TB) {
-	log.Info().Msgf("setup suite %s", tb.Name())
-	testPath, _ := filepath.Abs("./testdata/empty")
-	_ = os.Mkdir(testPath, os.ModePerm)
-	_ = os.Mkdir("./testdata/.terraform/", os.ModePerm)
-	_ = os.Mkdir("./testdata/.git/", os.ModePerm)
-
-	return func(tb testing.TB) {
-		log.Info().Msg("teardown suite")
-		_ = os.RemoveAll(testPath)
-		_ = os.RemoveAll("./testdata/.terraform/")
-		_ = os.RemoveAll("./testdata/.git/")
-
-	}
-}
-
 func TestGetFiles(t *testing.T) {
 	type args struct {
 		directory string
@@ -581,6 +565,111 @@ func TestGetFiles(t *testing.T) {
 		})
 	}
 }
+func Test_parsePinnedRef(t *testing.T) {
+	t.Parallel()
+
+	const sha40 = "1e31de5234b9f8995739874a8ce0492dc87873e2" // 40 hex chars
+
+	tests := []struct {
+		name    string
+		ref     string
+		wantSHA string
+		wantTag string
+	}{
+		{"already pinned", sha40 + " # v1.2.3", sha40, "v1.2.3"},
+		{"pinned with extra spaces", "  " + sha40 + "  #  v2.0.0  ", sha40, "v2.0.0"},
+		{"version tag only", "v1.2.3", "", ""},
+		{"branch ref", "main", "", ""},
+		{"sha without comment", sha40, "", ""},
+		{"short sha", "abc1234 # v1.0.0", "", ""},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			gotSHA, gotTag := parsePinnedRef(tt.ref)
+			if gotSHA != tt.wantSHA || gotTag != tt.wantTag {
+				t.Errorf("parsePinnedRef(%q) = (%q, %q), want (%q, %q)", tt.ref, gotSHA, gotTag, tt.wantSHA, tt.wantTag)
+			}
+		})
+	}
+}
+
+func Test_isTagMutation(t *testing.T) {
+	t.Parallel()
+
+	const sha1 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	const sha2 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+	tests := []struct {
+		name       string
+		currentSHA string
+		currentTag string
+		newSHA     string
+		newTag     string
+		want       bool
+	}{
+		{"same tag, different SHA — mutation", sha1, "v1.0.0", sha2, "v1.0.0", true},
+		{"same tag, same SHA — no change", sha1, "v1.0.0", sha1, "v1.0.0", false},
+		{"different tag, different SHA — version bump", sha1, "v1.0.0", sha2, "v2.0.0", false},
+		{"no current SHA — not previously pinned", "", "v1.0.0", sha2, "v1.0.0", false},
+		{"tag downgrade with SHA change — not a mutation", sha1, "v2.0.0", sha2, "v1.0.0", false},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := isTagMutation(tt.currentSHA, tt.currentTag, tt.newSHA, tt.newTag); got != tt.want {
+				t.Errorf("isTagMutation() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestWriteFileNoCorruption guards against the regression where a workflow rewrite
+// that produces output shorter than the original file left trailing NUL bytes or
+// old content behind (caused by using os.OpenFile without O_TRUNC).
+func TestWriteFileNoCorruption(t *testing.T) {
+	t.Parallel()
+
+	// Longer "before" content — simulates a workflow whose sha-pinned replacement is shorter.
+	longContent := strings.Repeat("x", 3000) + "\n"
+	shortContent := strings.Repeat("y", 100) + "\n"
+
+	tmpFile := filepath.Join(t.TempDir(), "workflow.yml")
+
+	if err := os.WriteFile(tmpFile, []byte(longContent), 0644); err != nil {
+		t.Fatalf("setup WriteFile failed: %v", err)
+	}
+
+	// This is the exact write call used in UpdateGHA — must always truncate.
+	if err := os.WriteFile(tmpFile, []byte(shortContent), 0644); err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
+	}
+
+	got, err := os.ReadFile(tmpFile)
+	if err != nil {
+		t.Fatalf("ReadFile failed: %v", err)
+	}
+
+	if len(got) != len(shortContent) {
+		t.Errorf("file length = %d, want %d (possible truncation or NUL padding)", len(got), len(shortContent))
+	}
+
+	for i, b := range got {
+		if b == 0x00 {
+			t.Errorf("NUL byte at offset %d — file write did not truncate correctly", i)
+			break
+		}
+	}
+
+	if string(got) != shortContent {
+		t.Errorf("file content mismatch after shorter rewrite")
+	}
+}
+
 func TestReadFilesError(t *testing.T) {
 	t.Parallel()
 

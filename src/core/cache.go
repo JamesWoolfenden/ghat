@@ -72,14 +72,14 @@ func (c *Cache) Get(url string) (interface{}, bool) {
 	var entry CacheEntry
 	if err := json.Unmarshal(data, &entry); err != nil {
 		log.Debug().Err(err).Str("url", url).Msg("Failed to unmarshal cache entry")
-		os.Remove(cachePath) // Remove corrupted cache file
+		_ = os.Remove(cachePath) // Remove corrupted cache file
 		return nil, false
 	}
 
 	// Check if expired
 	if time.Now().After(entry.ExpiresAt) {
 		log.Debug().Str("url", url).Msg("Cache expired")
-		os.Remove(cachePath)
+		_ = os.Remove(cachePath)
 		return nil, false
 	}
 
@@ -157,12 +157,12 @@ func (c *Cache) ClearExpired() error {
 
 		var cacheEntry CacheEntry
 		if err := json.Unmarshal(data, &cacheEntry); err != nil {
-			os.Remove(cachePath) // Remove corrupted file
+			_ = os.Remove(cachePath) // Remove corrupted file
 			continue
 		}
 
 		if now.After(cacheEntry.ExpiresAt) {
-			os.Remove(cachePath)
+			_ = os.Remove(cachePath)
 			removed++
 		}
 	}

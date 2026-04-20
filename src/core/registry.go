@@ -65,7 +65,7 @@ func IsOK(rawURL string) (bool, error) {
 	}
 
 	// Add resp.Body.Close() to prevent resource leaks
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode == successStatus {
 		return true, nil
