@@ -15,9 +15,6 @@ import (
 )
 
 func main() {
-	fmt.Println(banner.Inline("ghat"))
-	fmt.Println("version:", version.Version)
-
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	var myFlags core.Flags
@@ -25,7 +22,21 @@ func main() {
 	app := &cli.App{
 		EnableBashCompletion: true,
 		Copyright:            "James Woolfenden",
-		Flags:                []cli.Flag{},
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "quiet",
+				Usage: "suppress banner and log output (useful in pre-commit hooks)",
+			},
+		},
+		Before: func(c *cli.Context) error {
+			if !c.Bool("quiet") {
+				fmt.Println(banner.Inline("ghat"))
+				fmt.Println("version:", version.Version)
+			} else {
+				log.Logger = zerolog.Nop()
+			}
+			return nil
+		},
 		Commands: []*cli.Command{
 			{
 				Name:      "version",

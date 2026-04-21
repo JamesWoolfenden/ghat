@@ -16,6 +16,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// pinnedImageRe matches an already-pinned image digest comment: @sha256:hex # tag
+var pinnedImageRe = regexp.MustCompile(`@(sha256:[0-9a-f]+)\s+#\s+(\S+)`)
+
 const gitlab = ".gitlab-ci.yml"
 
 type gitlabProjectError struct {
@@ -80,6 +83,9 @@ func (myFlags *Flags) UpdateGitlab() error {
 		return nil
 	}
 
+	// Snapshot existing digest→tag mappings before YAML strips comments.
+	pinnedImages := parsePinnedImages(string(project))
+
 	// Process each image
 	replacement := string(project)
 	for _, imageStr := range images {
@@ -97,6 +103,12 @@ func (myFlags *Flags) UpdateGitlab() error {
 		if err != nil {
 			log.Warn().Err(err).Str("image", imageStr).Msg("Failed to get digest, skipping")
 			continue
+		}
+
+		// Detect tag mutation: same tag, different digest.
+		if cur, ok := pinnedImages[imgRef.Tag]; ok && isTagMutation(cur, imgRef.Tag, digest, imgRef.Tag) {
+			log.Warn().Msgf("SUSPICIOUS: %s — digest changed from %s to %s with the same tag. "+
+				"The image tag may have been repointed to a different layer. Verify before accepting.", imageStr, cur, digest)
 		}
 
 		// Create new image reference with digest
@@ -285,6 +297,18 @@ func formatImageWithDigest(ref ImageReference, digest string) string {
 	result.WriteString(ref.Tag)
 
 	return result.String()
+}
+
+// parsePinnedImages scans raw file content for already-pinned image references
+// in the form "@sha256:hex # tag" and returns a map of tag → digest.
+// This must be called before YAML parsing since YAML strips comments.
+func parsePinnedImages(content string) map[string]string {
+	pinned := make(map[string]string)
+	for _, m := range pinnedImageRe.FindAllStringSubmatch(content, -1) {
+		digest, tag := m[1], m[2]
+		pinned[tag] = digest
+	}
+	return pinned
 }
 
 // GetGitlabFiles finds GitLab CI files in the entries

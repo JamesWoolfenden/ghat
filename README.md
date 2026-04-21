@@ -12,7 +12,7 @@
 [![Github All Releases](https://img.shields.io/github/downloads/jameswoolfenden/ghat/total.svg)](https://github.com/JamesWoolfenden/ghat/releases)
 [![codecov](https://codecov.io/gh/JamesWoolfenden/ghat/graph/badge.svg?token=P9V791WMRE)](https://codecov.io/gh/JamesWoolfenden/ghat)
 
-Ghat is a tool (GHAT) for updating dependencies in GitHub Actions, GitLab CI/CD, **managing Terraform module and provider versions**, and pre-commit configs. It replaces insecure mutable tags with immutable commit hashes and container image digests, and updates provider versions to their latest stable releases:
+Ghat is a tool (GHAT) for updating dependencies in GitHub Actions, GitLab CI/CD, Kubernetes manifests, **managing Terraform module and provider versions**, and pre-commit configs. It replaces insecure mutable tags with immutable commit hashes and container image digests, and updates provider versions to their latest stable releases:
 
 ```yml
    ## sets up go based on the version
@@ -130,6 +130,7 @@ module "ip" {
       - [file scan](#file-scan-1)
     - [swipe](#swipe)
     - [sift](#sift)
+    - [kube](#kube)
     - [pre-commit](#pre-commit)
 
 <!--toc:end-->
@@ -373,6 +374,58 @@ The flag dryrun is also supported. Example outcome display:
       rev: 762c66ea96843b54b936fc680162ea67f85ec2d7
 ```
 
+### kube
+
+Kube pins container image references in Kubernetes manifests to immutable SHA256 digests, preventing supply chain attacks through mutable image tags. It supports Deployment, StatefulSet, DaemonSet, Job, CronJob, ReplicaSet, and Pod resources, including multi-document YAML files.
+
+#### Directory scan
+
+```bash
+ghat kube -d ./k8s
+```
+
+#### File scan
+
+```bash
+ghat kube -f deployment.yaml
+```
+
+#### Dry run
+
+```bash
+ghat kube -d . --dryrun
+```
+
+A manifest like:
+
+```yaml
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: init
+          image: busybox:1.36
+      containers:
+        - name: app
+          image: nginx:1.25
+```
+
+Becomes:
+
+```yaml
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: init
+          image: busybox@sha256:37f7b378a29ceb4c551b1b5582e27747b855bbfaa73fa11914fe0df028dc581f # 1.36
+      containers:
+        - name: app
+          image: nginx@sha256:a484819eb60211f5299034ac80f6a681b06f89e65866ce91f356ed7c72af059c # 1.25
+```
+
+Variable references such as `$(IMAGE_TAG)` are skipped automatically.
+
 ## Help
 
 ```bash
@@ -396,6 +449,7 @@ AUTHOR:
    James Woolfenden <jim.wolf@duck.com>
 
 COMMANDS:
+   kube, k8s   pins container images in Kubernetes manifests to SHA digests
    sift, p     updates pre-commit version with  hashes
    shake, k    updates Terraform provider versions to latest stable releases
    stun, t     updates GitLab CI/CD container images with SHA256 digests

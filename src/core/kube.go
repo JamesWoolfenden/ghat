@@ -48,6 +48,9 @@ func (myFlags *Flags) UpdateKube(file string) error {
 		return fmt.Errorf("failed to extract images from %s: %w", file, err)
 	}
 
+	// Snapshot existing digest→tag mappings before YAML strips comments.
+	pinnedImages := parsePinnedImages(string(content))
+
 	replacement := string(content)
 	for _, imageStr := range images {
 		imgRef := parseImageReference(imageStr)
@@ -56,6 +59,13 @@ func (myFlags *Flags) UpdateKube(file string) error {
 			log.Warn().Err(err).Str("image", imageStr).Msg("failed to get digest, skipping")
 			continue
 		}
+
+		// Detect tag mutation: same tag, different digest.
+		if cur, ok := pinnedImages[imgRef.Tag]; ok && isTagMutation(cur, imgRef.Tag, digest, imgRef.Tag) {
+			log.Warn().Msgf("SUSPICIOUS: %s — digest changed from %s to %s with the same tag. "+
+				"The image tag may have been repointed to a different layer. Verify before accepting.", imageStr, cur, digest)
+		}
+
 		replacement = strings.ReplaceAll(replacement, imageStr, formatImageWithDigest(imgRef, digest))
 	}
 

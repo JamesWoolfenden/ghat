@@ -384,6 +384,57 @@ func TestGetGitlabFiles(t *testing.T) {
 	}
 }
 
+func Test_parsePinnedImages(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		content string
+		want    map[string]string
+	}{
+		{
+			name:    "no pinned images",
+			content: "image: nginx:1.25\n",
+			want:    map[string]string{},
+		},
+		{
+			name:    "single pinned image",
+			content: "image: nginx@sha256:a484819eb60211f5299034ac80f6a681b06f89e65866ce91f356ed7c72af059c # 1.25\n",
+			want:    map[string]string{"1.25": "sha256:a484819eb60211f5299034ac80f6a681b06f89e65866ce91f356ed7c72af059c"},
+		},
+		{
+			name:    "multiple pinned images",
+			content: "image: nginx@sha256:aaaa # 1.25\nimage: alpine@sha256:bbbb # 3.18\n",
+			want: map[string]string{
+				"1.25": "sha256:aaaa",
+				"3.18": "sha256:bbbb",
+			},
+		},
+		{
+			name:    "unpinned image ignored",
+			content: "image: nginx:1.25\nimage: alpine@sha256:bbbb # 3.18\n",
+			want:    map[string]string{"3.18": "sha256:bbbb"},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := parsePinnedImages(tt.content)
+			if len(got) != len(tt.want) {
+				t.Errorf("parsePinnedImages() = %v, want %v", got, tt.want)
+				return
+			}
+			for tag, digest := range tt.want {
+				if got[tag] != digest {
+					t.Errorf("parsePinnedImages()[%q] = %q, want %q", tag, got[tag], digest)
+				}
+			}
+		})
+	}
+}
+
 // Test image parsing edge cases
 func Test_parseImageReference_EdgeCases(t *testing.T) {
 	tests := []struct {
