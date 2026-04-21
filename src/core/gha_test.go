@@ -880,3 +880,111 @@ func TestGetReleases_RateLimitHandling(t *testing.T) {
 		}
 	})
 }
+
+func Test_extractGHAContainerImages(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		content string
+		want    []string
+		wantErr bool
+	}{
+		{
+			name: "container image",
+			content: `
+jobs:
+  build:
+    container:
+      image: golang:1.22-alpine
+    steps:
+      - run: go build
+`,
+			want: []string{"golang:1.22-alpine"},
+		},
+		{
+			name: "service images",
+			content: `
+jobs:
+  test:
+    services:
+      postgres:
+        image: postgres:15
+      redis:
+        image: redis:7-alpine
+    steps:
+      - run: go test
+`,
+			want: []string{"postgres:15", "redis:7-alpine"},
+		},
+		{
+			name: "container and services combined",
+			content: `
+jobs:
+  integration:
+    container:
+      image: golang:1.22
+    services:
+      db:
+        image: postgres:15
+    steps:
+      - run: go test
+`,
+			want: []string{"golang:1.22", "postgres:15"},
+		},
+		{
+			name: "skips variable references",
+			content: `
+jobs:
+  build:
+    container:
+      image: ${{ env.CONTAINER_IMAGE }}
+    services:
+      db:
+        image: postgres:15
+    steps:
+      - run: echo hi
+`,
+			want: []string{"postgres:15"},
+		},
+		{
+			name: "no container or services",
+			content: `
+jobs:
+  build:
+    steps:
+      - run: go build
+`,
+			want: []string{},
+		},
+		{
+			name:    "invalid yaml",
+			content: "invalid: [yaml",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := extractGHAContainerImages(tt.content)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("extractGHAContainerImages() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				return
+			}
+			if len(got) != len(tt.want) {
+				t.Errorf("extractGHAContainerImages() = %v, want %v", got, tt.want)
+				return
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("extractGHAContainerImages()[%d] = %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
