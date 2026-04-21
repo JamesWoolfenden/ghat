@@ -320,13 +320,16 @@ func GetLatestRelease(action string, gitHubToken string) (interface{}, error) {
 func GetLatestTag(action string, gitHubToken string) (interface{}, error) {
 	url := "https://api.github.com/repos/" + action + "/tags"
 	tags, err := GetGithubBody(gitHubToken, url)
-	tagged, ok := tags.([]interface{})
+	if err != nil {
+		return nil, err
+	}
 
+	tagged, ok := tags.([]interface{})
 	if !ok {
 		return nil, fmt.Errorf("failed to assert slice %s", tags)
 	}
 
-	return tagged[0].(map[string]interface{}), err
+	return tagged[0].(map[string]interface{}), nil
 }
 
 func getHash(action string, tag string, gitHubToken string) (interface{}, error) {
@@ -386,6 +389,12 @@ func GetGithubBody(token, url string) (interface{}, error) {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close() //nolint:errcheck
+
+	// If the token is invalid, retry without it rather than failing hard.
+	if resp.StatusCode == 401 && token != "" {
+		resp.Body.Close() //nolint:errcheck
+		return GetGithubBody("", url)
+	}
 
 	// Check rate limiting
 	if resp.StatusCode == 403 {

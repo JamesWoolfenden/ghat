@@ -29,9 +29,9 @@ repos:
       repo: https://github.com/Lucas-C/pre-commit-hooks
       rev: ad1b27d73581aa16cca06fc4a0761fc563ffe8e8
     - hooks:
-        - id: shell-lint
-      repo: https://github.com/jameswoolfenden/pre-commit-shell
-      rev: 062f0b028ae65827e04f91c1e6738cfcbe9b337f
+        - id: shellcheck
+      repo: https://github.com/shellcheck-py/shellcheck-py
+      rev: 745eface02aef23e168a8afb6b5737818efbea95
     - hooks:
         - id: markdownlint
           exclude: src/testdata|testdata
@@ -42,19 +42,6 @@ repos:
           language_version: python3.11
       repo: https://github.com/jameswoolfenden/pre-commit
       rev: ba5c36a3150a4184f9ee362a5cf11611ee9ae185
-    - hooks:
-        - id: gofmt
-        - id: goimports
-      repo: https://github.com/gruntwork-io/pre-commit
-      rev: 40f924cd642f5dc98d12bd97b07f3752223553da
-    - hooks:
-        - id: go-test
-          args:
-            - ./...
-        - id: go-mod-tidy
-        - id: go-generate
-      repo: https://github.com/syntaqx/git-hooks
-      rev: a3b888f92cd5b40b270c9a9752181fdc1717cbe5
     - hooks:
         - id: golangci-lint
       repo: https://github.com/golangci/golangci-lint
@@ -86,8 +73,14 @@ repos:
           description: upgrade action dependencies
       repo: local
     - hooks:
+        - id: go-fmt
+        - id: go-imports
+        - id: go-unit-tests
+          args:
+            - ./...
+        - id: go-mod-tidy
+        - id: go-generate
         - id: validate-toml
         - id: no-go-testing
-        - id: go-mod-tidy
       repo: https://github.com/dnephin/pre-commit-golang
       rev: fb24a639f7c938759fe56eeebbb7713b69d60494
