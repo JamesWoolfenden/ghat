@@ -12,6 +12,7 @@ const (
 	ActionStun  = "stun"
 	ActionShake = "shake"
 	ActionKube  = "kube"
+	ActionDock  = "dock"
 )
 
 func (myFlags *Flags) Action(action string) error {
@@ -88,6 +89,11 @@ func executeAction(action string, myFlags *Flags) error {
 			return myFlags.UpdateKube(myFlags.File)
 		}
 		return myFlags.UpdateKubes()
+	case ActionDock:
+		if myFlags.File != "" {
+			return myFlags.UpdateDockerfile(myFlags.File)
+		}
+		return myFlags.UpdateDockerfiles()
 	}
 
 	return nil

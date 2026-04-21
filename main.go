@@ -170,6 +170,7 @@ func main() {
 			cacheCmd,
 			swotCmd,
 			kubeCmd,
+			dockCmd,
 		},
 		Name:     "ghat",
 		Usage:    "Update GHA dependencies",
@@ -419,6 +420,51 @@ var kubeCmd = &cli.Command{
 		}
 
 		return myFlags.Action("kube")
+	},
+}
+
+var dockCmd = &cli.Command{
+	Name:    "dock",
+	Aliases: []string{"df"},
+	Usage:   "pins Dockerfile FROM images to SHA digests",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "directory",
+			Aliases: []string{"d"},
+			Usage:   "directory to scan for Dockerfiles",
+			Value:   ".",
+		},
+		&cli.StringFlag{
+			Name:    "file",
+			Aliases: []string{"f"},
+			Usage:   "specific Dockerfile to update",
+		},
+		&cli.BoolFlag{
+			Name:  "dryrun",
+			Usage: "show changes without modifying files",
+		},
+		&cli.BoolFlag{
+			Name:  "continue-on-error",
+			Usage: "continue processing files even if errors occur",
+		},
+	},
+	Action: func(c *cli.Context) error {
+		myFlags := core.NewFlags()
+		myFlags.Directory = c.String("directory")
+		myFlags.File = c.String("file")
+		myFlags.DryRun = c.Bool("dryrun")
+		myFlags.ContinueOnError = c.Bool("continue-on-error")
+		myFlags.GitHubToken = os.Getenv("GITHUB_TOKEN")
+
+		if myFlags.File == "" {
+			var err error
+			myFlags.Entries, err = core.GetFiles(myFlags.Directory)
+			if err != nil {
+				return fmt.Errorf("failed to scan directory: %w", err)
+			}
+		}
+
+		return myFlags.Action("dock")
 	},
 }
 

@@ -283,6 +283,71 @@ func TestUpdateKube_NoImages(t *testing.T) {
 	}
 }
 
+func Test_isComposeFile(t *testing.T) {
+	tests := []struct {
+		file string
+		want bool
+	}{
+		{"docker-compose.yml", true},
+		{"docker-compose.yaml", true},
+		{"compose.yml", true},
+		{"compose.yaml", true},
+		{"/some/path/docker-compose.yml", true},
+		{"Dockerfile", false},
+		{"deployment.yaml", false},
+		{".gitlab-ci.yml", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.file, func(t *testing.T) {
+			if got := isComposeFile(tt.file); got != tt.want {
+				t.Errorf("isComposeFile(%q) = %v, want %v", tt.file, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetComposeFiles(t *testing.T) {
+	myFlags := &Flags{
+		Entries: []string{
+			"testdata/compose/docker-compose.yaml",
+			"testdata/kube/deploy.yaml",
+			"main.go",
+			"path/to/compose.yml",
+		},
+	}
+	got := myFlags.GetComposeFiles()
+	if len(got) != 2 {
+		t.Errorf("GetComposeFiles() = %d files, want 2: %v", len(got), got)
+	}
+}
+
+func TestUpdateCompose_DryRun(t *testing.T) {
+	content := "services:\n  web:\n    image: nginx:1.25\n  db:\n    image: postgres:15\n"
+	tmp, err := os.CreateTemp("", "docker-compose-*.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(tmp.Name()) }()
+
+	if _, err := tmp.WriteString(content); err != nil {
+		t.Fatal(err)
+	}
+	_ = tmp.Close()
+
+	flags := &Flags{DryRun: true, ContinueOnError: true}
+	if err := flags.UpdateCompose(tmp.Name()); err != nil {
+		t.Errorf("UpdateCompose() unexpected error: %v", err)
+	}
+
+	got, err := os.ReadFile(tmp.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != content {
+		t.Error("UpdateCompose() in dry-run mode modified the file")
+	}
+}
+
 // TestUpdateKube_MultiDoc verifies multi-document YAML is accepted without error.
 func TestUpdateKube_MultiDoc(t *testing.T) {
 	content := strings.Join([]string{

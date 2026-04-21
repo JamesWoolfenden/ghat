@@ -8,11 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -207,6 +209,26 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		}
 	}
 
+	// Pin images in container: and services: blocks.
+	pinnedImgs := parsePinnedImages(string(buffer))
+	containerImages, err := extractGHAContainerImages(string(buffer))
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to extract container/service images from workflow")
+	}
+	for _, imageStr := range containerImages {
+		imgRef := parseImageReference(imageStr)
+		digest, err := myFlags.getImageDigest(imgRef)
+		if err != nil {
+			log.Warn().Err(err).Str("image", imageStr).Msg("failed to get digest for container image, skipping")
+			continue
+		}
+		if cur, ok := pinnedImgs[imgRef.Tag]; ok && isTagMutation(cur, imgRef.Tag, digest, imgRef.Tag) {
+			log.Warn().Msgf("SUSPICIOUS: %s — digest changed from %s to %s with the same tag. "+
+				"The image tag may have been repointed. Verify before accepting.", imageStr, cur, digest)
+		}
+		replacement = strings.ReplaceAll(replacement, imageStr, formatImageWithDigest(imgRef, digest))
+	}
+
 	dmp := diffmatchpatch.New()
 	diffs := dmp.DiffMain(string(buffer), replacement, false)
 
@@ -223,6 +245,42 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 	}
 
 	return nil
+}
+
+// extractGHAContainerImages finds image references in container: and services: blocks
+// of a GitHub Actions workflow file.
+func extractGHAContainerImages(content string) ([]string, error) {
+	var doc map[string]interface{}
+	if err := yaml.Unmarshal([]byte(content), &doc); err != nil {
+		return nil, fmt.Errorf("failed to parse workflow YAML: %w", err)
+	}
+
+	var images []string
+	jobs, _ := doc["jobs"].(map[string]interface{})
+	for _, job := range jobs {
+		jobMap, ok := job.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		// jobs.<id>.container.image
+		if container, ok := jobMap["container"].(map[string]interface{}); ok {
+			if img, ok := container["image"].(string); ok && img != "" && !strings.HasPrefix(img, "$") {
+				images = append(images, img)
+			}
+		}
+		// jobs.<id>.services.<name>.image
+		if services, ok := jobMap["services"].(map[string]interface{}); ok {
+			for _, svc := range services {
+				if svcMap, ok := svc.(map[string]interface{}); ok {
+					if img, ok := svcMap["image"].(string); ok && img != "" && !strings.HasPrefix(img, "$") {
+						images = append(images, img)
+					}
+				}
+			}
+		}
+	}
+	sort.Strings(images)
+	return images, nil
 }
 
 // parsePinnedRef extracts the SHA and tag from a ref already pinned in "sha # tag" format.
