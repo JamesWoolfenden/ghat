@@ -43,6 +43,10 @@ func GetReleases(action string, gitHubToken string, days *uint) (map[string]inte
 		return nil, &actionIsEmptyError{}
 	}
 
+	if !strings.Contains(action, "/") {
+		return nil, &actionFormatError{action: action}
+	}
+
 	now := time.Now()
 	interval := time.Duration(int64(*days) * dayInNanos)
 	limit := now.Add(-interval)
@@ -146,7 +150,7 @@ func isRateLimitError(err error) bool {
 
 	// Check for various rate limit indicators
 	return strings.Contains(errStr, "rate limit") ||
-		strings.Contains(errStr, "403") ||
-		strings.Contains(errStr, "429") || // Too Many Requests
+		strings.Contains(errStr, "status 403") ||
+		strings.Contains(errStr, "429") ||
 		strings.Contains(errStr, "API rate limit exceeded")
 }

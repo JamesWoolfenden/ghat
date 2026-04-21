@@ -450,7 +450,7 @@ AUTHOR:
 
 COMMANDS:
    kube, k8s   pins container images in Kubernetes manifests to SHA digests
-   sift, p     updates pre-commit version with  hashes
+   sift, p     updates pre-commit version with hashes
    shake, k    updates Terraform provider versions to latest stable releases
    stun, t     updates GitLab CI/CD container images with SHA256 digests
    swipe, w    updates Terraform module versions with versioned hashes

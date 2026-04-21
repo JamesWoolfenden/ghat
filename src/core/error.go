@@ -188,3 +188,11 @@ type daysParameterError struct{}
 func (e daysParameterError) Error() string {
 	return "days parameter must be positive"
 }
+
+type actionFormatError struct {
+	action string
+}
+
+func (e *actionFormatError) Error() string {
+	return fmt.Sprintf("action %q is not in owner/repo format", e.action)
+}

@@ -800,7 +800,7 @@ func TestIsRateLimitError(t *testing.T) {
 		},
 		{
 			name: "403 status code",
-			err:  errors.New("api failed with 403"),
+			err:  errors.New("API request failed with status 403: Forbidden"),
 			want: true,
 		},
 		{

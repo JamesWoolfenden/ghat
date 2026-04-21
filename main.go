@@ -137,7 +137,7 @@ func main() {
 			{
 				Name:      "sift",
 				Aliases:   []string{"p"},
-				Usage:     "updates pre-commit version with  hashes",
+				Usage:     "updates pre-commit version with hashes",
 				UsageText: "ghat sift",
 				Action: func(*cli.Context) error {
 					return myFlags.Action("sift")

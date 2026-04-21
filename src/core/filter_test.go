@@ -265,7 +265,7 @@ func TestGetReleasesEdgeCases(t *testing.T) {
 			gitHubToken: "dummy-token",
 			days:        &days,
 			wantErr:     true,
-			errContains: "", // Any error is acceptable
+			errContains: "owner/repo format",
 		},
 		{
 			name:        "Zero days filter",
