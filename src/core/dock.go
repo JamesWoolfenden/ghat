@@ -50,7 +50,11 @@ func (myFlags *Flags) UpdateDockerfile(file string) error {
 		}
 		prefix, imageStr, alias := m[1], m[2], m[3]
 
-		if imageStr == "scratch" || strings.HasPrefix(imageStr, "$") {
+		if imageStr == "scratch" {
+			continue
+		}
+		if strings.HasPrefix(imageStr, "$") {
+			log.Warn().Msgf("SUPPLY CHAIN RISK: FROM uses a dynamic image reference '%s' which cannot be pinned — resolve to a specific tag and digest", imageStr)
 			continue
 		}
 

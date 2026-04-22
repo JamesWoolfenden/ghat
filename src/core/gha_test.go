@@ -404,6 +404,18 @@ func TestFlags_UpdateGHA(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "Dynamic uses tags are skipped",
+			fields: fields{
+				File:        "./testdata/dynref/.github/workflows/test.yml",
+				GitHubToken: gitHubToken,
+				Days:        &days,
+				DryRun:      true,
+				Entries:     []string{"./testdata/dynref/.github/workflows/test.yml"},
+				Update:      true,
+			},
+			args: args{"./testdata/dynref/.github/workflows/test.yml"},
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -423,6 +435,38 @@ func TestFlags_UpdateGHA(t *testing.T) {
 				t.Errorf("UpdateGHA() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestUpdateGHA_DynamicTagWarning(t *testing.T) {
+	t.Parallel()
+
+	var buf strings.Builder
+	original := log.Logger
+	log.Logger = log.Output(&buf)
+	t.Cleanup(func() { log.Logger = original })
+
+	var days uint = 0
+	myFlags := &Flags{
+		File:    "./testdata/dynref/.github/workflows/test.yml",
+		Days:    &days,
+		DryRun:  true,
+		Entries: []string{"./testdata/dynref/.github/workflows/test.yml"},
+		Update:  true,
+	}
+
+	if err := myFlags.UpdateGHA("./testdata/dynref/.github/workflows/test.yml"); err != nil {
+		t.Fatalf("UpdateGHA() unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	for _, expr := range []string{"${{ env.CHECKOUT_VERSION }}", "${{ inputs.go_version }}"} {
+		if !strings.Contains(output, "SUPPLY CHAIN RISK") {
+			t.Errorf("expected SUPPLY CHAIN RISK warning for %s, got: %s", expr, output)
+		}
+		if !strings.Contains(output, expr) {
+			t.Errorf("expected warning to name expression %s, got: %s", expr, output)
+		}
 	}
 }
 

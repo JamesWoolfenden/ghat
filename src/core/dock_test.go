@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/rs/zerolog/log"
 )
 
 func Test_isDockerfile(t *testing.T) {
@@ -178,6 +180,47 @@ func TestUpdateDockerfile_SkipsScratchAndVars(t *testing.T) {
 	}
 	if !strings.Contains(string(got), "FROM $BASE_IMAGE") {
 		t.Error("FROM $BASE_IMAGE should be preserved")
+	}
+}
+
+func TestUpdateDockerfile_DynamicImageWarning(t *testing.T) {
+	var buf strings.Builder
+	original := log.Logger
+	log.Logger = log.Output(&buf)
+	t.Cleanup(func() { log.Logger = original })
+
+	content := "FROM $BASE_IMAGE\nFROM ${VERSION}-alpine\n"
+	tmp, err := os.CreateTemp("", "Dockerfile.*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(tmp.Name()) }()
+
+	if _, err := tmp.WriteString(content); err != nil {
+		t.Fatal(err)
+	}
+	_ = tmp.Close()
+
+	if err := (&Flags{DryRun: true}).UpdateDockerfile(tmp.Name()); err != nil {
+		t.Fatalf("UpdateDockerfile() unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	for _, ref := range []string{"$BASE_IMAGE", "${VERSION}-alpine"} {
+		if !strings.Contains(output, "SUPPLY CHAIN RISK") {
+			t.Errorf("expected SUPPLY CHAIN RISK warning for %s, got: %s", ref, output)
+		}
+		if !strings.Contains(output, ref) {
+			t.Errorf("expected warning to name reference %s, got: %s", ref, output)
+		}
+	}
+
+	got, err := os.ReadFile(tmp.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != content {
+		t.Error("dynamic FROM lines should not be modified")
 	}
 }
 

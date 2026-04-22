@@ -17,7 +17,7 @@
   pass_filenames: false
   types: [ yaml ]
 
-- id: ghat-go-stun
+- id: ghat-go-stunclaude
   name: stun
   description: pin GitLab CI image refs to digests
   language: golang

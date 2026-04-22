@@ -136,6 +136,12 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 
 		action[0] = strings.TrimSpace(action[0])
 
+		// Warn and skip dynamically constructed tags (e.g. ${{ env.VERSION }}) — unpinned refs are a supply chain risk
+		if len(action) > 1 && strings.HasPrefix(strings.TrimSpace(action[1]), "$") {
+			log.Warn().Msgf("SUPPLY CHAIN RISK: %s uses a dynamic tag expression '%s' which cannot be pinned — resolve to a specific version", strings.TrimSpace(action[0]), strings.TrimSpace(action[1]))
+			continue
+		}
+
 		// Extract current SHA and tag if already pinned ("sha # tag" format)
 		var currentSHA, currentTag string
 		if len(action) > 1 {
