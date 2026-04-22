@@ -82,6 +82,65 @@ func TestRewritePreCommitRevs(t *testing.T) {
 	}
 }
 
+func TestParseLsRemoteTags(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		in      string
+		wantSHA string
+		wantTag string
+		wantErr bool
+	}{
+		{
+			// --sort=-version:refname puts the highest first; the ^{} peel
+			// for an annotated tag may land on either side of its ref line
+			// depending on git version — parser must not care.
+			name: "annotated highest, peeled sha wins",
+			in: "27652d0e1c3d7d571685d4ce1f9573af28026d70\trefs/tags/v1.1.0\n" +
+				"e0d38715ff9d90334235cbeccb2cdc12b0297255\trefs/tags/v1.1.0^{}\n" +
+				"ed2ed26d6c29d12e170de8b667dc6511bb864e60\trefs/tags/v1.0.1\n" +
+				"6e60a820cd7492b5b53a883de6daa9ddfa36a992\trefs/tags/v1.0.1^{}\n" +
+				"6e60a820cd7492b5b53a883de6daa9ddfa36a992\trefs/tags/v1.0.0\n",
+			wantSHA: "e0d38715ff9d90334235cbeccb2cdc12b0297255",
+			wantTag: "v1.1.0",
+		},
+		{
+			name: "lightweight tag (no peel line) returns ref sha",
+			in: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\trefs/tags/v2.0.0\n" +
+				"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\trefs/tags/v1.0.0\n",
+			wantSHA: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			wantTag: "v2.0.0",
+		},
+		{
+			name: "peel line sorted before its ref line",
+			in: "cccccccccccccccccccccccccccccccccccccccc\trefs/tags/v3.0.0^{}\n" +
+				"dddddddddddddddddddddddddddddddddddddddd\trefs/tags/v3.0.0\n",
+			wantSHA: "cccccccccccccccccccccccccccccccccccccccc",
+			wantTag: "v3.0.0",
+		},
+		{
+			name:    "no tags",
+			in:      "",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			sha, tag, err := parseLsRemoteTags(tt.in)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
+			}
+			if sha != tt.wantSHA || tag != tt.wantTag {
+				t.Errorf("got (%q, %q), want (%q, %q)", sha, tag, tt.wantSHA, tt.wantTag)
+			}
+		})
+	}
+}
+
 func TestFlags_UpdateHooks(t *testing.T) {
 	t.Parallel()
 	type fields struct {
