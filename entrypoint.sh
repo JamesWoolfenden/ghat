@@ -7,16 +7,15 @@ fi
 
 VERB="${INPUT_VERB:-sweep}"
 
-args=("$VERB")
+args=("$VERB" -d "${INPUT_DIRECTORY:-.}")
 
-if [[ -n "$INPUT_FILE" ]]; then
-  args+=(-f "$INPUT_FILE")
-else
-  args+=(-d "${INPUT_DIRECTORY:-.}")
-fi
-
-if [[ "$INPUT_DRYRUN" == "true" ]]; then
-  args+=(--dryrun)
+if [[ "$VERB" != "audit" ]]; then
+  if [[ -n "$INPUT_FILE" ]]; then
+    args=("$VERB" -f "$INPUT_FILE")
+  fi
+  if [[ "$INPUT_DRYRUN" == "true" ]]; then
+    args+=(--dryrun)
+  fi
 fi
 
 echo "running: ghat ${args[*]}"

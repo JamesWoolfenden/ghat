@@ -478,6 +478,31 @@ ghat sweep -d .
 
 Useful in CI when you don't want to enumerate which file types a repo contains.
 
+### audit
+
+Scores your dependencies by whether *their* CI workflows pin actions to commit SHAs. Reads go.mod, `.github/workflows/`, `.pre-commit-config.yaml`, and Terraform module sources, resolves each to its GitHub repo, fetches that repo's workflows, and reports unpinned `uses:` refs. Exits 1 if any are found.
+
+```shell
+ghat audit -d .
+ghat audit -d . --source go,gha
+ghat audit -d . --source go --deep
+```
+
+`--source` narrows to one or more of `go`, `gha`, `pre-commit`, `terraform` (default: all). `--deep` walks transitive Go modules via `go list -m all`.
+
+Sample output:
+
+```text
+[ok  ] go         github.com/hashicorp/hcl/v2      hashicorp/hcl  workflows=1  pinned=12/12
+[RISK] go         github.com/urfave/cli/v2         urfave/cli     workflows=3  pinned=0/10
+         test.yml: actions/checkout@v6
+         ...
+[ok  ] gha        goreleaser/goreleaser-action     goreleaser/goreleaser-action  workflows=4  pinned=27/27
+
+  go         5/8 dependencies have unpinned CI
+  gha        10/14 dependencies have unpinned CI
+```
+
 ## Help
 
 ```bash
