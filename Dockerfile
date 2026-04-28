@@ -1,11 +1,16 @@
-FROM alpine:3.18.2
+FROM golang:1.25-alpine@sha256:5caaf1cca9dc351e13deafbc3879fd4754801acba8653fa9540cea125d01a71f AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+ARG VERSION=dev
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/jameswoolfenden/ghat/src/version.Version=${VERSION}" -o /out/ghat .
 
-RUN apk --no-cache add build-base git curl jq bash
-RUN curl -s https://api.github.com/repos/JamesWoolfenden/ghat/releases/latest | jq '.assets[] | select(.name | contains("linux_386")) | select(.content_type | contains("gzip")) | .browser_download_url' -r | awk '{print "curl -L -k " $0 " -o ./ghat.tar.gz"}' | sh
-RUN tar -xf ./ghat.tar.gz -C /usr/bin/ && rm ./ghat.tar.gz && chmod +x /usr/bin/ghat && echo 'alias ghat="/usr/bin/ghat"' >> ~/.bashrc
-COPY entrypoint.sh /entrypoint.sh
-
-# Code file to execute when the docker container starts up (`entrypoint.sh`)
+FROM alpine:3.22@sha256:310c62b5e7ca5b08167e4384c68db0fd2905dd9c7493756d356e893909057601
+RUN apk --no-cache add bash git ca-certificates
+COPY --from=build /out/ghat /usr/bin/ghat
+COPY --chmod=0755 entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 
-LABEL layer.0.author="JamesWoolfenden"
+LABEL org.opencontainers.image.source="https://github.com/JamesWoolfenden/ghat"
+LABEL org.opencontainers.image.authors="JamesWoolfenden"

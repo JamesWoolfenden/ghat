@@ -49,11 +49,14 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Publish to Registry
         uses: elgohr/Publish-Docker-Github-Action@4f0f7c9e4ac72db902c5142ffbbb4655d2d3dd3c # v5
+        env:
+          VERSION: ${{ github.ref_name }}
         with:
           name: jameswoolfenden/ghat
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
           tags: "latest,${{ github.ref_name }}"
+          buildargs: VERSION
       - name: Update Docker Hub README
         uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
         with:

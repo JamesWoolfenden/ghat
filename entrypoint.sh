@@ -1,17 +1,23 @@
 #!/bin/bash
+set -e
 
-# Leverage the default env variables as described in:
-# https://docs.github.com/en/actions/reference/environment-variables#default-environment-variables
-if [[ $GITHUB_ACTIONS != "true" ]]
-then
-  /usr/bin/ghat "$@"
-  exit $?
+if [[ $GITHUB_ACTIONS != "true" ]]; then
+  exec /usr/bin/ghat "$@"
 fi
 
-flags=""
+VERB="${INPUT_VERB:-sweep}"
 
-echo "running command:"
-echo ghat swot -f "$INPUT_FILE" "$flags"
+args=("$VERB")
 
-/usr/bin/ghat swot -f "$INPUT_FILE" "$flags"
-export ghat_EXIT_CODE=$?
+if [[ -n "$INPUT_FILE" ]]; then
+  args+=(-f "$INPUT_FILE")
+else
+  args+=(-d "${INPUT_DIRECTORY:-.}")
+fi
+
+if [[ "$INPUT_DRYRUN" == "true" ]]; then
+  args+=(--dryrun)
+fi
+
+echo "running: ghat ${args[*]}"
+exec /usr/bin/ghat "${args[@]}"

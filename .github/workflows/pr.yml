@@ -39,3 +39,14 @@ jobs:
 
       - name: Test
         run: go test ./... -coverprofile=./cover.out
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Run action from local checkout
+        uses: ./
+        with:
+          verb: swot
+          directory: .github/workflows
+      - name: Assert workflows already pinned
+        run: git diff --exit-code .github/workflows

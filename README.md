@@ -185,6 +185,48 @@ docker run --tty --volume /local/path/to/repo:/repo jameswoolfenden/ghat swot -d
 
 <https://hub.docker.com/repository/docker/jameswoolfenden/ghat>
 
+### GitHub Action
+
+Pin everything in your repo on a schedule and open a PR with the changes:
+
+```yaml
+name: ghat
+on:
+  schedule:
+    - cron: 0 4 * * 1
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: JamesWoolfenden/ghat@v0  # ghat will rewrite this to a SHA
+        with:
+          directory: .
+      - uses: peter-evans/create-pull-request@v8
+        with:
+          commit-message: "chore: pin dependencies to immutable refs"
+          title: "chore: pin dependencies to immutable refs"
+          branch: ghat/pin
+```
+
+Or fail a PR that introduces unpinned refs:
+
+```yaml
+- uses: JamesWoolfenden/ghat@v0
+  with:
+    verb: swot
+    directory: .github/workflows
+    dryrun: true
+```
+
+Inputs: `verb` (default `sweep`), `directory` (default `.`), `file`, `dryrun`, `github_token` (default `${{ github.token }}`).
+
 ## Usage
 
 To authenticate the GitHub Api you should set up your GitHub Personal Access Token as the environment variable
@@ -425,6 +467,16 @@ spec:
 ```
 
 Variable references such as `$(IMAGE_TAG)` are skipped automatically.
+
+### sweep
+
+Runs every pinner (swot, stun, sift, swipe, shake, kube, dock) against a directory in one pass.
+
+```shell
+ghat sweep -d .
+```
+
+Useful in CI when you don't want to enumerate which file types a repo contains.
 
 ## Help
 

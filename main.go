@@ -171,6 +171,7 @@ func main() {
 			swotCmd,
 			kubeCmd,
 			dockCmd,
+			sweepCmd,
 		},
 		Name:     "ghat",
 		Usage:    "Update GHA dependencies",
@@ -465,6 +466,73 @@ var dockCmd = &cli.Command{
 		}
 
 		return myFlags.Action("dock")
+	},
+}
+
+var sweepCmd = &cli.Command{
+	Name:      "sweep",
+	Aliases:   []string{"all"},
+	Usage:     "runs every pinner (GHA, GitLab, pre-commit, Terraform, Kubernetes, Dockerfiles) against a directory",
+	UsageText: "ghat sweep -d .",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "directory",
+			Aliases: []string{"d"},
+			Usage:   "directory to scan",
+			Value:   ".",
+		},
+		&cli.BoolFlag{
+			Name:  "dryrun",
+			Usage: "show changes without modifying files",
+		},
+		&cli.BoolFlag{
+			Name:  "continue-on-error",
+			Usage: "continue processing files even if errors occur",
+		},
+		&cli.UintFlag{
+			Name:  "stable",
+			Usage: "use releases from N days ago (more stable)",
+		},
+		&cli.BoolFlag{
+			Name:  "update",
+			Usage: "update Terraform modules to latest available",
+		},
+		&cli.StringFlag{
+			Name:     "token",
+			Aliases:  []string{"t"},
+			Usage:    "GitHub PAT token",
+			Category: "authentication",
+			EnvVars:  []string{"GITHUB_TOKEN", "GITHUB_API"},
+		},
+		&cli.BoolFlag{
+			Name:  "no-cache",
+			Usage: "disable caching of API responses",
+		},
+		&cli.DurationFlag{
+			Name:  "cache-ttl",
+			Usage: "cache time-to-live (e.g., 24h, 1h30m)",
+			Value: 24 * time.Hour,
+		},
+	},
+	Action: func(c *cli.Context) error {
+		myFlags := core.NewFlags()
+		myFlags.Directory = c.String("directory")
+		myFlags.DryRun = c.Bool("dryrun")
+		myFlags.ContinueOnError = c.Bool("continue-on-error")
+		myFlags.Update = c.Bool("update")
+		myFlags.GitHubToken = c.String("token")
+
+		stable := c.Uint("stable")
+		myFlags.Days = &stable
+
+		myFlags.CacheEnabled = !c.Bool("no-cache")
+		myFlags.CacheTTL = c.Duration("cache-ttl")
+
+		if err := myFlags.InitializeCache(); err != nil {
+			return fmt.Errorf("failed to initialize cache: %w", err)
+		}
+
+		return myFlags.Action(core.ActionSweep)
 	},
 }
 

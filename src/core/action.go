@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 )
@@ -13,6 +14,7 @@ const (
 	ActionShake = "shake"
 	ActionKube  = "kube"
 	ActionDock  = "dock"
+	ActionSweep = "sweep"
 )
 
 func (myFlags *Flags) Action(action string) error {
@@ -94,6 +96,16 @@ func executeAction(action string, myFlags *Flags) error {
 			return myFlags.UpdateDockerfile(myFlags.File)
 		}
 		return myFlags.UpdateDockerfiles()
+	case ActionSweep:
+		return errors.Join(
+			myFlags.UpdateGHAS(),
+			myFlags.UpdateGitlab(),
+			myFlags.UpdateHooks(),
+			myFlags.UpdateModules(),
+			myFlags.UpdateProviders(),
+			myFlags.UpdateKubes(),
+			myFlags.UpdateDockerfiles(),
+		)
 	}
 
 	return nil

@@ -1,0 +1,32 @@
+---
+# Drop this into a scratch repo as .github/workflows/test-ghat.yml to
+# integration-test an unreleased ghat ref on a real GitHub runner.
+# Replace REF below with the branch or SHA under test.
+name: test-ghat
+on:
+  workflow_dispatch:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    steps:
+      # Deliberately unpinned so ghat has something to rewrite.
+      - uses: actions/checkout@v6
+
+      - uses: JamesWoolfenden/ghat@REF
+        with:
+          verb: swot
+          directory: .github/workflows
+
+      - name: Assert ghat pinned the checkout step
+        run: |
+          git diff .github/workflows
+          if git diff --quiet .github/workflows; then
+            echo "::error::ghat made no changes - expected checkout@v6 to be pinned"
+            exit 1
+          fi
+          grep -q 'actions/checkout@[0-9a-f]\{40\}' .github/workflows/test-ghat.yml

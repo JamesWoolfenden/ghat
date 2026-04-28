@@ -1,0 +1,35 @@
+name: ghat
+author: James Woolfenden
+description: Pin GitHub Actions, GitLab CI, pre-commit, Terraform, Kubernetes and Dockerfile dependencies to immutable hashes/digests.
+
+branding:
+  icon: anchor
+  color: blue
+
+inputs:
+  verb:
+    description: ghat subcommand to run (sweep, swot, shake, sift, swipe, stun, kube, dock)
+    required: false
+    default: sweep
+  directory:
+    description: Directory to scan
+    required: false
+    default: .
+  file:
+    description: Single file to process (overrides directory)
+    required: false
+    default: ""
+  dryrun:
+    description: Show changes without writing files
+    required: false
+    default: "false"
+  github_token:
+    description: GitHub token for API calls
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: docker
+  image: Dockerfile
+  env:
+    GITHUB_TOKEN: ${{ inputs.github_token }}

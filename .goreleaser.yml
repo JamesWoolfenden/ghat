@@ -6,12 +6,11 @@
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
 
 version: 2
-before:
-  hooks:
-    - ./set-version.sh
 
 builds:
-  - goos:
+  - ldflags:
+      - -s -w -X github.com/jameswoolfenden/ghat/src/version.Version={{.Version}}
+    goos:
       - darwin
       - linux
       - windows
