@@ -172,6 +172,7 @@ func main() {
 			kubeCmd,
 			dockCmd,
 			sweepCmd,
+			auditCmd,
 		},
 		Name:     "ghat",
 		Usage:    "Update GHA dependencies",
@@ -533,6 +534,55 @@ var sweepCmd = &cli.Command{
 		}
 
 		return myFlags.Action(core.ActionSweep)
+	},
+}
+
+var auditCmd = &cli.Command{
+	Name:      "audit",
+	Aliases:   []string{"sc"},
+	Usage:     "scores Go dependencies by whether their own CI workflows pin actions to SHAs",
+	UsageText: "ghat audit -d . [--deep]",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "directory",
+			Aliases: []string{"d"},
+			Usage:   "directory containing go.mod",
+			Value:   ".",
+		},
+		&cli.BoolFlag{
+			Name:  "deep",
+			Usage: "audit transitive dependencies (go list -m all) instead of direct only",
+		},
+		&cli.StringFlag{
+			Name:     "token",
+			Aliases:  []string{"t"},
+			Usage:    "GitHub PAT token",
+			Category: "authentication",
+			EnvVars:  []string{"GITHUB_TOKEN", "GITHUB_API"},
+		},
+		&cli.BoolFlag{
+			Name:  "no-cache",
+			Usage: "disable caching of API responses",
+		},
+		&cli.DurationFlag{
+			Name:  "cache-ttl",
+			Usage: "cache time-to-live (e.g., 24h, 1h30m)",
+			Value: 24 * time.Hour,
+		},
+	},
+	Action: func(c *cli.Context) error {
+		myFlags := core.NewFlags()
+		myFlags.Directory = c.String("directory")
+		myFlags.Deep = c.Bool("deep")
+		myFlags.GitHubToken = c.String("token")
+		myFlags.CacheEnabled = !c.Bool("no-cache")
+		myFlags.CacheTTL = c.Duration("cache-ttl")
+
+		if err := myFlags.InitializeCache(); err != nil {
+			return fmt.Errorf("failed to initialize cache: %w", err)
+		}
+
+		return myFlags.Action(core.ActionAudit)
 	},
 }
 

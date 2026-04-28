@@ -16,6 +16,7 @@ type Flags struct {
 	Entries         []string // For tracking entries
 	Days            *uint    // Days parameter
 	ContinueOnError bool     // Continue on error flag
+	Deep            bool
 
 	// New cache fields
 	Cache        *Cache

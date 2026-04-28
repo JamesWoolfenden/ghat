@@ -15,6 +15,7 @@ const (
 	ActionKube  = "kube"
 	ActionDock  = "dock"
 	ActionSweep = "sweep"
+	ActionAudit = "audit"
 )
 
 func (myFlags *Flags) Action(action string) error {
@@ -96,6 +97,8 @@ func executeAction(action string, myFlags *Flags) error {
 			return myFlags.UpdateDockerfile(myFlags.File)
 		}
 		return myFlags.UpdateDockerfiles()
+	case ActionAudit:
+		return myFlags.Audit()
 	case ActionSweep:
 		return errors.Join(
 			myFlags.UpdateGHAS(),
