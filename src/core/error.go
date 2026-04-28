@@ -27,11 +27,17 @@ func (m *workingDirectoryError) Error() string {
 
 type executeActionError struct {
 	action string
+	err    error
 }
 
 func (m *executeActionError) Error() string {
+	if m.err != nil {
+		return fmt.Sprintf("%s: %v", m.action, m.err)
+	}
 	return fmt.Sprintf("failed to execute action: %s", m.action)
 }
+
+func (m *executeActionError) Unwrap() error { return m.err }
 
 type dirAndFileEmptyError struct {
 }

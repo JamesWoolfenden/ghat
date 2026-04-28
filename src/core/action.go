@@ -45,7 +45,7 @@ func (myFlags *Flags) Action(action string) error {
 
 	err = executeAction(action, myFlags)
 	if err != nil {
-		return &executeActionError{action}
+		return &executeActionError{action: action, err: err}
 	}
 
 	return nil

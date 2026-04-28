@@ -15,6 +15,7 @@ import (
 )
 
 func main() {
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	var myFlags core.Flags
@@ -540,13 +541,13 @@ var sweepCmd = &cli.Command{
 var auditCmd = &cli.Command{
 	Name:      "audit",
 	Aliases:   []string{"sc"},
-	Usage:     "scores Go dependencies by whether their own CI workflows pin actions to SHAs",
-	UsageText: "ghat audit -d . [--deep]",
+	Usage:     "scores your dependencies (go.mod, GHA uses:, pre-commit, Terraform modules) by whether their CI workflows pin actions to SHAs",
+	UsageText: "ghat audit -d . [--source go,gha,pre-commit,terraform] [--deep]",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:    "directory",
 			Aliases: []string{"d"},
-			Usage:   "directory containing go.mod",
+			Usage:   "directory to scan for dependency manifests",
 			Value:   ".",
 		},
 		&cli.BoolFlag{
