@@ -96,6 +96,30 @@ func TestSplitGithubPath(t *testing.T) {
 	}
 }
 
+func TestGithubOwnerRepo(t *testing.T) {
+	tests := []struct {
+		in    string
+		owner string
+		repo  string
+		ok    bool
+	}{
+		{"https://github.com/pre-commit/pre-commit-hooks", "pre-commit", "pre-commit-hooks", true},
+		{"https://github.com/pre-commit/pre-commit-hooks.git", "pre-commit", "pre-commit-hooks", true},
+		{"git@github.com:JamesWoolfenden/ghat.git", "JamesWoolfenden", "ghat", true},
+		{"git::https://github.com/terraform-aws-modules/terraform-aws-vpc.git?ref=v5.0.0", "terraform-aws-modules", "terraform-aws-vpc", true},
+		{"https://gitlab.com/foo/bar", "", "", false},
+		{"hashicorp/aws/consul", "", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			o, r, ok := githubOwnerRepo(tt.in)
+			if ok != tt.ok || o != tt.owner || r != tt.repo {
+				t.Errorf("got (%s,%s,%v), want (%s,%s,%v)", o, r, ok, tt.owner, tt.repo, tt.ok)
+			}
+		})
+	}
+}
+
 func TestResolveRepoGithub(t *testing.T) {
 	o, r, err := resolveRepo("github.com/rs/zerolog")
 	if err != nil || o != "rs" || r != "zerolog" {

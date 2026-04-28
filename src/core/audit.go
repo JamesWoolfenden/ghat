@@ -15,16 +15,37 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"golang.org/x/mod/modfile"
+	"gopkg.in/yaml.v3"
 )
 
 var (
 	usesRe     = regexp.MustCompile(`uses:\s*["']?([^\s"'#]+)`)
 	shaRe      = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	goImportRe = regexp.MustCompile(`<meta\s+name="go-import"\s+content="[^ ]+\s+git\s+(https://[^"]+)"`)
+	ghRepoRe   = regexp.MustCompile(`github\.com[:/]([\w.-]+)/([\w.-]+)`)
+	tfSourceRe = regexp.MustCompile(`source\s*=\s*"([^"]+)"`)
 )
 
+const (
+	SourceGo        = "go"
+	SourceGHA       = "gha"
+	SourcePreCommit = "pre-commit"
+	SourceTerraform = "terraform"
+)
+
+var allSources = []string{SourceGo, SourceGHA, SourcePreCommit, SourceTerraform}
+
+type dep struct {
+	source string
+	label  string
+	owner  string
+	repo   string
+	skip   string
+}
+
 type auditResult struct {
-	module   string
+	source   string
+	label    string
 	repo     string
 	skipped  string
 	scanned  int
@@ -33,34 +54,49 @@ type auditResult struct {
 }
 
 func (f *Flags) Audit() error {
-	mods, err := f.listModules()
-	if err != nil {
-		return err
+	sources := f.Sources
+	if len(sources) == 0 {
+		sources = allSources
+	}
+
+	var deps []dep
+	for _, s := range sources {
+		switch s {
+		case SourceGo:
+			deps = append(deps, f.collectGoDeps()...)
+		case SourceGHA:
+			deps = append(deps, f.collectGHADeps()...)
+		case SourcePreCommit:
+			deps = append(deps, f.collectPreCommitDeps()...)
+		case SourceTerraform:
+			deps = append(deps, f.collectTerraformDeps()...)
+		default:
+			return fmt.Errorf("unknown audit source %q (valid: %s)", s, strings.Join(allSources, ", "))
+		}
 	}
 
 	var results []auditResult
 	seen := map[string]bool{}
 
-	for _, mod := range mods {
-		owner, repo, err := resolveRepo(mod)
-		if err != nil {
-			results = append(results, auditResult{module: mod, skipped: err.Error()})
+	for _, d := range deps {
+		if d.skip != "" {
+			results = append(results, auditResult{source: d.source, label: d.label, skipped: d.skip})
 			continue
 		}
-		key := owner + "/" + repo
+		key := d.owner + "/" + d.repo
 		if seen[key] {
 			continue
 		}
 		seen[key] = true
 
-		files, err := fetchWorkflows(owner, repo, f.GitHubToken)
+		files, err := fetchWorkflows(d.owner, d.repo, f.GitHubToken)
 		if err != nil {
-			log.Warn().Str("module", mod).Err(err).Msg("failed to fetch workflows")
-			results = append(results, auditResult{module: mod, repo: key, skipped: "fetch failed"})
+			log.Warn().Str("dep", d.label).Err(err).Msg("failed to fetch workflows")
+			results = append(results, auditResult{source: d.source, label: d.label, repo: key, skipped: "fetch failed"})
 			continue
 		}
 
-		res := auditResult{module: mod, repo: key, scanned: len(files)}
+		res := auditResult{source: d.source, label: d.label, repo: key, scanned: len(files)}
 		for name, body := range files {
 			refs := findUnpinned(body)
 			res.total += refs.total
@@ -222,21 +258,36 @@ func findUnpinned(body []byte) refScan {
 }
 
 func reportAudit(results []auditResult) error {
+	type tally struct{ risky, total int }
+	bySource := map[string]*tally{}
 	risky := 0
+
 	for _, r := range results {
+		if _, ok := bySource[r.source]; !ok {
+			bySource[r.source] = &tally{}
+		}
 		if r.skipped != "" {
-			fmt.Printf("  %-45s skipped: %s\n", r.module, r.skipped)
+			fmt.Printf("       %-10s %-45s skipped: %s\n", r.source, r.label, r.skipped)
 			continue
 		}
+		bySource[r.source].total++
 		status := "ok"
 		if len(r.unpinned) > 0 {
 			status = "RISK"
 			risky++
+			bySource[r.source].risky++
 		}
-		fmt.Printf("[%-4s] %-45s %s  workflows=%d  pinned=%d/%d\n",
-			status, r.module, r.repo, r.scanned, r.total-len(r.unpinned), r.total)
+		fmt.Printf("[%-4s] %-10s %-45s %s  workflows=%d  pinned=%d/%d\n",
+			status, r.source, r.label, r.repo, r.scanned, r.total-len(r.unpinned), r.total)
 		for _, u := range r.unpinned {
 			fmt.Printf("         %s\n", u)
+		}
+	}
+
+	fmt.Println()
+	for _, s := range allSources {
+		if t, ok := bySource[s]; ok {
+			fmt.Printf("  %-10s %d/%d dependencies have unpinned CI\n", s, t.risky, t.total)
 		}
 	}
 	fmt.Printf("\n%d of %d audited dependencies have unpinned CI actions\n", risky, len(results))
@@ -244,4 +295,119 @@ func reportAudit(results []auditResult) error {
 		return fmt.Errorf("%d dependencies have unpinned CI actions", risky)
 	}
 	return nil
+}
+
+func (f *Flags) collectGoDeps() []dep {
+	mods, err := f.listModules()
+	if err != nil {
+		log.Warn().Err(err).Msg("audit: no go.mod found, skipping go source")
+		return nil
+	}
+	var deps []dep
+	for _, mod := range mods {
+		owner, repo, err := resolveRepo(mod)
+		if err != nil {
+			deps = append(deps, dep{source: SourceGo, label: mod, skip: err.Error()})
+			continue
+		}
+		deps = append(deps, dep{source: SourceGo, label: mod, owner: owner, repo: repo})
+	}
+	return deps
+}
+
+func (f *Flags) collectGHADeps() []dep {
+	seen := map[string]bool{}
+	var deps []dep
+	for _, file := range f.Entries {
+		abs, _ := filepath.Abs(file)
+		if !strings.Contains(abs, githubWorkflowPath) {
+			continue
+		}
+		if ext := filepath.Ext(file); ext != yamlExtension && ext != yamlAltExtension {
+			continue
+		}
+		body, err := os.ReadFile(file)
+		if err != nil {
+			continue
+		}
+		for _, m := range usesRe.FindAllStringSubmatch(string(body), -1) {
+			ref := strings.TrimSpace(m[1])
+			if strings.HasPrefix(ref, "./") || strings.HasPrefix(ref, "docker://") {
+				continue
+			}
+			path, _, _ := strings.Cut(ref, "@")
+			parts := strings.SplitN(path, "/", 3)
+			if len(parts) < 2 {
+				continue
+			}
+			key := parts[0] + "/" + parts[1]
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			deps = append(deps, dep{source: SourceGHA, label: key, owner: parts[0], repo: parts[1]})
+		}
+	}
+	return deps
+}
+
+func (f *Flags) collectPreCommitDeps() []dep {
+	data, err := os.ReadFile(filepath.Join(f.Directory, PreCommitConfigFile))
+	if err != nil {
+		return nil
+	}
+	var cfg ConfigFile
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		log.Warn().Err(err).Msg("audit: failed to parse .pre-commit-config.yaml")
+		return nil
+	}
+	var deps []dep
+	for _, r := range cfg.Repos {
+		if !strings.Contains(r.Repo, "://") {
+			continue
+		}
+		owner, repo, ok := githubOwnerRepo(r.Repo)
+		if !ok {
+			deps = append(deps, dep{source: SourcePreCommit, label: r.Repo, skip: "not on GitHub"})
+			continue
+		}
+		deps = append(deps, dep{source: SourcePreCommit, label: r.Repo, owner: owner, repo: repo})
+	}
+	return deps
+}
+
+func (f *Flags) collectTerraformDeps() []dep {
+	seen := map[string]bool{}
+	var deps []dep
+	for _, file := range f.Entries {
+		if filepath.Ext(file) != ".tf" {
+			continue
+		}
+		body, err := os.ReadFile(file)
+		if err != nil {
+			continue
+		}
+		for _, m := range tfSourceRe.FindAllStringSubmatch(string(body), -1) {
+			src := m[1]
+			owner, repo, ok := githubOwnerRepo(src)
+			if !ok {
+				continue
+			}
+			key := owner + "/" + repo
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			deps = append(deps, dep{source: SourceTerraform, label: src, owner: owner, repo: repo})
+		}
+	}
+	return deps
+}
+
+func githubOwnerRepo(s string) (string, string, bool) {
+	m := ghRepoRe.FindStringSubmatch(s)
+	if m == nil {
+		return "", "", false
+	}
+	return m[1], strings.TrimSuffix(m[2], ".git"), true
 }

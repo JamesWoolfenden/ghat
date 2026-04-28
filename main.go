@@ -551,7 +551,12 @@ var auditCmd = &cli.Command{
 		},
 		&cli.BoolFlag{
 			Name:  "deep",
-			Usage: "audit transitive dependencies (go list -m all) instead of direct only",
+			Usage: "audit transitive Go dependencies (go list -m all) instead of direct only",
+		},
+		&cli.StringSliceFlag{
+			Name:    "source",
+			Aliases: []string{"s"},
+			Usage:   "dependency sources to audit (go, gha, pre-commit, terraform); repeat or comma-separate; default all",
 		},
 		&cli.StringFlag{
 			Name:     "token",
@@ -574,6 +579,7 @@ var auditCmd = &cli.Command{
 		myFlags := core.NewFlags()
 		myFlags.Directory = c.String("directory")
 		myFlags.Deep = c.Bool("deep")
+		myFlags.Sources = c.StringSlice("source")
 		myFlags.GitHubToken = c.String("token")
 		myFlags.CacheEnabled = !c.Bool("no-cache")
 		myFlags.CacheTTL = c.Duration("cache-ttl")

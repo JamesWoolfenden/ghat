@@ -17,6 +17,7 @@ type Flags struct {
 	Days            *uint    // Days parameter
 	ContinueOnError bool     // Continue on error flag
 	Deep            bool
+	Sources         []string
 
 	// New cache fields
 	Cache        *Cache
