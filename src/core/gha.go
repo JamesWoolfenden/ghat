@@ -201,6 +201,20 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 				continue
 			}
 
+			if objectType, _ := object["type"].(string); objectType == "tag" {
+				if tagURL, _ := object["url"].(string); tagURL != "" {
+					if tagPayload, err := GetGithubBody(myFlags.GitHubToken, tagURL); err == nil {
+						if tagMap, ok := tagPayload.(map[string]interface{}); ok {
+							if tagObject, ok := tagMap["object"].(map[string]interface{}); ok {
+								if commitSha, ok := tagObject["sha"].(string); ok {
+									sha = commitSha
+								}
+							}
+						}
+					}
+				}
+			}
+
 			if isTagMutation(currentSHA, currentTag, sha, tag) {
 				log.Warn().Msgf("SUSPICIOUS: %s@%s — SHA changed from %s to %s with the same tag. "+
 					"The tag may have been moved to a different commit. Verify this is intentional before accepting.", action[0], tag, currentSHA, sha)
