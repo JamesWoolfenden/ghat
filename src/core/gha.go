@@ -14,6 +14,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
+	"golang.org/x/mod/semver"
 	"gopkg.in/yaml.v3"
 )
 
@@ -343,7 +344,7 @@ func GetLatestRelease(action string, gitHubToken string) (interface{}, error) {
 }
 
 func GetLatestTag(action string, gitHubToken string) (interface{}, error) {
-	url := "https://api.github.com/repos/" + action + "/tags"
+	url := "https://api.github.com/repos/" + action + "/tags?per_page=100"
 	tags, err := GetGithubBody(gitHubToken, url)
 	if err != nil {
 		return nil, err
@@ -354,7 +355,62 @@ func GetLatestTag(action string, gitHubToken string) (interface{}, error) {
 		return nil, fmt.Errorf("failed to assert slice %s", tags)
 	}
 
-	return tagged[0].(map[string]interface{}), nil
+	if len(tagged) == 0 {
+		return nil, fmt.Errorf("repo %s has no tags", action)
+	}
+
+	return tagged[pickLatestTag(tagged)], nil
+}
+
+// coerceSemver turns common tag spellings into something golang.org/x/mod/semver
+// can compare: strips a leading non-digit prefix (release-, foo-v, krb5-), adds
+// the v, and rejects anything without a dot so date stamps like 20060525 do not
+// parse as a giant major version. Returns "" if unrecognisable.
+func coerceSemver(tag string) string {
+	i := strings.IndexFunc(tag, func(r rune) bool { return r >= '0' && r <= '9' })
+	if i < 0 {
+		return ""
+	}
+	v := "v" + tag[i:]
+	if !strings.Contains(v, ".") || !semver.IsValid(v) {
+		return ""
+	}
+	return v
+}
+
+// pickLatestTag returns the index of the highest-version tag in a GitHub /tags
+// response. The API orders by ref creation, which for repos that backport or
+// keep test tags (krb5, oqs-provider) puts junk first. Stable releases beat
+// pre-releases; anything that will not coerce to semver is ignored unless
+// nothing coerces, in which case we fall back to the API's own ordering.
+func pickLatestTag(tagged []any) int {
+	best, bestV := 0, ""
+	for i, t := range tagged {
+		m, ok := t.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := m["name"].(string)
+		v := coerceSemver(name)
+		if v == "" {
+			continue
+		}
+		if bestV == "" {
+			best, bestV = i, v
+			continue
+		}
+		bestPre, vPre := semver.Prerelease(bestV) != "", semver.Prerelease(v) != ""
+		if bestPre != vPre {
+			if bestPre {
+				best, bestV = i, v
+			}
+			continue
+		}
+		if semver.Compare(v, bestV) > 0 {
+			best, bestV = i, v
+		}
+	}
+	return best
 }
 
 func getHash(action string, tag string, gitHubToken string) (interface{}, error) {

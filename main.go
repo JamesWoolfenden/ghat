@@ -172,6 +172,7 @@ func main() {
 			swotCmd,
 			kubeCmd,
 			dockCmd,
+			subCmd,
 			sweepCmd,
 			auditCmd,
 		},
@@ -468,6 +469,45 @@ var dockCmd = &cli.Command{
 		}
 
 		return myFlags.Action("dock")
+	},
+}
+
+var subCmd = &cli.Command{
+	Name:      "sub",
+	Aliases:   []string{"m"},
+	Usage:     "updates git submodule pins to latest tagged release SHA",
+	UsageText: "ghat sub -d .",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "directory",
+			Aliases: []string{"d"},
+			Usage:   "repository containing .gitmodules",
+			Value:   ".",
+		},
+		&cli.BoolFlag{
+			Name:  "dry-run",
+			Usage: "show changes without modifying the index",
+		},
+		&cli.BoolFlag{
+			Name:  "continue-on-error",
+			Usage: "continue processing submodules even if one fails",
+		},
+		&cli.StringFlag{
+			Name:     "token",
+			Aliases:  []string{"t"},
+			Usage:    "GitHub PAT token",
+			Category: "authentication",
+			EnvVars:  []string{"GITHUB_TOKEN", "GITHUB_API"},
+		},
+	},
+	Action: func(c *cli.Context) error {
+		myFlags := core.NewFlags()
+		myFlags.Directory = c.String("directory")
+		myFlags.DryRun = c.Bool("dry-run")
+		myFlags.ContinueOnError = c.Bool("continue-on-error")
+		myFlags.GitHubToken = c.String("token")
+
+		return myFlags.Action(core.ActionSub)
 	},
 }
 
