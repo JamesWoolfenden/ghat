@@ -97,8 +97,9 @@ func (myFlags *Flags) GetGHA() []string {
 	for _, match := range myFlags.Entries {
 		match, _ = filepath.Abs(match)
 		entry, _ := os.Stat(match)
-		if strings.Contains(match, githubWorkflowPath) && !entry.IsDir() {
-			if strings.Contains(match, yamlExtension) || (strings.Contains(match, yamlAltExtension)) {
+		slashed := filepath.ToSlash(match)
+		if strings.Contains(slashed, githubWorkflowPath) && !entry.IsDir() {
+			if strings.Contains(slashed, yamlExtension) || strings.Contains(slashed, yamlAltExtension) {
 				ghat = append(ghat, match)
 			}
 		}
@@ -129,7 +130,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 
 		action := strings.Split(match[1], "@")
 
-		action[0] = strings.TrimSpace(action[0])
+		action[0] = strings.Trim(strings.TrimSpace(action[0]), `"'`)
 
 		// Local/composite action path or docker:// ref — nothing to resolve on GitHub.
 		if strings.HasPrefix(action[0], ".") || strings.HasPrefix(action[0], "/") || strings.HasPrefix(action[0], "docker://") {
