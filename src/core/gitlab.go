@@ -94,6 +94,11 @@ func (myFlags *Flags) UpdateGitlab() error {
 			continue
 		}
 
+		if ok, reason := imageLineSuppression(string(project), imageStr); ok {
+			log.Info().Str("image", imageStr).Str("reason", reason).Msg("skipping suppressed image")
+			continue
+		}
+
 		// Parse the image reference
 		imgRef := parseImageReference(imageStr)
 		log.Info().Str("image", imageStr).Msg("Processing image")

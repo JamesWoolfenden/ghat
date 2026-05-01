@@ -127,6 +127,11 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 	matches := r.FindAllStringSubmatch(string(buffer), -1)
 	for _, match := range matches {
 
+		if ok, reason := parseSuppression(match[0]); ok {
+			log.Info().Str("ref", strings.TrimSpace(match[1])).Str("reason", reason).Msg("skipping suppressed uses: line")
+			continue
+		}
+
 		//is path
 		if strings.Contains(match[1], ".github") {
 			continue

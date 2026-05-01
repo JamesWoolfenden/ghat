@@ -65,16 +65,28 @@ type revPin struct {
 func rewritePreCommitRevs(data string, pins map[string]revPin) string {
 	lines := strings.Split(data, "\n")
 	var currentRepo string
+	var suppressCurrent bool
+	var suppressCurrentReason string
 
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(strings.SplitN(line, "#", 2)[0])
 
 		if after, ok := strings.CutPrefix(trimmed, "- repo:"); ok {
 			currentRepo = strings.TrimSpace(after)
+			suppressCurrent, suppressCurrentReason = parseSuppression(line)
 			continue
 		}
 
 		if !strings.HasPrefix(trimmed, "rev:") {
+			continue
+		}
+
+		if suppressCurrent {
+			log.Info().Str("repo", currentRepo).Str("reason", suppressCurrentReason).Msg("skipping suppressed pre-commit rev")
+			continue
+		}
+		if ok, reason := parseSuppression(line); ok {
+			log.Info().Str("repo", currentRepo).Str("reason", reason).Msg("skipping suppressed pre-commit rev")
 			continue
 		}
 

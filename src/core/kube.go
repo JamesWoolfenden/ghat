@@ -63,6 +63,10 @@ func (myFlags *Flags) UpdateKube(file string) error {
 
 	replacement := string(content)
 	for _, imageStr := range images {
+		if ok, reason := imageLineSuppression(string(content), imageStr); ok {
+			log.Info().Str("image", imageStr).Str("reason", reason).Msg("skipping suppressed image")
+			continue
+		}
 		imgRef := parseImageReference(imageStr)
 		digest, err := myFlags.getImageDigest(imgRef)
 		if err != nil {

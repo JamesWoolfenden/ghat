@@ -57,6 +57,10 @@ func (myFlags *Flags) UpdateDockerfile(file string) error {
 			log.Warn().Msgf("SUPPLY CHAIN RISK: FROM uses a dynamic image reference '%s' which cannot be pinned — resolve to a specific tag and digest", imageStr)
 			continue
 		}
+		if ok, reason := parseSuppression(line); ok {
+			log.Info().Str("image", imageStr).Str("reason", reason).Msg("skipping suppressed FROM line")
+			continue
+		}
 
 		// Strip existing digest so we resolve a fresh one for the tag.
 		bareImage := imageStr

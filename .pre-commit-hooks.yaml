@@ -18,6 +18,7 @@
   types: [ yaml ]
 
 - id: ghat-go-stunclaude
+
   name: stun
   description: pin GitLab CI image refs to digests
   language: golang

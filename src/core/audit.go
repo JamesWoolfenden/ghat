@@ -44,13 +44,14 @@ type dep struct {
 }
 
 type auditResult struct {
-	source   string
-	label    string
-	repo     string
-	skipped  string
-	scanned  int
-	total    int
-	unpinned []string
+	source     string
+	label      string
+	repo       string
+	skipped    string
+	scanned    int
+	total      int
+	unpinned   []string
+	suppressed int // refs skipped via # ghat:suppress in the dep's own workflows
 }
 
 func (f *Flags) Audit() error {
@@ -100,6 +101,7 @@ func (f *Flags) Audit() error {
 		for name, body := range files {
 			refs := findUnpinned(body)
 			res.total += refs.total
+			res.suppressed += refs.suppressed
 			for _, u := range refs.unpinned {
 				res.unpinned = append(res.unpinned, name+": "+u)
 			}
@@ -234,19 +236,28 @@ func fetchWorkflows(owner, repo, token string) (map[string][]byte, error) {
 }
 
 type refScan struct {
-	total    int
-	unpinned []string
+	total      int
+	suppressed int
+	unpinned   []string
 }
 
 func findUnpinned(body []byte) refScan {
 	var rs refScan
-	for _, m := range usesRe.FindAllStringSubmatch(string(body), -1) {
+	for _, line := range strings.Split(string(body), "\n") {
+		m := usesRe.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
 		ref := strings.TrimSpace(m[1])
 		if strings.HasPrefix(ref, "./") || strings.HasPrefix(ref, "docker://") {
 			continue
 		}
 		at := strings.LastIndex(ref, "@")
 		if at < 0 {
+			continue
+		}
+		if isSuppressed(line) {
+			rs.suppressed++
 			continue
 		}
 		rs.total++
@@ -258,9 +269,10 @@ func findUnpinned(body []byte) refScan {
 }
 
 func reportAudit(results []auditResult) error {
-	type tally struct{ risky, total int }
+	type tally struct{ risky, total, suppressed int }
 	bySource := map[string]*tally{}
 	risky := 0
+	totalSuppressed := 0
 
 	for _, r := range results {
 		if _, ok := bySource[r.source]; !ok {
@@ -271,14 +283,20 @@ func reportAudit(results []auditResult) error {
 			continue
 		}
 		bySource[r.source].total++
+		bySource[r.source].suppressed += r.suppressed
+		totalSuppressed += r.suppressed
 		status := "ok"
 		if len(r.unpinned) > 0 {
 			status = "RISK"
 			risky++
 			bySource[r.source].risky++
 		}
-		fmt.Printf("[%-4s] %-10s %-45s %s  workflows=%d  pinned=%d/%d\n",
-			status, r.source, r.label, r.repo, r.scanned, r.total-len(r.unpinned), r.total)
+		suppressedNote := ""
+		if r.suppressed > 0 {
+			suppressedNote = fmt.Sprintf("  suppressed=%d", r.suppressed)
+		}
+		fmt.Printf("[%-4s] %-10s %-45s %s  workflows=%d  pinned=%d/%d%s\n",
+			status, r.source, r.label, r.repo, r.scanned, r.total-len(r.unpinned), r.total, suppressedNote)
 		for _, u := range r.unpinned {
 			fmt.Printf("         %s\n", u)
 		}
@@ -290,7 +308,12 @@ func reportAudit(results []auditResult) error {
 			fmt.Printf("  %-10s %d/%d dependencies have unpinned CI\n", s, t.risky, t.total)
 		}
 	}
-	fmt.Printf("\n%d of %d audited dependencies have unpinned CI actions\n", risky, len(results))
+	fmt.Printf("\n%d of %d audited dependencies have unpinned CI actions", risky, len(results))
+	if totalSuppressed > 0 {
+		fmt.Printf("  (%d refs suppressed via %s)\n", totalSuppressed, SuppressAnnotation)
+	} else {
+		fmt.Println()
+	}
 	if risky > 0 {
 		return fmt.Errorf("%d dependencies have unpinned CI actions", risky)
 	}
@@ -330,7 +353,14 @@ func (f *Flags) collectGHADeps() []dep {
 		if err != nil {
 			continue
 		}
-		for _, m := range usesRe.FindAllStringSubmatch(string(body), -1) {
+		for _, line := range strings.Split(string(body), "\n") {
+			m := usesRe.FindStringSubmatch(line)
+			if m == nil {
+				continue
+			}
+			if isSuppressed(line) {
+				continue
+			}
 			ref := strings.TrimSpace(m[1])
 			if strings.HasPrefix(ref, "./") || strings.HasPrefix(ref, "docker://") {
 				continue
