@@ -112,6 +112,7 @@ func executeAction(action string, myFlags *Flags) error {
 			myFlags.UpdateKubes(),
 			myFlags.UpdateDockerfiles(),
 			myFlags.UpdateSubmodules(),
+			myFlags.UpdateCpanfile(),
 		)
 	}
 

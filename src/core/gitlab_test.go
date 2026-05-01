@@ -31,7 +31,7 @@ func TestFlags_UpdateGitlab(t *testing.T) {
 		{"Empty",
 			fields{"", "", gitHubToken, &days, false, nil, true, false}, true},
 		{"Missing",
-			fields{"", "testdata/gitlab/empty", gitHubToken, &days, false, nil, true, false}, true},
+			fields{"", "testdata/gitlab/empty", gitHubToken, &days, false, nil, true, false}, false},
 		{"Empty Project",
 			fields{"", "testdata/gitlab/projectEmpty", gitHubToken, &days, true, nil, true, false}, true},
 		{"Project",

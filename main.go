@@ -485,7 +485,7 @@ var subCmd = &cli.Command{
 			Value:   ".",
 		},
 		&cli.BoolFlag{
-			Name:  "dry-run",
+			Name:  "dryrun",
 			Usage: "show changes without modifying the index",
 		},
 		&cli.BoolFlag{
@@ -503,7 +503,7 @@ var subCmd = &cli.Command{
 	Action: func(c *cli.Context) error {
 		myFlags := core.NewFlags()
 		myFlags.Directory = c.String("directory")
-		myFlags.DryRun = c.Bool("dry-run")
+		myFlags.DryRun = c.Bool("dryrun")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
 		myFlags.GitHubToken = c.String("token")
 

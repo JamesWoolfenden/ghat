@@ -45,6 +45,8 @@ func TestCoerceSemver(t *testing.T) {
 		"tokio-quiche-0.18.0":                "v0.18.0",
 		"ms-bug-test-20060525":               "",
 		"openssl-3.0.0-alpha12-liboqs-0.5.0": "v3.0.0-alpha12-liboqs-0.5.0",
+		"v0.11.0.1":                          "v0.11.0+1",
+		"1.2.3.4.5":                          "v1.2.3+4.5",
 		"release":                            "",
 		"":                                   "",
 	}

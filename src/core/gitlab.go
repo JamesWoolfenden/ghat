@@ -55,6 +55,10 @@ func (myFlags *Flags) UpdateGitlab() error {
 
 	project, err := os.ReadFile(projectFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			log.Info().Msgf("no %s found in %s, skipping", gitlab, myFlags.Directory)
+			return nil
+		}
 		return &gitlabProjectError{directory: myFlags.Directory}
 	}
 

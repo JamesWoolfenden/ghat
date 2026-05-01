@@ -71,13 +71,14 @@ func rewritePreCommitRevs(data string, pins map[string]revPin) string {
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(strings.SplitN(line, "#", 2)[0])
 
-		if after, ok := strings.CutPrefix(trimmed, "- repo:"); ok {
+		bare := strings.TrimPrefix(trimmed, "- ")
+		if after, ok := strings.CutPrefix(bare, "repo:"); ok {
 			currentRepo = strings.TrimSpace(after)
 			suppressCurrent, suppressCurrentReason = parseSuppression(line)
 			continue
 		}
 
-		if !strings.HasPrefix(trimmed, "rev:") {
+		if !strings.HasPrefix(bare, "rev:") {
 			continue
 		}
 

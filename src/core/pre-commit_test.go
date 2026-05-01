@@ -66,6 +66,32 @@ func TestRewritePreCommitRevs(t *testing.T) {
 				"  - repo: https://github.com/pre-commit/pre-commit-hooks  # upstream\n" +
 				"    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # v6.0.0\n",
 		},
+		{
+			name: "hooks-first ordering (repo not the dashed key)",
+			in: "repos:\n" +
+				"  - hooks:\n" +
+				"      - id: trailing-whitespace\n" +
+				"    repo: https://github.com/pre-commit/pre-commit-hooks\n" +
+				"    rev: v5.0.0\n",
+			want: "repos:\n" +
+				"  - hooks:\n" +
+				"      - id: trailing-whitespace\n" +
+				"    repo: https://github.com/pre-commit/pre-commit-hooks\n" +
+				"    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # v6.0.0\n",
+		},
+		{
+			name: "rev as the dashed key",
+			in: "repos:\n" +
+				"  - rev: v8.0.0\n" +
+				"    repo: https://github.com/gitleaks/gitleaks\n" +
+				"  - repo: https://github.com/gitleaks/gitleaks\n" +
+				"    rev: v8.0.0\n",
+			want: "repos:\n" +
+				"  - rev: v8.0.0\n" +
+				"    repo: https://github.com/gitleaks/gitleaks\n" +
+				"  - repo: https://github.com/gitleaks/gitleaks\n" +
+				"    rev: 2ca41cc1372d1e939a6a879f18cdc19fc1cac1ce # v8.30.0\n",
+		},
 	}
 
 	for _, tt := range tests {

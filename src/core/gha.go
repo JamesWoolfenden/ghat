@@ -61,7 +61,7 @@ func GetFiles(dir string) ([]string, error) {
 
 			newDir := filepath.Join(AbsDir, entry.Name())
 
-			if !(strings.Contains(newDir, terraformDir)) && newDir != gitDir {
+			if !(strings.Contains(newDir, terraformDir)) && newDir != gitDir && entry.Name() != "testdata" {
 				newEntries, err := GetFiles(newDir)
 
 				if err != nil {
@@ -133,14 +133,14 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			continue
 		}
 
-		//is path
-		if strings.Contains(match[1], ".github") {
-			continue
-		}
-
 		action := strings.Split(match[1], "@")
 
 		action[0] = strings.TrimSpace(action[0])
+
+		// Local/composite action path or docker:// ref — nothing to resolve on GitHub.
+		if strings.HasPrefix(action[0], ".") || strings.HasPrefix(action[0], "/") || strings.HasPrefix(action[0], "docker://") {
+			continue
+		}
 
 		// Warn and skip dynamically constructed tags (e.g. ${{ env.VERSION }}) — unpinned refs are a supply chain risk
 		if len(action) > 1 && strings.HasPrefix(strings.TrimSpace(action[1]), "$") {
@@ -372,10 +372,20 @@ func coerceSemver(tag string) string {
 		return ""
 	}
 	v := "v" + tag[i:]
-	if !strings.Contains(v, ".") || !semver.IsValid(v) {
+	if !strings.Contains(v, ".") {
 		return ""
 	}
-	return v
+	if semver.IsValid(v) {
+		return v
+	}
+	// 4-part versions (shellcheck-py v0.11.0.1) — fold the tail into build
+	// metadata so x/mod/semver will at least order the first three parts.
+	if p := strings.SplitN(v, ".", 4); len(p) == 4 {
+		if alt := strings.Join(p[:3], ".") + "+" + p[3]; semver.IsValid(alt) {
+			return alt
+		}
+	}
+	return ""
 }
 
 // pickLatestTag returns the index of the highest-version tag in a GitHub /tags
