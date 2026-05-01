@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/rs/zerolog/log"
-	"github.com/sergi/go-diff/diffmatchpatch"
 	"gopkg.in/yaml.v3"
 )
 
@@ -167,10 +166,7 @@ func (myFlags *Flags) UpdateHooks() error {
 
 	replacement := rewritePreCommitRevs(string(data), pins)
 
-	dmp := diffmatchpatch.New()
-	diffs := dmp.DiffMain(string(data), replacement, false)
-
-	fmt.Println(dmp.DiffPrettyText(diffs))
+	printDiff(*config, string(data), replacement)
 
 	if !myFlags.DryRun {
 		err = os.WriteFile(*config, []byte(replacement), FilePermissions)

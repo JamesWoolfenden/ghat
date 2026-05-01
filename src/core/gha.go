@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"github.com/sergi/go-diff/diffmatchpatch"
 	"golang.org/x/mod/semver"
 	"gopkg.in/yaml.v3"
 )
@@ -82,13 +81,8 @@ func GetFiles(dir string) ([]string, error) {
 }
 
 func (myFlags *Flags) UpdateGHAS() error {
-	var err error
-	myFlags.Entries = myFlags.GetGHA()
-
-	for _, gha := range myFlags.Entries {
-		err = myFlags.UpdateGHA(gha)
-
-		if err != nil {
+	for _, gha := range myFlags.GetGHA() {
+		if err := myFlags.UpdateGHA(gha); err != nil {
 			return &ghaUpdateError{gha}
 		}
 	}
@@ -255,10 +249,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		replacement = strings.ReplaceAll(replacement, imageStr, formatImageWithDigest(imgRef, digest))
 	}
 
-	dmp := diffmatchpatch.New()
-	diffs := dmp.DiffMain(string(buffer), replacement, false)
-
-	fmt.Println(dmp.DiffPrettyText(diffs))
+	printDiff(file, string(buffer), replacement)
 
 	if !myFlags.DryRun {
 		newBuffer := []byte(replacement)

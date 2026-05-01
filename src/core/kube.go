@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/rs/zerolog/log"
-	"github.com/sergi/go-diff/diffmatchpatch"
 	"gopkg.in/yaml.v3"
 )
 
@@ -83,8 +82,7 @@ func (myFlags *Flags) UpdateKube(file string) error {
 		replacement = strings.ReplaceAll(replacement, imageStr, formatImageWithDigest(imgRef, digest))
 	}
 
-	dmp := diffmatchpatch.New()
-	fmt.Println(dmp.DiffPrettyText(dmp.DiffMain(string(content), replacement, false)))
+	printDiff(file, string(content), replacement)
 
 	if !myFlags.DryRun && string(content) != replacement {
 		if err := os.WriteFile(file, []byte(replacement), 0644); err != nil {
@@ -240,8 +238,7 @@ func (myFlags *Flags) UpdateCompose(file string) error {
 		replacement = strings.ReplaceAll(replacement, imageStr, formatImageWithDigest(imgRef, digest))
 	}
 
-	dmp := diffmatchpatch.New()
-	fmt.Println(dmp.DiffPrettyText(dmp.DiffMain(string(content), replacement, false)))
+	printDiff(file, string(content), replacement)
 
 	if !myFlags.DryRun && string(content) != replacement {
 		if err := os.WriteFile(file, []byte(replacement), 0644); err != nil {

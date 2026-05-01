@@ -2,9 +2,18 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 )
+
+// label tags a sweep sub-action error with its verb so errors.Join output is attributable.
+func label(verb string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %w", verb, err)
+}
 
 const (
 	ActionSwipe = "swipe"
@@ -104,15 +113,15 @@ func executeAction(action string, myFlags *Flags) error {
 		return myFlags.Audit()
 	case ActionSweep:
 		return errors.Join(
-			myFlags.UpdateGHAS(),
-			myFlags.UpdateGitlab(),
-			myFlags.UpdateHooks(),
-			myFlags.UpdateModules(),
-			myFlags.UpdateProviders(),
-			myFlags.UpdateKubes(),
-			myFlags.UpdateDockerfiles(),
-			myFlags.UpdateSubmodules(),
-			myFlags.UpdateCpanfile(),
+			label(ActionSwot, myFlags.UpdateGHAS()),
+			label(ActionStun, myFlags.UpdateGitlab()),
+			label(ActionSift, myFlags.UpdateHooks()),
+			label(ActionSwipe, myFlags.UpdateModules()),
+			label(ActionShake, myFlags.UpdateProviders()),
+			label(ActionKube, myFlags.UpdateKubes()),
+			label(ActionDock, myFlags.UpdateDockerfiles()),
+			label(ActionSub, myFlags.UpdateSubmodules()),
+			label("cpan", myFlags.UpdateCpanfile()),
 		)
 	}
 

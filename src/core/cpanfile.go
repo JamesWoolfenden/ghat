@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
 const (
@@ -146,9 +145,7 @@ func (myFlags *Flags) UpdateCpanfile() error {
 
 	replacement := rewriteCpanfile(string(data), pins)
 
-	dmp := diffmatchpatch.New()
-	diffs := dmp.DiffMain(string(data), replacement, false)
-	fmt.Println(dmp.DiffPrettyText(diffs))
+	printDiff(config, string(data), replacement)
 
 	if !myFlags.DryRun {
 		if err := os.WriteFile(config, []byte(replacement), FilePermissions); err != nil {

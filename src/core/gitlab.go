@@ -12,7 +12,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/rs/zerolog/log"
-	"github.com/sergi/go-diff/diffmatchpatch"
 	"gopkg.in/yaml.v3"
 )
 
@@ -131,10 +130,7 @@ func (myFlags *Flags) UpdateGitlab() error {
 		replacement = strings.ReplaceAll(replacement, imageStr, newImageRef)
 	}
 
-	// Show diff
-	dmp := diffmatchpatch.New()
-	diffs := dmp.DiffMain(string(project), replacement, false)
-	fmt.Println(dmp.DiffPrettyText(diffs))
+	printDiff(projectFile, string(project), replacement)
 
 	// Write file if not dry-run
 	if !myFlags.DryRun && string(project) != replacement {

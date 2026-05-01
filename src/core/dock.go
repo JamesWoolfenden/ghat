@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/rs/zerolog/log"
-	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
 // fromRe matches a Dockerfile FROM line, capturing optional platform flag,
@@ -85,8 +84,7 @@ func (myFlags *Flags) UpdateDockerfile(file string) error {
 
 	replacement := strings.Join(lines, "\n")
 
-	dmp := diffmatchpatch.New()
-	fmt.Println(dmp.DiffPrettyText(dmp.DiffMain(string(content), replacement, false)))
+	printDiff(file, string(content), replacement)
 
 	if !myFlags.DryRun && string(content) != replacement {
 		if err := os.WriteFile(file, []byte(replacement), 0644); err != nil {

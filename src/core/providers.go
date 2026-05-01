@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/rs/zerolog/log"
-	"github.com/sergi/go-diff/diffmatchpatch"
 	"golang.org/x/mod/semver"
 )
 
@@ -136,11 +135,8 @@ func (myFlags *Flags) UpdateProvider(file string) error {
 		return nil
 	}
 
-	// Generate diff
 	newContent := string(inFile.Bytes())
-	dmp := diffmatchpatch.New()
-	diffs := dmp.DiffMain(string(src), newContent, false)
-	fmt.Println(dmp.DiffPrettyText(diffs))
+	printDiff(file, string(src), newContent)
 
 	// Write file if not dry-run
 	if !myFlags.DryRun {
