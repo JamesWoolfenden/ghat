@@ -45,7 +45,7 @@ repos:
     - hooks:
         - id: golangci-lint
       repo: https://github.com/golangci/golangci-lint
-      rev: 7761527a420afc542a699aa5069475785700c2b7 # v2.12.0
+      rev: 9aa24e94ceb7d1a8ccbde81e7424629467299a7e # v2.12.1
     - hooks:
         - id: checkov
           language_version: python3.11

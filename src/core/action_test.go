@@ -117,7 +117,7 @@ func TestExecuteAction(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Sift with missing GitHub token",
+			name: "Sift with no pre-commit config",
 			args: args{
 				action: ActionSift,
 				myFlags: &Flags{
@@ -126,7 +126,7 @@ func TestExecuteAction(t *testing.T) {
 					GitHubToken: "",
 				},
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "Swipe with invalid file path format",

@@ -109,6 +109,10 @@ func (myFlags *Flags) UpdateHooks() error {
 	if config, err = myFlags.GetHook(); err != nil {
 		return &getHookError{err: err}
 	}
+	if config == nil {
+		log.Info().Msgf("no %s found in %s, skipping", PreCommitConfigFile, myFlags.Directory)
+		return nil
+	}
 
 	data, err := os.ReadFile(*config)
 	if err != nil {
@@ -257,6 +261,9 @@ func (myFlags *Flags) GetHook() (*string, error) {
 
 	config := filepath.Join(myFlags.Directory, PreCommitConfigFile)
 	if _, err = os.Stat(config); err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("pre-commit config not found %s", config)
 	}
 

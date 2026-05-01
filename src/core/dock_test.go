@@ -189,6 +189,9 @@ func TestUpdateDockerfile_DynamicImageWarning(t *testing.T) {
 	log.Logger = log.Output(&buf)
 	t.Cleanup(func() { log.Logger = original })
 
+	// Both start with $ so the image name itself is dynamic — SUPPLY CHAIN RISK in both cases.
+	// The "unexpanded variable tag" info path applies to golang:${TAG} style where
+	// the image name is known but the tag is a variable.
 	content := "FROM $BASE_IMAGE\nFROM ${VERSION}-alpine\n"
 	tmp, err := os.CreateTemp("", "Dockerfile.*")
 	if err != nil {
@@ -207,11 +210,8 @@ func TestUpdateDockerfile_DynamicImageWarning(t *testing.T) {
 
 	output := buf.String()
 	for _, ref := range []string{"$BASE_IMAGE", "${VERSION}-alpine"} {
-		if !strings.Contains(output, "SUPPLY CHAIN RISK") {
+		if !strings.Contains(output, "SUPPLY CHAIN RISK") || !strings.Contains(output, ref) {
 			t.Errorf("expected SUPPLY CHAIN RISK warning for %s, got: %s", ref, output)
-		}
-		if !strings.Contains(output, ref) {
-			t.Errorf("expected warning to name reference %s, got: %s", ref, output)
 		}
 	}
 
@@ -221,6 +221,83 @@ func TestUpdateDockerfile_DynamicImageWarning(t *testing.T) {
 	}
 	if string(got) != content {
 		t.Error("dynamic FROM lines should not be modified")
+	}
+}
+
+func TestUpdateDockerfile_UnexpandedVariableTag(t *testing.T) {
+	var buf strings.Builder
+	original := log.Logger
+	log.Logger = log.Output(&buf)
+	t.Cleanup(func() { log.Logger = original })
+
+	// Image name is known; only the tag is a variable with no ARG default → info, not SUPPLY CHAIN RISK.
+	content := "FROM golang:${GOLANG_VER}\n"
+	tmp, err := os.CreateTemp("", "Dockerfile.*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(tmp.Name()) }()
+	if _, err := tmp.WriteString(content); err != nil {
+		t.Fatal(err)
+	}
+	_ = tmp.Close()
+
+	if err := (&Flags{DryRun: true}).UpdateDockerfile(tmp.Name()); err != nil {
+		t.Fatalf("UpdateDockerfile() unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	if strings.Contains(output, "SUPPLY CHAIN RISK") {
+		t.Errorf("golang:${TAG} should not trigger SUPPLY CHAIN RISK, got: %s", output)
+	}
+	if !strings.Contains(output, "unexpanded variable tag") {
+		t.Errorf("expected unexpanded variable tag info, got: %s", output)
+	}
+}
+
+func Test_parseArgDefaults(t *testing.T) {
+	lines := []string{
+		"ARG GOLANG_VER=1.22-alpine",
+		"ARG ALPINE_VER=3.19",
+		"ARG NO_DEFAULT",
+		"ARG EMPTY=",
+		"FROM golang:${GOLANG_VER}",
+	}
+	got := parseArgDefaults(lines)
+	want := map[string]string{
+		"GOLANG_VER": "1.22-alpine",
+		"ALPINE_VER": "3.19",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("parseArgDefaults() = %v, want %v", got, want)
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("parseArgDefaults()[%q] = %q, want %q", k, got[k], v)
+		}
+	}
+	if _, ok := got["NO_DEFAULT"]; ok {
+		t.Error("ARG without default should not appear in map")
+	}
+}
+
+func Test_expandDockerVars(t *testing.T) {
+	vars := map[string]string{"TAG": "1.22", "REG": "gcr.io"}
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"golang:${TAG}", "golang:1.22"},
+		{"${REG}/app:latest", "gcr.io/app:latest"},
+		{"golang:${MISSING}", "golang:${MISSING}"},
+		{"golang:${MISSING:-3.19}", "golang:3.19"},
+		{"no-vars:latest", "no-vars:latest"},
+	}
+	for _, tt := range tests {
+		got := expandDockerVars(tt.in, vars)
+		if got != tt.want {
+			t.Errorf("expandDockerVars(%q) = %q, want %q", tt.in, got, tt.want)
+		}
 	}
 }
 

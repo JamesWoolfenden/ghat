@@ -209,7 +209,7 @@ var swotCmd = &cli.Command{
 			Usage:   "Specific workflow file to update",
 		},
 		&cli.BoolFlag{
-			Name:  "dryrun",
+			Name:  "dry-run",
 			Usage: "Show changes without modifying files",
 		},
 		&cli.BoolFlag{
@@ -239,7 +239,7 @@ var swotCmd = &cli.Command{
 		myFlags := core.NewFlags()
 		myFlags.Directory = c.String("directory")
 		myFlags.File = c.String("file")
-		myFlags.DryRun = c.Bool("dryrun")
+		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
 		myFlags.GitHubToken = os.Getenv("GITHUB_TOKEN")
 
@@ -292,7 +292,7 @@ var shakeCmd = &cli.Command{
 			Usage:   "Specific Terraform file to update",
 		},
 		&cli.BoolFlag{
-			Name:  "dryrun",
+			Name:  "dry-run",
 			Usage: "Show changes without modifying files",
 		},
 		&cli.BoolFlag{
@@ -304,7 +304,7 @@ var shakeCmd = &cli.Command{
 		myFlags := core.NewFlags()
 		myFlags.Directory = c.String("directory")
 		myFlags.File = c.String("file")
-		myFlags.DryRun = c.Bool("dryrun")
+		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
 
 		return myFlags.Action("shake")
@@ -399,7 +399,7 @@ var kubeCmd = &cli.Command{
 			Usage:   "specific manifest file to update",
 		},
 		&cli.BoolFlag{
-			Name:  "dryrun",
+			Name:  "dry-run",
 			Usage: "show changes without modifying files",
 		},
 		&cli.BoolFlag{
@@ -411,7 +411,7 @@ var kubeCmd = &cli.Command{
 		myFlags := core.NewFlags()
 		myFlags.Directory = c.String("directory")
 		myFlags.File = c.String("file")
-		myFlags.DryRun = c.Bool("dryrun")
+		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
 		myFlags.GitHubToken = os.Getenv("GITHUB_TOKEN")
 
@@ -444,7 +444,7 @@ var dockCmd = &cli.Command{
 			Usage:   "specific Dockerfile to update",
 		},
 		&cli.BoolFlag{
-			Name:  "dryrun",
+			Name:  "dry-run",
 			Usage: "show changes without modifying files",
 		},
 		&cli.BoolFlag{
@@ -456,7 +456,7 @@ var dockCmd = &cli.Command{
 		myFlags := core.NewFlags()
 		myFlags.Directory = c.String("directory")
 		myFlags.File = c.String("file")
-		myFlags.DryRun = c.Bool("dryrun")
+		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
 		myFlags.GitHubToken = os.Getenv("GITHUB_TOKEN")
 
@@ -485,7 +485,7 @@ var subCmd = &cli.Command{
 			Value:   ".",
 		},
 		&cli.BoolFlag{
-			Name:  "dryrun",
+			Name:  "dry-run",
 			Usage: "show changes without modifying the index",
 		},
 		&cli.BoolFlag{
@@ -503,7 +503,7 @@ var subCmd = &cli.Command{
 	Action: func(c *cli.Context) error {
 		myFlags := core.NewFlags()
 		myFlags.Directory = c.String("directory")
-		myFlags.DryRun = c.Bool("dryrun")
+		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
 		myFlags.GitHubToken = c.String("token")
 
@@ -512,10 +512,10 @@ var subCmd = &cli.Command{
 }
 
 var sweepCmd = &cli.Command{
-	Name:      "sweep",
-	Aliases:   []string{"all"},
+	Name:      "all",
+	Aliases:   []string{"sweep"},
 	Usage:     "runs every pinner (GHA, GitLab, pre-commit, Terraform, Kubernetes, Dockerfiles) against a directory",
-	UsageText: "ghat sweep -d .",
+	UsageText: "ghat all -d .",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:    "directory",
@@ -524,7 +524,7 @@ var sweepCmd = &cli.Command{
 			Value:   ".",
 		},
 		&cli.BoolFlag{
-			Name:  "dryrun",
+			Name:  "dry-run",
 			Usage: "show changes without modifying files",
 		},
 		&cli.BoolFlag{
@@ -559,7 +559,7 @@ var sweepCmd = &cli.Command{
 	Action: func(c *cli.Context) error {
 		myFlags := core.NewFlags()
 		myFlags.Directory = c.String("directory")
-		myFlags.DryRun = c.Bool("dryrun")
+		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
 		myFlags.Update = c.Bool("update")
 		myFlags.GitHubToken = c.String("token")

@@ -17,6 +17,9 @@ var fromRe = regexp.MustCompile(`(?i)^(FROM\s+(?:--platform=\S+\s+)?)(\S+?)(\s+A
 // pinnedFromRe matches an already-pinned FROM line: image:tag@sha256:digest
 var pinnedFromRe = regexp.MustCompile(`\S+:(\S+?)@(sha256:[0-9a-f]+)`)
 
+// argDefaultRe matches ARG name=value declarations (value required).
+var argDefaultRe = regexp.MustCompile(`(?i)^ARG\s+(\w+)=(\S+)`)
+
 // UpdateDockerfiles pins FROM image references in all Dockerfiles found in the entries.
 func (myFlags *Flags) UpdateDockerfiles() error {
 	for _, f := range myFlags.GetDockerfiles() {
@@ -52,34 +55,60 @@ func (myFlags *Flags) UpdateDockerfile(file string) error {
 		if imageStr == "scratch" {
 			continue
 		}
-		if strings.HasPrefix(imageStr, "$") {
-			log.Warn().Msgf("SUPPLY CHAIN RISK: FROM uses a dynamic image reference '%s' which cannot be pinned — resolve to a specific tag and digest", imageStr)
-			continue
-		}
 		if ok, reason := parseSuppression(line); ok {
 			log.Info().Str("image", imageStr).Str("reason", reason).Msg("skipping suppressed FROM line")
 			continue
 		}
 
-		// Strip existing digest so we resolve a fresh one for the tag.
-		bareImage := imageStr
-		if idx := strings.Index(imageStr, "@sha256:"); idx != -1 {
-			bareImage = imageStr[:idx]
+		// Expand any ARG variable references using defaults declared above this FROM.
+		resolvedStr := expandDockerVars(imageStr, parseArgDefaults(lines[:i]))
+
+		if strings.Contains(resolvedStr, "$") {
+			// Still has unexpanded references — classify by position.
+			switch {
+			case strings.HasPrefix(imageStr, "$"):
+				log.Warn().Msgf("SUPPLY CHAIN RISK: FROM uses a dynamic image reference '%s' which cannot be pinned — resolve to a specific tag and digest", imageStr)
+			case strings.Contains(imageStr, "@$"):
+				log.Info().Str("image", imageStr).Msg("digest is externally pinned via variable, skipping")
+			default:
+				log.Info().Str("image", imageStr).Msg("skipping image with unexpanded variable tag, cannot pin")
+			}
+			continue
 		}
 
-		imgRef := parseImageReference(bareImage)
+		// Strip existing sha256 digest from the resolved string before re-resolving.
+		bareResolved := resolvedStr
+		if idx := strings.Index(resolvedStr, "@sha256:"); idx != -1 {
+			bareResolved = resolvedStr[:idx]
+		}
+
+		// For write-back: strip any existing digest from the original (variable or literal)
+		// so the fresh digest can be appended while preserving variable syntax.
+		bareOriginal := imageStr
+		if idx := strings.Index(imageStr, "@"); idx != -1 {
+			bareOriginal = imageStr[:idx]
+		}
+
+		imgRef := parseImageReference(bareResolved)
 		digest, err := myFlags.getImageDigest(imgRef)
 		if err != nil {
-			log.Warn().Err(err).Str("image", bareImage).Msg("failed to get digest, skipping")
+			log.Warn().Err(err).Str("image", bareResolved).Msg("failed to get digest, skipping")
 			continue
 		}
 
 		if cur, ok := pinned[imgRef.Tag]; ok && isTagMutation(cur, imgRef.Tag, digest, imgRef.Tag) {
 			log.Warn().Msgf("SUSPICIOUS: %s — digest changed from %s to %s with the same tag. "+
-				"The image tag may have been repointed. Verify before accepting.", bareImage, cur, digest)
+				"The image tag may have been repointed. Verify before accepting.", bareResolved, cur, digest)
 		}
 
-		lines[i] = prefix + formatDockerImage(imgRef, digest) + alias
+		var newImageStr string
+		if strings.Contains(imageStr, "$") {
+			// Preserve variable syntax; append the resolved digest.
+			newImageStr = bareOriginal + "@" + digest
+		} else {
+			newImageStr = formatDockerImage(imgRef, digest)
+		}
+		lines[i] = prefix + newImageStr + alias
 	}
 
 	replacement := strings.Join(lines, "\n")
@@ -133,6 +162,36 @@ func formatDockerImage(ref ImageReference, digest string) string {
 	b.WriteString("@")
 	b.WriteString(digest)
 	return b.String()
+}
+
+// parseArgDefaults extracts ARG name=default pairs from Dockerfile lines above
+// the current FROM, returning a map used for variable expansion. ARG lines
+// without a default value (ARG FOO) are omitted — they have nothing to expand.
+func parseArgDefaults(lines []string) map[string]string {
+	m := make(map[string]string)
+	for _, line := range lines {
+		parts := argDefaultRe.FindStringSubmatch(strings.TrimSpace(line))
+		if parts != nil {
+			m[parts[1]] = parts[2]
+		}
+	}
+	return m
+}
+
+// expandDockerVars substitutes ${VAR} and $VAR references using the provided
+// map, including Docker's ${VAR:-default} modifier. Unknown variables with no
+// modifier are left as-is so the caller can detect incomplete expansion.
+func expandDockerVars(s string, vars map[string]string) string {
+	return os.Expand(s, func(key string) string {
+		name, def, hasDefault := strings.Cut(key, ":-")
+		if v, ok := vars[name]; ok {
+			return v
+		}
+		if hasDefault {
+			return def
+		}
+		return "${" + key + "}"
+	})
 }
 
 // parsePinnedFromLines scans Dockerfile content for already-pinned FROM lines

@@ -185,7 +185,7 @@ func TestFlags_UpdateHooks(t *testing.T) {
 		fields  fields
 		wantErr bool
 	}{
-		{name: "Empty", fields: fields{GitHubToken: gitHubToken}, wantErr: true},
+		{name: "Empty", fields: fields{GitHubToken: gitHubToken}, wantErr: false},
 		{name: "guff", fields: fields{Directory: "guff", GitHubToken: gitHubToken}, wantErr: true},
 		{name: "Pass relative", fields: fields{Directory: "../../", GitHubToken: gitHubToken}, wantErr: false},
 		//{name: "Pass absolute", fields: fields{Directory: "E:/Code/pike", GitHubToken: gitHubToken}, wantErr: false},
