@@ -190,7 +190,10 @@ func (o *OrgFlags) processRepo(repo string) RepoResult {
 	exec.Command("git", "-C", dir, "add", "-A").Run()                                                          //nolint:errcheck
 	exec.Command("git", "-C", dir, "commit", "-m", "chore: pin dependencies to immutable SHAs via ghat").Run() //nolint:errcheck
 
-	if out, err := exec.Command("git", "-C", dir, "push", "origin", o.Branch).CombinedOutput(); err != nil {
+	// --force is intentional: this is our automation branch created from a fresh
+	// shallow clone. --force-with-lease fails on shallow clones because git has no
+	// remote tracking ref for branches it never fetched.
+	if out, err := exec.Command("git", "-C", dir, "push", "--force", "origin", o.Branch).CombinedOutput(); err != nil {
 		result.Status = "error"
 		result.Error = fmt.Errorf("push: %w: %s", err, strings.TrimSpace(string(out)))
 		return result
@@ -198,6 +201,12 @@ func (o *OrgFlags) processRepo(repo string) RepoResult {
 
 	prURL, err := o.createPR(repo, o.Branch, base)
 	if err != nil {
+		// PR may already exist if prExists check had a race or prior partial run.
+		if open, _ := o.prExists(repo); open {
+			result.Status = "pr-open"
+			log.Warn().Str("repo", repo).Msg("PR already existed, branch updated")
+			return result
+		}
 		result.Status = "error"
 		result.Error = fmt.Errorf("create PR: %w", err)
 		return result
@@ -210,7 +219,9 @@ func (o *OrgFlags) processRepo(repo string) RepoResult {
 }
 
 func (o *OrgFlags) prExists(repo string) (bool, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/pulls?head=%s&state=open", repo, o.Branch)
+	// GitHub requires owner:branch format for the head filter.
+	owner := strings.SplitN(repo, "/", 2)[0]
+	url := fmt.Sprintf("https://api.github.com/repos/%s/pulls?head=%s:%s&state=open", repo, owner, o.Branch)
 	body, err := GetGithubBody(o.Token, url)
 	if err != nil {
 		return false, err
