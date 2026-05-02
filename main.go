@@ -175,6 +175,7 @@ func main() {
 			subCmd,
 			sweepCmd,
 			auditCmd,
+			orgCmd,
 		},
 		Name:     "ghat",
 		Usage:    "Update GHA dependencies",
@@ -634,6 +635,97 @@ var auditCmd = &cli.Command{
 }
 
 // githubToken returns the first non-empty value of GITHUB_TOKEN or GITHUB_API.
+var orgCmd = &cli.Command{
+	Name:      "org",
+	Usage:     "run ghat all across every non-fork repo for a GitHub user or org",
+	UsageText: "ghat org [--owner name] [--limit 10] [--dry-run] [--pr]",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "owner",
+			Aliases: []string{"o"},
+			Usage:   "GitHub user or org (default: authenticated user)",
+		},
+		&cli.StringSliceFlag{
+			Name:    "repo",
+			Aliases: []string{"r"},
+			Usage:   "target a specific repo (owner/name); repeat for multiple; skips listing",
+		},
+		&cli.IntFlag{
+			Name:  "limit",
+			Usage: "stop after N repos (0 = all)",
+			Value: 0,
+		},
+		&cli.BoolFlag{
+			Name:  "dry-run",
+			Usage: "show changes without writing or opening PRs",
+		},
+		&cli.BoolFlag{
+			Name:  "pr",
+			Usage: "open a pull request for each repo with changes",
+		},
+		&cli.StringFlag{
+			Name:     "token",
+			Aliases:  []string{"t"},
+			Usage:    "GitHub PAT token",
+			Category: "authentication",
+			EnvVars:  []string{"GITHUB_TOKEN", "GITHUB_API"},
+		},
+		&cli.StringFlag{
+			Name:  "branch",
+			Usage: "branch name for pinning PRs",
+			Value: "ghat/pin-dependencies",
+		},
+		&cli.IntFlag{
+			Name:  "rate-threshold",
+			Usage: "pause when fewer than N API requests remain",
+			Value: 200,
+		},
+	},
+	Action: func(c *cli.Context) error {
+		flags := &core.OrgFlags{
+			Owner:     c.String("owner"),
+			Repos:     c.StringSlice("repo"),
+			Token:     c.String("token"),
+			Branch:    c.String("branch"),
+			Limit:     c.Int("limit"),
+			DryRun:    c.Bool("dry-run"),
+			OpenPR:    c.Bool("pr"),
+			Threshold: c.Int("rate-threshold"),
+		}
+		if flags.Token == "" {
+			flags.Token = githubToken()
+		}
+
+		results, err := flags.RunBulk()
+		if err != nil {
+			return err
+		}
+
+		var pinned, already, prOpen, errors int
+		for _, r := range results {
+			switch r.Status {
+			case "pinned":
+				pinned++
+			case "already-pinned":
+				already++
+			case "pr-open":
+				prOpen++
+			case "error":
+				errors++
+			}
+			if len(r.Gaps) > 0 {
+				for _, g := range r.Gaps {
+					fmt.Fprintf(os.Stderr, "GAP  %s\n", g)
+				}
+			}
+		}
+
+		fmt.Printf("\n%d pinned, %d already clean, %d PR already open, %d errors\n",
+			pinned, already, prOpen, errors)
+		return nil
+	},
+}
+
 func githubToken() string {
 	if t := os.Getenv("GITHUB_TOKEN"); t != "" {
 		return t

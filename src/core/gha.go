@@ -525,3 +525,88 @@ func GetGithubBody(token, url string) (interface{}, error) {
 
 	return result, nil
 }
+
+// getPagedGithubBody fetches one page and returns the body plus the URL of the next page (empty if last).
+func getPagedGithubBody(token, url string) (interface{}, string, error) {
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create request: %w", err)
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	req.Header.Set("User-Agent", "ghat")
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, "", fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck
+
+	if resp.StatusCode != 200 {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(b))
+	}
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var result interface{}
+	if err := json.Unmarshal(b, &result); err != nil {
+		return nil, "", fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	// parse Link header for next page URL
+	next := ""
+	for _, part := range strings.Split(resp.Header.Get("Link"), ",") {
+		part = strings.TrimSpace(part)
+		if strings.Contains(part, `rel="next"`) {
+			if s := strings.Index(part, "<"); s >= 0 {
+				if e := strings.Index(part, ">"); e > s {
+					next = part[s+1 : e]
+				}
+			}
+		}
+	}
+
+	return result, next, nil
+}
+
+// postGithubBody sends a JSON POST to the GitHub API and returns the parsed response.
+func postGithubBody(token, url string, payload []byte) (interface{}, error) {
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("POST", url, strings.NewReader(string(payload)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	req.Header.Set("User-Agent", "ghat")
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(b))
+	}
+
+	var result interface{}
+	if err := json.Unmarshal(b, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+	return result, nil
+}
