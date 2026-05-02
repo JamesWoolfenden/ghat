@@ -278,19 +278,14 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			}
 
 			// Don't downgrade: if the current pin is semver-higher than what the
-			// API returned (e.g. a git tag with no GitHub Release), keep the current
-			// version and only update the SHA if it changed.
+			// API returned (e.g. a git tag with no GitHub Release), keep the
+			// current version as-is. The sha in scope here is for the older tag
+			// so we must not write it — just skip.
 			if currentTag != "" && tag != currentTag {
 				cv, nv := coerceSemver(currentTag), coerceSemver(tag)
 				if cv != "" && nv != "" && semver.Compare(nv, cv) < 0 {
 					log.Info().Str("action", action[0]).Str("current", currentTag).Str("api", tag).
 						Msg("API returned older tag than current pin — keeping current version")
-					// Re-pin the current tag to its SHA in case it has drifted.
-					if currentSHA != sha {
-						oldAction := leadingQuote + action[0] + "@" + action[1] + trailingQuote
-						newAction := action[0] + "@" + sha + " # " + currentTag
-						replacement = strings.ReplaceAll(replacement, oldAction, newAction)
-					}
 					continue
 				}
 			}
