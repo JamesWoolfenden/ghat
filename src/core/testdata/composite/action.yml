@@ -1,0 +1,7 @@
+name: 'My Composite Action'
+description: 'Test composite action with unpinned uses references'
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5

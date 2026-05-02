@@ -194,6 +194,40 @@ func Test_getPayload(t *testing.T) {
 	}
 }
 
+func TestGetGHA_IncludesCompositeActionFiles(t *testing.T) {
+	myFlags := &Flags{
+		Entries: []string{
+			"testdata/gha/.github/workflows/test.yml", // workflow — included
+			"testdata/composite/action.yml",           // composite action — must be included
+			"testdata/files/module.tf",                // terraform — excluded
+			"testdata/files/ci.yml",                   // yml but not workflow/action — excluded
+		},
+	}
+	got := myFlags.GetGHA()
+
+	wantCount := 2
+	if len(got) != wantCount {
+		t.Fatalf("GetGHA() returned %d files, want %d: %v", len(got), wantCount, got)
+	}
+
+	var hasWorkflow, hasComposite bool
+	for _, f := range got {
+		slashed := filepath.ToSlash(f)
+		if strings.Contains(slashed, ".github/workflows") {
+			hasWorkflow = true
+		}
+		if strings.HasSuffix(slashed, "composite/action.yml") {
+			hasComposite = true
+		}
+	}
+	if !hasWorkflow {
+		t.Error("GetGHA() did not include the .github/workflows file")
+	}
+	if !hasComposite {
+		t.Error("GetGHA() did not include the composite action.yml — composite actions outside .github/workflows are silently skipped")
+	}
+}
+
 func TestFlags_GetGHA(t *testing.T) {
 	type fields struct {
 		File        string

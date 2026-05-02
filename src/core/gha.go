@@ -97,11 +97,16 @@ func (myFlags *Flags) GetGHA() []string {
 	for _, match := range myFlags.Entries {
 		match, _ = filepath.Abs(match)
 		entry, _ := os.Stat(match)
+		if entry == nil || entry.IsDir() {
+			continue
+		}
 		slashed := filepath.ToSlash(match)
-		if strings.Contains(slashed, githubWorkflowPath) && !entry.IsDir() {
-			if strings.Contains(slashed, yamlExtension) || strings.Contains(slashed, yamlAltExtension) {
-				ghat = append(ghat, match)
-			}
+		base := filepath.Base(match)
+		isWorkflow := strings.Contains(slashed, githubWorkflowPath) &&
+			(strings.HasSuffix(slashed, yamlExtension) || strings.HasSuffix(slashed, yamlAltExtension))
+		isActionFile := base == "action.yml" || base == "action.yaml"
+		if isWorkflow || isActionFile {
+			ghat = append(ghat, match)
 		}
 	}
 
