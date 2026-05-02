@@ -46,17 +46,17 @@ func Test_formatDockerImage(t *testing.T) {
 				Tag:        "1.22-alpine",
 			},
 			digest: "sha256:abc123",
-			want:   "golang:1.22-alpine@sha256:abc123 # 1.22-alpine",
+			want:   "golang:1.22-alpine@sha256:abc123",
 		},
 		{
-			name: "official image latest tag kept and commented",
+			name: "official image latest tag kept",
 			ref: ImageReference{
 				Registry:   "docker.io",
 				Repository: "library/nginx",
 				Tag:        "latest",
 			},
 			digest: "sha256:def456",
-			want:   "nginx:latest@sha256:def456 # latest",
+			want:   "nginx:latest@sha256:def456",
 		},
 		{
 			name: "user image",
@@ -66,7 +66,7 @@ func Test_formatDockerImage(t *testing.T) {
 				Tag:        "0.1.0",
 			},
 			digest: "sha256:xyz789",
-			want:   "jameswoolfenden/ghat:0.1.0@sha256:xyz789 # 0.1.0",
+			want:   "jameswoolfenden/ghat:0.1.0@sha256:xyz789",
 		},
 		{
 			name: "custom registry",
@@ -76,7 +76,7 @@ func Test_formatDockerImage(t *testing.T) {
 				Tag:        "v1.0",
 			},
 			digest: "sha256:aaa111",
-			want:   "gcr.io/project/image:v1.0@sha256:aaa111 # v1.0",
+			want:   "gcr.io/project/image:v1.0@sha256:aaa111",
 		},
 	}
 	for _, tt := range tests {
@@ -140,22 +140,13 @@ func Test_coerceSemver_TwoPart(t *testing.T) {
 	}
 }
 
-func TestUpdateDockerfile_AliasBeforeComment(t *testing.T) {
-	// FROM image:tag@sha AS alias must produce image:tag@sha AS alias # tag
-	// not image:tag@sha # tag AS alias (which breaks Docker parsing).
+func TestUpdateDockerfile_AliasAppended(t *testing.T) {
+	// FROM image:tag@sha AS alias — no inline comment, alias appended cleanly.
+	// Inline # comments on FROM lines are not valid in standard Dockerfile syntax.
 	ref := ImageReference{Registry: "docker.io", Repository: "library/golang", Tag: "1.22-alpine"}
 	digest := "sha256:abc123"
-	got := formatDockerImage(ref, digest)
-	// formatDockerImage produces the image+digest+comment; when alias is present
-	// the write-back in UpdateDockerfile must insert alias before the # comment.
-	// Simulate that logic here.
-	alias := " AS builder"
-	if idx := strings.Index(got, " # "); idx >= 0 {
-		got = got[:idx] + alias + got[idx:]
-	} else {
-		got = got + alias
-	}
-	want := "golang:1.22-alpine@sha256:abc123 AS builder # 1.22-alpine"
+	got := formatDockerImage(ref, digest) + " AS builder"
+	want := "golang:1.22-alpine@sha256:abc123 AS builder"
 	if got != want {
 		t.Errorf("alias placement: got %q, want %q", got, want)
 	}

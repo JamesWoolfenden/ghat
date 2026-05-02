@@ -103,8 +103,9 @@ func (myFlags *Flags) UpdateDockerfile(file string) error {
 
 		var newImageStr string
 		if strings.Contains(imageStr, "$") {
-			// Preserve variable syntax; append digest and resolved tag as comment.
-			newImageStr = bareOriginal + "@" + digest + " # " + imgRef.Tag
+			// Preserve variable syntax and append digest. No inline comment —
+			// # mid-line is not valid in standard Dockerfile FROM syntax.
+			newImageStr = bareOriginal + "@" + digest
 		} else {
 			newImageStr = formatDockerImage(imgRef, digest)
 		}
@@ -151,9 +152,9 @@ func isDockerfile(file string) bool {
 		strings.HasSuffix(lower, ".dockerfile")
 }
 
-// formatDockerImage produces "image:tag@sha256:digest # tag" — the tag is kept
-// inline for readability and also added as a comment so the human-readable
-// version is visible even when the line is long or the tag is "latest".
+// formatDockerImage produces "image:tag@sha256:digest" — the tag is kept
+// inline so it remains human-readable without needing a separate comment.
+// Inline # comments on FROM lines are not valid in standard Dockerfile syntax.
 func formatDockerImage(ref ImageReference, digest string) string {
 	var b strings.Builder
 	if ref.Registry == "docker.io" {
@@ -170,10 +171,6 @@ func formatDockerImage(ref ImageReference, digest string) string {
 	}
 	b.WriteString("@")
 	b.WriteString(digest)
-	if ref.Tag != "" {
-		b.WriteString(" # ")
-		b.WriteString(ref.Tag)
-	}
 	return b.String()
 }
 
