@@ -170,7 +170,7 @@ func (myFlags *Flags) UpdateHooks() error {
 
 	replacement := rewritePreCommitRevs(string(data), pins)
 
-	printDiff(*config, string(data), replacement)
+	myFlags.printDiff(*config, string(data), replacement)
 
 	if !myFlags.DryRun {
 		err = os.WriteFile(*config, []byte(replacement), FilePermissions)

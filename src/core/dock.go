@@ -113,7 +113,7 @@ func (myFlags *Flags) UpdateDockerfile(file string) error {
 
 	replacement := strings.Join(lines, "\n")
 
-	printDiff(file, string(content), replacement)
+	myFlags.printDiff(file, string(content), replacement)
 
 	if !myFlags.DryRun && string(content) != replacement {
 		if err := os.WriteFile(file, []byte(replacement), 0644); err != nil {

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -134,11 +135,20 @@ func (o *OrgFlags) processRepo(repo string) RepoResult {
 		return result
 	}
 
+	// Raise log level for the sweep so per-file info chatter is suppressed;
+	// only warnings (SUPPLY CHAIN RISK, updated, errors) will show.
+	prev := zerolog.GlobalLevel()
+	zerolog.SetGlobalLevel(zerolog.WarnLevel)
+	defer zerolog.SetGlobalLevel(prev)
+
+	// Always write to the temp clone so git status accurately reflects what
+	// changed. o.DryRun only controls whether we push and open a PR.
 	myFlags := &Flags{
 		Directory:       dir,
 		GitHubToken:     o.Token,
-		DryRun:          o.DryRun,
+		DryRun:          false,
 		ContinueOnError: true,
+		Silent:          true,
 	}
 	var days uint
 	myFlags.Days = &days
@@ -155,20 +165,15 @@ func (o *OrgFlags) processRepo(repo string) RepoResult {
 
 	result.Gaps = scanGaps(dir)
 
-	if o.DryRun {
-		result.Status = "already-pinned"
-		return result
-	}
-
 	// check for changes
 	out, _ := exec.Command("git", "-C", dir, "status", "--porcelain").Output()
 	if len(strings.TrimSpace(string(out))) == 0 {
 		result.Status = "already-pinned"
-		log.Info().Str("repo", repo).Msg("already pinned")
 		return result
 	}
 
-	if !o.OpenPR {
+	// dry-run: report what would change but don't push
+	if o.DryRun || !o.OpenPR {
 		result.Status = "pinned"
 		return result
 	}

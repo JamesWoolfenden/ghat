@@ -23,6 +23,8 @@ type Flags struct {
 	Cache        *Cache
 	CacheEnabled bool
 	CacheTTL     time.Duration
+
+	Silent bool // suppress diff output (used by org bulk mode)
 }
 
 // NewFlags creates a new Flags instance with default cache settings

@@ -7,12 +7,18 @@ import (
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
-// printDiff prints a coloured diff only when before and after differ;
-// otherwise logs that the file is already up to date so sweep output
-// is not flooded with unchanged file bodies.
-func printDiff(file, before, after string) {
+// printDiff prints a coloured diff only when before and after differ.
+// When f.Silent is set (e.g. bulk org mode) diffs are suppressed and only
+// the log line is emitted so output stays readable at scale.
+func (f *Flags) printDiff(file, before, after string) {
 	if before == after {
-		log.Info().Str("file", file).Msg("already pinned")
+		if !f.Silent {
+			log.Info().Str("file", file).Msg("already pinned")
+		}
+		return
+	}
+	if f.Silent {
+		log.Warn().Str("file", file).Msg("updated")
 		return
 	}
 	dmp := diffmatchpatch.New()

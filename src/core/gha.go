@@ -271,7 +271,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		replacement = strings.ReplaceAll(replacement, imageStr, formatImageWithDigest(imgRef, digest))
 	}
 
-	printDiff(file, string(buffer), replacement)
+	myFlags.printDiff(file, string(buffer), replacement)
 
 	if !myFlags.DryRun {
 		newBuffer := []byte(replacement)

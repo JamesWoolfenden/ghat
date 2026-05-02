@@ -136,7 +136,7 @@ func (myFlags *Flags) UpdateProvider(file string) error {
 	}
 
 	newContent := string(inFile.Bytes())
-	printDiff(file, string(src), newContent)
+	myFlags.printDiff(file, string(src), newContent)
 
 	// Write file if not dry-run
 	if !myFlags.DryRun {

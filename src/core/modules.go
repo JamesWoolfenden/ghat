@@ -84,7 +84,7 @@ func (myFlags *Flags) UpdateModule(file string) error {
 		differ = true
 	}
 
-	printDiff(file, string(src), temp)
+	myFlags.printDiff(file, string(src), temp)
 
 	if differ && !myFlags.DryRun {
 		err := os.WriteFile(file, []byte(temp), 0666)

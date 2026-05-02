@@ -130,7 +130,7 @@ func (myFlags *Flags) UpdateGitlab() error {
 		replacement = strings.ReplaceAll(replacement, imageStr, newImageRef)
 	}
 
-	printDiff(projectFile, string(project), replacement)
+	myFlags.printDiff(projectFile, string(project), replacement)
 
 	// Write file if not dry-run
 	if !myFlags.DryRun && string(project) != replacement {

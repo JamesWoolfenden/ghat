@@ -82,7 +82,7 @@ func (myFlags *Flags) UpdateKube(file string) error {
 		replacement = strings.ReplaceAll(replacement, imageStr, formatImageWithDigest(imgRef, digest))
 	}
 
-	printDiff(file, string(content), replacement)
+	myFlags.printDiff(file, string(content), replacement)
 
 	if !myFlags.DryRun && string(content) != replacement {
 		if err := os.WriteFile(file, []byte(replacement), 0644); err != nil {
@@ -238,7 +238,7 @@ func (myFlags *Flags) UpdateCompose(file string) error {
 		replacement = strings.ReplaceAll(replacement, imageStr, formatImageWithDigest(imgRef, digest))
 	}
 
-	printDiff(file, string(content), replacement)
+	myFlags.printDiff(file, string(content), replacement)
 
 	if !myFlags.DryRun && string(content) != replacement {
 		if err := os.WriteFile(file, []byte(replacement), 0644); err != nil {

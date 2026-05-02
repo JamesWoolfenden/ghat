@@ -145,7 +145,7 @@ func (myFlags *Flags) UpdateCpanfile() error {
 
 	replacement := rewriteCpanfile(string(data), pins)
 
-	printDiff(config, string(data), replacement)
+	myFlags.printDiff(config, string(data), replacement)
 
 	if !myFlags.DryRun {
 		if err := os.WriteFile(config, []byte(replacement), FilePermissions); err != nil {
