@@ -128,9 +128,25 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			continue
 		}
 
-		action := strings.Split(match[1], "@")
+		// Detect and strip YAML string quoting ("uses: \"owner/action@tag\"")
+		// so we can rebuild the exact original string for replacement later.
+		rawValue := strings.TrimSpace(match[1])
+		leadingQuote, trailingQuote := "", ""
+		if len(rawValue) > 0 && (rawValue[0] == '"' || rawValue[0] == '\'') {
+			leadingQuote = string(rawValue[0])
+			rawValue = rawValue[1:]
+		}
 
-		action[0] = strings.Trim(strings.TrimSpace(action[0]), `"'`)
+		action := strings.Split(rawValue, "@")
+		action[0] = strings.TrimSpace(action[0])
+
+		if len(action) > 1 && len(action[1]) > 0 {
+			last := action[1][len(action[1])-1]
+			if last == '"' || last == '\'' {
+				trailingQuote = string(last)
+				action[1] = action[1][:len(action[1])-1]
+			}
+		}
 
 		// Local/composite action path or docker:// ref — nothing to resolve on GitHub.
 		if strings.HasPrefix(action[0], ".") || strings.HasPrefix(action[0], "/") || strings.HasPrefix(action[0], "docker://") {
@@ -221,8 +237,8 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 					"The tag may have been moved to a different commit. Verify this is intentional before accepting.", action[0], tag, currentSHA, sha)
 			}
 
-			oldAction := action[0] + "@" + action[1]
-			newAction := action[0] + "@" + sha + " # " + tag //GET /repos/{owner}/{repo}/git/ref/tags/{tag_name}
+			oldAction := leadingQuote + action[0] + "@" + action[1] + trailingQuote
+			newAction := action[0] + "@" + sha + " # " + tag
 
 			replacement = strings.ReplaceAll(replacement, oldAction, newAction)
 		} else {

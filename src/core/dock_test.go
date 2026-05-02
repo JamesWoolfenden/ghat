@@ -45,17 +45,17 @@ func Test_formatDockerImage(t *testing.T) {
 				Tag:        "1.22-alpine",
 			},
 			digest: "sha256:abc123",
-			want:   "golang:1.22-alpine@sha256:abc123",
+			want:   "golang:1.22-alpine@sha256:abc123 # 1.22-alpine",
 		},
 		{
-			name: "official image latest tag omitted",
+			name: "official image latest tag kept and commented",
 			ref: ImageReference{
 				Registry:   "docker.io",
 				Repository: "library/nginx",
 				Tag:        "latest",
 			},
 			digest: "sha256:def456",
-			want:   "nginx@sha256:def456",
+			want:   "nginx:latest@sha256:def456 # latest",
 		},
 		{
 			name: "user image",
@@ -65,7 +65,7 @@ func Test_formatDockerImage(t *testing.T) {
 				Tag:        "0.1.0",
 			},
 			digest: "sha256:xyz789",
-			want:   "jameswoolfenden/ghat:0.1.0@sha256:xyz789",
+			want:   "jameswoolfenden/ghat:0.1.0@sha256:xyz789 # 0.1.0",
 		},
 		{
 			name: "custom registry",
@@ -75,7 +75,7 @@ func Test_formatDockerImage(t *testing.T) {
 				Tag:        "v1.0",
 			},
 			digest: "sha256:aaa111",
-			want:   "gcr.io/project/image:v1.0@sha256:aaa111",
+			want:   "gcr.io/project/image:v1.0@sha256:aaa111 # v1.0",
 		},
 	}
 	for _, tt := range tests {

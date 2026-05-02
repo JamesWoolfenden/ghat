@@ -103,8 +103,8 @@ func (myFlags *Flags) UpdateDockerfile(file string) error {
 
 		var newImageStr string
 		if strings.Contains(imageStr, "$") {
-			// Preserve variable syntax; append the resolved digest.
-			newImageStr = bareOriginal + "@" + digest
+			// Preserve variable syntax; append digest and resolved tag as comment.
+			newImageStr = bareOriginal + "@" + digest + " # " + imgRef.Tag
 		} else {
 			newImageStr = formatDockerImage(imgRef, digest)
 		}
@@ -143,8 +143,9 @@ func isDockerfile(file string) bool {
 		strings.HasSuffix(lower, ".dockerfile")
 }
 
-// formatDockerImage produces "image:tag@sha256:digest" — valid Docker pull syntax
-// that keeps the original tag visible without needing a comment.
+// formatDockerImage produces "image:tag@sha256:digest # tag" — the tag is kept
+// inline for readability and also added as a comment so the human-readable
+// version is visible even when the line is long or the tag is "latest".
 func formatDockerImage(ref ImageReference, digest string) string {
 	var b strings.Builder
 	if ref.Registry == "docker.io" {
@@ -155,12 +156,16 @@ func formatDockerImage(ref ImageReference, digest string) string {
 		b.WriteString("/")
 		b.WriteString(ref.Repository)
 	}
-	if ref.Tag != "latest" {
+	if ref.Tag != "" {
 		b.WriteString(":")
 		b.WriteString(ref.Tag)
 	}
 	b.WriteString("@")
 	b.WriteString(digest)
+	if ref.Tag != "" {
+		b.WriteString(" # ")
+		b.WriteString(ref.Tag)
+	}
 	return b.String()
 }
 
