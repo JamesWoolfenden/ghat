@@ -113,12 +113,10 @@ func (o *OrgFlags) listRepos() ([]string, error) {
 func (o *OrgFlags) processRepo(repo string) RepoResult {
 	result := RepoResult{Repo: repo}
 
-	// skip if PR already open
-	if open, _ := o.prExists(repo); open {
-		result.Status = "pr-open"
-		log.Info().Str("repo", repo).Msg("PR already open, skipping")
-		return result
-	}
+	// If a PR is already open, still re-run and force-push so the branch
+	// stays current — the existing PR picks up the new commits automatically.
+	// Only skip PR creation at the end.
+	prAlreadyOpen, _ := o.prExists(repo)
 
 	dir, err := os.MkdirTemp("", "ghat-*")
 	if err != nil {
@@ -199,9 +197,14 @@ func (o *OrgFlags) processRepo(repo string) RepoResult {
 		return result
 	}
 
+	if prAlreadyOpen {
+		result.Status = "pr-open"
+		log.Warn().Str("repo", repo).Msg("branch updated, existing PR refreshed")
+		return result
+	}
+
 	prURL, err := o.createPR(repo, o.Branch, base)
 	if err != nil {
-		// PR may already exist if prExists check had a race or prior partial run.
 		if open, _ := o.prExists(repo); open {
 			result.Status = "pr-open"
 			log.Warn().Str("repo", repo).Msg("PR already existed, branch updated")
