@@ -18,6 +18,17 @@ import (
 // pinnedImageRe matches an already-pinned image digest comment: @sha256:hex # tag
 var pinnedImageRe = regexp.MustCompile(`@(sha256:[0-9a-f]+)\s+#\s+(\S+)`)
 
+// replaceWithComment replaces oldStr (and any trailing " # ..." comment on the
+// same line) with newStr. This prevents duplicate comments accumulating when
+// ghat re-processes already-pinned references it wrote with trailing tag comments.
+func replaceWithComment(s, oldStr, newStr string) string {
+	if !strings.Contains(s, oldStr) {
+		return s
+	}
+	re := regexp.MustCompile(regexp.QuoteMeta(oldStr) + `(?:\s+#[^\n]*)?`)
+	return re.ReplaceAllLiteralString(s, newStr)
+}
+
 const gitlab = ".gitlab-ci.yml"
 
 type gitlabProjectError struct {
@@ -126,8 +137,9 @@ func (myFlags *Flags) UpdateGitlab() error {
 			Str("new", newImageRef).
 			Msg("Image update")
 
-		// Replace in the content
-		replacement = strings.ReplaceAll(replacement, imageStr, newImageRef)
+		// Replace in the content (atomically consume any trailing # comment to
+		// prevent accumulation on re-runs).
+		replacement = replaceWithComment(replacement, imageStr, newImageRef)
 	}
 
 	myFlags.printDiff(projectFile, string(project), replacement)

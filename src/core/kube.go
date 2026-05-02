@@ -79,7 +79,7 @@ func (myFlags *Flags) UpdateKube(file string) error {
 				"The image tag may have been repointed to a different layer. Verify before accepting.", imageStr, cur, digest)
 		}
 
-		replacement = strings.ReplaceAll(replacement, imageStr, formatImageWithDigest(imgRef, digest))
+		replacement = replaceWithComment(replacement, imageStr, formatImageWithDigest(imgRef, digest))
 	}
 
 	myFlags.printDiff(file, string(content), replacement)
@@ -163,6 +163,11 @@ func findKubeImages(data interface{}, images *[]string) {
 					for _, item := range list {
 						if c, ok := item.(map[string]interface{}); ok {
 							if img, ok := c["image"].(string); ok && img != "" && !isKubeVarRef(img) {
+								// Strip any trailing # comment (occurs when YAML value is quoted
+								// and ghat previously wrote "image@sha256:digest # tag" inside quotes).
+								if idx := strings.Index(img, " # "); idx >= 0 {
+									img = img[:idx]
+								}
 								*images = append(*images, img)
 							}
 						}
@@ -235,7 +240,7 @@ func (myFlags *Flags) UpdateCompose(file string) error {
 			log.Warn().Msgf("SUSPICIOUS: %s — digest changed from %s to %s with the same tag. "+
 				"Verify before accepting.", imageStr, cur, digest)
 		}
-		replacement = strings.ReplaceAll(replacement, imageStr, formatImageWithDigest(imgRef, digest))
+		replacement = replaceWithComment(replacement, imageStr, formatImageWithDigest(imgRef, digest))
 	}
 
 	myFlags.printDiff(file, string(content), replacement)

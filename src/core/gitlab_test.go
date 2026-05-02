@@ -487,3 +487,57 @@ valid:
 		t.Errorf("Expected golang image, got %v", images[0])
 	}
 }
+
+func Test_replaceWithComment(t *testing.T) {
+	tests := []struct {
+		name   string
+		s      string
+		oldStr string
+		newStr string
+		want   string
+	}{
+		{
+			name:   "no trailing comment",
+			s:      "image: nginx@sha256:abc",
+			oldStr: "nginx@sha256:abc",
+			newStr: "nginx@sha256:new # latest",
+			want:   "image: nginx@sha256:new # latest",
+		},
+		{
+			name:   "single trailing comment consumed",
+			s:      "image: nginx@sha256:abc # 1.25",
+			oldStr: "nginx@sha256:abc",
+			newStr: "nginx@sha256:new # 1.25",
+			want:   "image: nginx@sha256:new # 1.25",
+		},
+		{
+			name:   "double trailing comment consumed (accumulated bug)",
+			s:      "image: nginx@sha256:abc # latest # 1.25",
+			oldStr: "nginx@sha256:abc",
+			newStr: "nginx@sha256:new # latest",
+			want:   "image: nginx@sha256:new # latest",
+		},
+		{
+			name:   "triple trailing comment consumed",
+			s:      "image: gcr.io/cassandra@sha256:abc # latest # latest # v13",
+			oldStr: "gcr.io/cassandra@sha256:abc",
+			newStr: "gcr.io/cassandra@sha256:new # latest",
+			want:   "image: gcr.io/cassandra@sha256:new # latest",
+		},
+		{
+			name:   "oldStr not present",
+			s:      "image: nginx:1.25",
+			oldStr: "nginx@sha256:abc",
+			newStr: "nginx@sha256:new # 1.25",
+			want:   "image: nginx:1.25",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := replaceWithComment(tt.s, tt.oldStr, tt.newStr)
+			if got != tt.want {
+				t.Errorf("replaceWithComment() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

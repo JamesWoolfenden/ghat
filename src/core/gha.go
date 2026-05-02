@@ -316,7 +316,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			log.Warn().Msgf("SUSPICIOUS: %s — digest changed from %s to %s with the same tag. "+
 				"The image tag may have been repointed. Verify before accepting.", imageStr, cur, digest)
 		}
-		replacement = strings.ReplaceAll(replacement, imageStr, formatImageWithDigest(imgRef, digest))
+		replacement = replaceWithComment(replacement, imageStr, formatImageWithDigest(imgRef, digest))
 	}
 
 	myFlags.printDiff(file, string(buffer), replacement)
