@@ -3,6 +3,7 @@
 set -uo pipefail
 
 GHAT="${GHAT_BIN:-ghat}"
+LIMIT="${LIMIT:-0}"   # 0 = no limit; set e.g. LIMIT=10 for a trial run
 BRANCH="ghat/pin-dependencies"
 PR_TITLE="chore: pin dependencies to immutable SHAs via ghat"
 PR_BODY="Automated dependency pinning by [ghat](https://github.com/JamesWoolfenden/ghat).
@@ -88,6 +89,11 @@ while IFS= read -r repo; do
   i=$((i + 1))
   name="${repo##*/}"
   dir="$WORK_DIR/$name"
+
+  if [[ "$LIMIT" -gt 0 && "$i" -gt "$LIMIT" ]]; then
+    echo "Reached sample limit of $LIMIT repos, stopping."
+    break
+  fi
 
   echo "[$i/$total] $repo"
 
