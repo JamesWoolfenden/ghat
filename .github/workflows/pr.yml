@@ -18,7 +18,7 @@ jobs:
       - name: gofumpt
         env:
           GOTOOLCHAIN: auto
-        uses: jameswoolfenden/auto-gofmt@42ff447df14551717c8f18c63e863a6f64a18a83 # v0.2
+        uses: jameswoolfenden/auto-gofmt@de36c00b3eef35c5ed321296a11ca3c772da494b # v0.3
   test:
     env:
       GOTOOLCHAIN: auto
