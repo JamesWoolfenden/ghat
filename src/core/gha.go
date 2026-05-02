@@ -83,7 +83,7 @@ func GetFiles(dir string) ([]string, error) {
 func (myFlags *Flags) UpdateGHAS() error {
 	for _, gha := range myFlags.GetGHA() {
 		if err := myFlags.UpdateGHA(gha); err != nil {
-			return &ghaUpdateError{gha}
+			return &ghaUpdateError{gha: gha, err: err}
 		}
 	}
 

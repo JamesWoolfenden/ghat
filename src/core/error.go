@@ -48,11 +48,17 @@ func (m *dirAndFileEmptyError) Error() string {
 
 type ghaUpdateError struct {
 	gha string
+	err error
 }
 
 func (m *ghaUpdateError) Error() string {
+	if m.err != nil {
+		return fmt.Sprintf("GHA update error %s: %v", m.gha, m.err)
+	}
 	return fmt.Sprintf("GHA update error %s", m.gha)
 }
+
+func (m *ghaUpdateError) Unwrap() error { return m.err }
 
 type ghaFileError struct {
 	file string
