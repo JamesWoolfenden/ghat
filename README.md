@@ -257,7 +257,7 @@ I got you covered:
 $ghat swot -d . --stable 14
 ```
 
-#### Tag mutation detection
+#### Tag mutation detethen ghat leamaybe ction
 
 When `swot` processes a workflow file that already has a pinned action (`action@sha # vX.Y.Z`), it checks whether the SHA GitHub now resolves for that same tag matches what was previously pinned. If the tag name is unchanged but the SHA has changed, ghat emits a warning:
 

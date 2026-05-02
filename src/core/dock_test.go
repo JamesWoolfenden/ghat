@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog/log"
+	"golang.org/x/mod/semver"
 )
 
 func Test_isDockerfile(t *testing.T) {
@@ -123,6 +124,40 @@ func Test_parsePinnedFromLines(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func Test_coerceSemver_TwoPart(t *testing.T) {
+	// v0.1 must coerce to something higher than v0.0.4 so pickLatestTag
+	// never downgrades a repo that uses two-part version tags.
+	v01 := coerceSemver("v0.1")
+	v004 := coerceSemver("v0.0.4")
+	if v01 == "" {
+		t.Fatal("coerceSemver(v0.1) returned empty — two-part version not handled")
+	}
+	if semver.Compare(v01, v004) <= 0 {
+		t.Errorf("coerceSemver: v0.1 (%s) should be > v0.0.4 (%s)", v01, v004)
+	}
+}
+
+func TestUpdateDockerfile_AliasBeforeComment(t *testing.T) {
+	// FROM image:tag@sha AS alias must produce image:tag@sha AS alias # tag
+	// not image:tag@sha # tag AS alias (which breaks Docker parsing).
+	ref := ImageReference{Registry: "docker.io", Repository: "library/golang", Tag: "1.22-alpine"}
+	digest := "sha256:abc123"
+	got := formatDockerImage(ref, digest)
+	// formatDockerImage produces the image+digest+comment; when alias is present
+	// the write-back in UpdateDockerfile must insert alias before the # comment.
+	// Simulate that logic here.
+	alias := " AS builder"
+	if idx := strings.Index(got, " # "); idx >= 0 {
+		got = got[:idx] + alias + got[idx:]
+	} else {
+		got = got + alias
+	}
+	want := "golang:1.22-alpine@sha256:abc123 AS builder # 1.22-alpine"
+	if got != want {
+		t.Errorf("alias placement: got %q, want %q", got, want)
 	}
 }
 

@@ -235,6 +235,10 @@ var swotCmd = &cli.Command{
 			Name:  "clear-cache",
 			Usage: "Clear the cache before running",
 		},
+		&cli.BoolFlag{
+			Name:  "pin-only",
+			Usage: "pin current tag to SHA without checking for upgrades",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		myFlags := core.NewFlags()
@@ -242,6 +246,7 @@ var swotCmd = &cli.Command{
 		myFlags.File = c.String("file")
 		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
+		myFlags.PinOnly = c.Bool("pin-only")
 		myFlags.GitHubToken = githubToken()
 
 		stable := c.Uint("stable")
@@ -556,6 +561,10 @@ var sweepCmd = &cli.Command{
 			Usage: "cache time-to-live (e.g., 24h, 1h30m)",
 			Value: 24 * time.Hour,
 		},
+		&cli.BoolFlag{
+			Name:  "pin-only",
+			Usage: "pin current tag to SHA without checking for upgrades",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		myFlags := core.NewFlags()
@@ -563,6 +572,7 @@ var sweepCmd = &cli.Command{
 		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
 		myFlags.Update = c.Bool("update")
+		myFlags.PinOnly = c.Bool("pin-only")
 		myFlags.GitHubToken = c.String("token")
 
 		stable := c.Uint("stable")
@@ -706,16 +716,20 @@ var orgCmd = &cli.Command{
 			switch r.Status {
 			case "pinned":
 				pinned++
+				if r.PRUrl != "" {
+					fmt.Printf("  PR  %s\n", r.PRUrl)
+				}
 			case "already-pinned":
 				already++
 			case "pr-open":
 				prOpen++
 			case "error":
 				errors++
+				fmt.Fprintf(os.Stderr, "  ERR %s: %v\n", r.Repo, r.Error)
 			}
 			if len(r.Gaps) > 0 {
 				for _, g := range r.Gaps {
-					fmt.Fprintf(os.Stderr, "GAP  %s\n", g)
+					fmt.Fprintf(os.Stderr, "  GAP %s\n", g)
 				}
 			}
 		}

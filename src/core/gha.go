@@ -169,6 +169,41 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		if len(action) > 1 {
 			currentSHA, currentTag = parsePinnedRef(action[1])
 		}
+
+		// --pin-only: resolve the SHA for the current tag without upgrading.
+		if myFlags.PinOnly {
+			currentRef := action[1]
+			if currentTag != "" {
+				currentRef = currentTag
+			}
+			// already pinned to a SHA — nothing to do
+			if currentSHA != "" {
+				continue
+			}
+			if currentRef == "" {
+				continue
+			}
+			url := action[0]
+			if newUrl != "" {
+				url = newUrl
+			}
+			payload, err := getHash(url, currentRef, myFlags.GitHubToken)
+			if err != nil {
+				log.Warn().Msgf("failed to retrieve commit hash for %s@%s: %s", action[0], currentRef, err)
+				continue
+			}
+			if body, ok := payload.(map[string]interface{}); ok {
+				if object, ok := body["object"].(map[string]interface{}); ok {
+					if sha, ok := object["sha"].(string); ok {
+						oldAction := leadingQuote + action[0] + "@" + action[1] + trailingQuote
+						newAction := action[0] + "@" + sha + " # " + currentRef
+						replacement = strings.ReplaceAll(replacement, oldAction, newAction)
+					}
+				}
+			}
+			continue
+		}
+
 		body, err := getPayload(action[0], myFlags.GitHubToken, myFlags.Days)
 
 		if err != nil {
@@ -390,6 +425,12 @@ func coerceSemver(tag string) string {
 	}
 	if semver.IsValid(v) {
 		return v
+	}
+	// 2-part versions (v0.1) — pad with .0 so semver can compare them.
+	if p := strings.SplitN(v, ".", 3); len(p) == 2 {
+		if alt := v + ".0"; semver.IsValid(alt) {
+			return alt
+		}
 	}
 	// 4-part versions (shellcheck-py v0.11.0.1) — fold the tail into build
 	// metadata so x/mod/semver will at least order the first three parts.

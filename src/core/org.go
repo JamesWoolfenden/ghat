@@ -205,7 +205,7 @@ func (o *OrgFlags) processRepo(repo string) RepoResult {
 
 	result.Status = "pinned"
 	result.PRUrl = prURL
-	log.Info().Str("repo", repo).Str("pr", prURL).Msg("PR opened")
+	log.Warn().Str("repo", repo).Str("pr", prURL).Msg("PR opened")
 	return result
 }
 

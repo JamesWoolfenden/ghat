@@ -108,7 +108,15 @@ func (myFlags *Flags) UpdateDockerfile(file string) error {
 		} else {
 			newImageStr = formatDockerImage(imgRef, digest)
 		}
-		lines[i] = prefix + newImageStr + alias
+		// Place the AS alias before the # tag comment so Docker can parse it.
+		if alias != "" {
+			if idx := strings.Index(newImageStr, " # "); idx >= 0 {
+				newImageStr = newImageStr[:idx] + alias + newImageStr[idx:]
+			} else {
+				newImageStr = newImageStr + alias
+			}
+		}
+		lines[i] = prefix + newImageStr
 	}
 
 	replacement := strings.Join(lines, "\n")
