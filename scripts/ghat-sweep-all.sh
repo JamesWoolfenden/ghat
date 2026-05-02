@@ -59,6 +59,23 @@ log_error() {
   fail=$((fail + 1))
 }
 
+# wait_for_rate_limit — pause if fewer than THRESHOLD requests remain.
+# Sleeps until the GitHub rate limit window resets.
+THRESHOLD=200
+wait_for_rate_limit() {
+  local remaining reset now wait_secs
+  remaining=$(gh api rate_limit --jq '.resources.core.remaining' 2>/dev/null || echo 9999)
+  if [[ "$remaining" -lt "$THRESHOLD" ]]; then
+    reset=$(gh api rate_limit --jq '.resources.core.reset' 2>/dev/null || echo 0)
+    now=$(date +%s)
+    wait_secs=$(( reset - now + 5 ))
+    if [[ "$wait_secs" -gt 0 ]]; then
+      echo "  ⏳ rate limit low ($remaining remaining) — sleeping ${wait_secs}s until reset"
+      sleep "$wait_secs"
+    fi
+  fi
+}
+
 repos=$(gh repo list --limit 1000 --json nameWithOwner,isFork \
   --jq '.[] | select(.isFork == false) | .nameWithOwner')
 
@@ -136,6 +153,8 @@ while IFS= read -r repo; do
   fi
   pass=$((pass + 1))
   rm -rf "$dir"
+
+  wait_for_rate_limit
 
 done <<< "$repos"
 
