@@ -241,7 +241,7 @@ var swotCmd = &cli.Command{
 		myFlags.File = c.String("file")
 		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
-		myFlags.GitHubToken = os.Getenv("GITHUB_TOKEN")
+		myFlags.GitHubToken = githubToken()
 
 		stable := c.Uint("stable")
 		myFlags.Days = &stable
@@ -413,7 +413,7 @@ var kubeCmd = &cli.Command{
 		myFlags.File = c.String("file")
 		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
-		myFlags.GitHubToken = os.Getenv("GITHUB_TOKEN")
+		myFlags.GitHubToken = githubToken()
 
 		if myFlags.File == "" {
 			var err error
@@ -458,7 +458,7 @@ var dockCmd = &cli.Command{
 		myFlags.File = c.String("file")
 		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
-		myFlags.GitHubToken = os.Getenv("GITHUB_TOKEN")
+		myFlags.GitHubToken = githubToken()
 
 		if myFlags.File == "" {
 			var err error
@@ -631,6 +631,14 @@ var auditCmd = &cli.Command{
 
 		return myFlags.Action(core.ActionAudit)
 	},
+}
+
+// githubToken returns the first non-empty value of GITHUB_TOKEN or GITHUB_API.
+func githubToken() string {
+	if t := os.Getenv("GITHUB_TOKEN"); t != "" {
+		return t
+	}
+	return os.Getenv("GITHUB_API")
 }
 
 func formatBytes(bytes int64) string {
