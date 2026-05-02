@@ -82,7 +82,7 @@ func (o *OrgFlags) RunBulk() ([]RepoResult, error) {
 }
 
 func (o *OrgFlags) listRepos() ([]string, error) {
-	url := "https://api.github.com/user/repos?type=owner&per_page=100&affiliation=owner"
+	url := "https://api.github.com/user/repos?type=owner&per_page=100"
 	var all []string
 	for url != "" {
 		body, next, err := getPagedGithubBody(o.Token, url)
