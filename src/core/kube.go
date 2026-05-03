@@ -79,7 +79,14 @@ func (myFlags *Flags) UpdateKube(file string) error {
 				"The image tag may have been repointed to a different layer. Verify before accepting.", imageStr, cur, digest)
 		}
 
-		replacement = replaceWithComment(replacement, imageStr, formatImageWithDigest(imgRef, digest))
+		// For already-SHA-pinned images: replace only the digest, preserving
+		// any existing # tag comment. For fresh images: write full # tag annotation.
+		if at := strings.Index(imageStr, "@sha256:"); at >= 0 {
+			newRef := imageStr[:at] + "@" + digest
+			replacement = strings.ReplaceAll(replacement, imageStr, newRef)
+		} else {
+			replacement = replaceWithComment(replacement, imageStr, formatImageWithDigest(imgRef, digest))
+		}
 	}
 
 	myFlags.printDiff(file, string(content), replacement)
@@ -240,7 +247,12 @@ func (myFlags *Flags) UpdateCompose(file string) error {
 			log.Warn().Msgf("SUSPICIOUS: %s — digest changed from %s to %s with the same tag. "+
 				"Verify before accepting.", imageStr, cur, digest)
 		}
-		replacement = replaceWithComment(replacement, imageStr, formatImageWithDigest(imgRef, digest))
+		if at := strings.Index(imageStr, "@sha256:"); at >= 0 {
+			newRef := imageStr[:at] + "@" + digest
+			replacement = strings.ReplaceAll(replacement, imageStr, newRef)
+		} else {
+			replacement = replaceWithComment(replacement, imageStr, formatImageWithDigest(imgRef, digest))
+		}
 	}
 
 	myFlags.printDiff(file, string(content), replacement)

@@ -137,9 +137,11 @@ func (myFlags *Flags) UpdateGitlab() error {
 			Str("new", newImageRef).
 			Msg("Image update")
 
-		// Replace in the content (atomically consume any trailing # comment to
-		// prevent accumulation on re-runs).
-		replacement = replaceWithComment(replacement, imageStr, newImageRef)
+		if at := strings.Index(imageStr, "@sha256:"); at >= 0 {
+			replacement = strings.ReplaceAll(replacement, imageStr, imageStr[:at]+"@"+digest)
+		} else {
+			replacement = replaceWithComment(replacement, imageStr, newImageRef)
+		}
 	}
 
 	myFlags.printDiff(projectFile, string(project), replacement)

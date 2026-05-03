@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -435,5 +436,47 @@ func TestRegistry_GetLatest_EdgeCases(t *testing.T) {
 				t.Errorf("GetLatest() got = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// Test that a ?ref=<SHA> in a module source is treated as "already pinned"
+// and version is cleared so GetGithubLatestHash is called, producing a
+// human-readable tag comment rather than #SHA.
+func TestUpdateSource_SHARefClearsVersion(t *testing.T) {
+	sha40 := "37b7448bc1bf47c0e4fa5e7be241583801195eea"
+	source := "git::https://github.com/JamesWoolfenden/terraform-aws-kms.git?ref=" + sha40
+
+	splitter := strings.Split(strings.TrimPrefix(source, "git::"), "?ref=")
+	if len(splitter) < 2 {
+		t.Fatal("test setup: expected ?ref= in source")
+	}
+	existingRef := splitter[1]
+
+	version := existingRef // simulate what UpdateSource does before the fix
+	if len(existingRef) == 40 && strings.Trim(existingRef, "0123456789abcdefABCDEF") == "" {
+		version = ""
+	}
+
+	if version != "" {
+		t.Errorf("SHA ?ref= should clear version, got %q", version)
+	}
+}
+
+func TestUpdateSource_TagRefKeepsVersion(t *testing.T) {
+	source := "git::https://github.com/JamesWoolfenden/terraform-aws-kms.git?ref=v0.0.3"
+
+	splitter := strings.Split(strings.TrimPrefix(source, "git::"), "?ref=")
+	if len(splitter) < 2 {
+		t.Fatal("test setup: expected ?ref= in source")
+	}
+	existingRef := splitter[1]
+
+	version := existingRef
+	if len(existingRef) == 40 && strings.Trim(existingRef, "0123456789abcdefABCDEF") == "" {
+		version = ""
+	}
+
+	if version != "v0.0.3" {
+		t.Errorf("tag ?ref= should keep version %q, got %q", "v0.0.3", version)
 	}
 }

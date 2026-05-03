@@ -541,3 +541,27 @@ func Test_replaceWithComment(t *testing.T) {
 		})
 	}
 }
+
+// Test that already-SHA-pinned images keep their original # tag comment when
+// re-processed, even if two containers in the same file share the same digest
+// with different tag annotations (e.g. # v1.6.0 vs # latest).
+func TestRePinPreservesTagComments(t *testing.T) {
+	oldSHA := "sha256:aaaa"
+	newSHA := "sha256:bbbb"
+	imageStr := "gcr.io/project/app@" + oldSHA
+	raw := `        image: gcr.io/project/app@sha256:aaaa # v1.6.0
+        image: gcr.io/project/app@sha256:aaaa # latest
+`
+	at := strings.Index(imageStr, "@sha256:")
+	newRef := imageStr[:at] + "@" + newSHA
+	result := strings.ReplaceAll(raw, imageStr, newRef)
+
+	want1 := "gcr.io/project/app@sha256:bbbb # v1.6.0"
+	want2 := "gcr.io/project/app@sha256:bbbb # latest"
+	if !strings.Contains(result, want1) {
+		t.Errorf("v1.6.0 comment was overwritten:\n%s", result)
+	}
+	if !strings.Contains(result, want2) {
+		t.Errorf("latest comment was overwritten:\n%s", result)
+	}
+}

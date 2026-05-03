@@ -241,7 +241,15 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 			root := splitter[0]
 
 			if len(splitter) > 1 {
-				version = splitter[1]
+				existingRef := splitter[1]
+				// If ?ref= is a bare 40-char commit SHA (already pinned by ghat),
+				// clear version so GetGithubLatestHash is called and we get a real
+				// tag name for the comment rather than writing #SHA.
+				if len(existingRef) == 40 && strings.Trim(existingRef, "0123456789abcdefABCDEF") == "" {
+					version = ""
+				} else {
+					version = existingRef
+				}
 			}
 
 			if myFlags.Update {
