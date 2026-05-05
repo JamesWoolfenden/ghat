@@ -120,6 +120,81 @@ func TestGithubOwnerRepo(t *testing.T) {
 	}
 }
 
+func TestCheckPermissions(t *testing.T) {
+	tests := []struct {
+		name string
+		wf   map[string][]byte
+		want checkOutcome
+	}{
+		{"none", nil, checkSkip},
+		{"set", map[string][]byte{"a.yml": []byte("permissions:\n  contents: read\n")}, checkPass},
+		{"missing", map[string][]byte{"a.yml": []byte("on: push\njobs:\n")}, checkFail},
+		{"mixed", map[string][]byte{
+			"a.yml": []byte("permissions: {}\n"),
+			"b.yml": []byte("on: push\n"),
+		}, checkFail},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := checkPermissions(tt.wf); got.outcome != tt.want {
+				t.Errorf("outcome = %v, want %v (%s)", got.outcome, tt.want, got.detail)
+			}
+		})
+	}
+}
+
+func TestCheckDangerousTrigger(t *testing.T) {
+	prtCheckout := `on:
+  pull_request_target:
+jobs:
+  x:
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+`
+	tests := []struct {
+		name string
+		wf   map[string][]byte
+		want checkOutcome
+	}{
+		{"none", nil, checkSkip},
+		{"clean", map[string][]byte{"a.yml": []byte("on: push\njobs:\n")}, checkPass},
+		{"prt-alone", map[string][]byte{"a.yml": []byte("on:\n  pull_request_target:\njobs:\n")}, checkPass},
+		{"prt+checkout", map[string][]byte{"a.yml": []byte(prtCheckout)}, checkFail},
+		{"run-inject", map[string][]byte{"a.yml": []byte("    run: echo ${{ github.event.issue.title }}\n")}, checkFail},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := checkDangerousTrigger(tt.wf); got.outcome != tt.want {
+				t.Errorf("outcome = %v, want %v (%s)", got.outcome, tt.want, got.detail)
+			}
+		})
+	}
+}
+
+func TestBucketAndScore(t *testing.T) {
+	cs := []checkResult{
+		{"signed-pin", checkSkip, ""},
+		{"ci-pinned", checkPass, ""},
+		{"maintained", checkFail, ""},
+	}
+	if b := bucket(cs); b != "STALE" {
+		t.Errorf("bucket = %s, want STALE", b)
+	}
+	cs = append(cs, checkResult{"permissions", checkFail, ""})
+	if b := bucket(cs); b != "RISK" {
+		t.Errorf("bucket = %s, want RISK", b)
+	}
+	pass, total := score(cs)
+	if pass != 1 || total != 3 {
+		t.Errorf("score = %d/%d, want 1/3", pass, total)
+	}
+	if b := bucket([]checkResult{{"alive", checkPass, ""}}); b != "ok" {
+		t.Errorf("bucket = %s, want ok", b)
+	}
+}
+
 func TestResolveRepoGithub(t *testing.T) {
 	o, r, err := resolveRepo("github.com/rs/zerolog")
 	if err != nil || o != "rs" || r != "zerolog" {

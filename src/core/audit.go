@@ -36,11 +36,12 @@ const (
 var allSources = []string{SourceGo, SourceGHA, SourcePreCommit, SourceTerraform}
 
 type dep struct {
-	source string
-	label  string
-	owner  string
-	repo   string
-	skip   string
+	source    string
+	label     string
+	owner     string
+	repo      string
+	pinnedSHA string // the SHA *we* have pinned this dep to, if any
+	skip      string
 }
 
 type auditResult struct {
@@ -52,6 +53,8 @@ type auditResult struct {
 	total      int
 	unpinned   []string
 	suppressed int // refs skipped via # ghat:suppress in the dep's own workflows
+	checks     []checkResult
+	bucket     string
 }
 
 func (f *Flags) Audit() error {
@@ -98,14 +101,20 @@ func (f *Flags) Audit() error {
 		}
 
 		res := auditResult{source: d.source, label: d.label, repo: key, scanned: len(files)}
+		var agg refScan
 		for name, body := range files {
 			refs := findUnpinned(body)
-			res.total += refs.total
-			res.suppressed += refs.suppressed
+			agg.total += refs.total
+			agg.suppressed += refs.suppressed
 			for _, u := range refs.unpinned {
-				res.unpinned = append(res.unpinned, name+": "+u)
+				agg.unpinned = append(agg.unpinned, name+": "+u)
 			}
 		}
+		res.total = agg.total
+		res.suppressed = agg.suppressed
+		res.unpinned = agg.unpinned
+		res.checks = runChecks(d, files, agg, f.GitHubToken)
+		res.bucket = bucket(res.checks)
 		results = append(results, res)
 	}
 
@@ -269,55 +278,80 @@ func findUnpinned(body []byte) refScan {
 }
 
 func reportAudit(results []auditResult) error {
-	type tally struct{ risky, total, suppressed int }
+	type tally struct{ ok, risk, stale, total int }
 	bySource := map[string]*tally{}
-	risky := 0
-	totalSuppressed := 0
+	var risk, stale int
 
 	for _, r := range results {
 		if _, ok := bySource[r.source]; !ok {
 			bySource[r.source] = &tally{}
 		}
 		if r.skipped != "" {
-			fmt.Printf("       %-10s %-45s skipped: %s\n", r.source, r.label, r.skipped)
+			fmt.Printf("[  ?? ] %-10s %-45s skipped: %s\n", r.source, r.label, r.skipped)
 			continue
 		}
-		bySource[r.source].total++
-		bySource[r.source].suppressed += r.suppressed
-		totalSuppressed += r.suppressed
-		status := "ok"
-		if len(r.unpinned) > 0 {
-			status = "RISK"
-			risky++
-			bySource[r.source].risky++
+		t := bySource[r.source]
+		t.total++
+		switch r.bucket {
+		case "RISK":
+			t.risk++
+			risk++
+		case "STALE":
+			t.stale++
+			stale++
+		default:
+			t.ok++
 		}
-		suppressedNote := ""
-		if r.suppressed > 0 {
-			suppressedNote = fmt.Sprintf("  suppressed=%d", r.suppressed)
-		}
-		fmt.Printf("[%-4s] %-10s %-45s %s  workflows=%d  pinned=%d/%d%s\n",
-			status, r.source, r.label, r.repo, r.scanned, r.total-len(r.unpinned), r.total, suppressedNote)
-		for _, u := range r.unpinned {
-			fmt.Printf("         %s\n", u)
+		pass, total := score(r.checks)
+		fmt.Printf("[%-5s] %-10s %-45s %-35s %d/%d\n", r.bucket, r.source, r.label, r.repo, pass, total)
+		if r.bucket != "ok" {
+			fmt.Printf("        %s\n", formatChecks(r.checks))
+			for i, u := range r.unpinned {
+				if i == 5 {
+					fmt.Printf("          ... and %d more\n", len(r.unpinned)-5)
+					break
+				}
+				fmt.Printf("          %s\n", u)
+			}
 		}
 	}
 
-	fmt.Println()
+	fmt.Printf("\n  %-10s %5s %5s %5s %5s\n", "", "total", "ok", "risk", "stale")
 	for _, s := range allSources {
 		if t, ok := bySource[s]; ok {
-			fmt.Printf("  %-10s %d/%d dependencies have unpinned CI\n", s, t.risky, t.total)
+			fmt.Printf("  %-10s %5d %5d %5d %5d\n", s, t.total, t.ok, t.risk, t.stale)
 		}
 	}
-	fmt.Printf("\n%d of %d audited dependencies have unpinned CI actions", risky, len(results))
-	if totalSuppressed > 0 {
-		fmt.Printf("  (%d refs suppressed via %s)\n", totalSuppressed, SuppressAnnotation)
-	} else {
-		fmt.Println()
+
+	if risk > 0 {
+		return fmt.Errorf("%d RISK, %d STALE", risk, stale)
 	}
-	if risky > 0 {
-		return fmt.Errorf("%d dependencies have unpinned CI actions", risky)
+	if stale > 0 {
+		fmt.Printf("\n%d STALE (no RISK findings)\n", stale)
 	}
 	return nil
+}
+
+func formatChecks(checks []checkResult) string {
+	var b strings.Builder
+	for i, c := range checks {
+		if i > 0 {
+			b.WriteString("  ")
+		}
+		switch c.outcome {
+		case checkPass:
+			b.WriteString("✓ ")
+		case checkFail:
+			b.WriteString("✗ ")
+		case checkSkip:
+			b.WriteString("- ")
+		}
+		b.WriteString(c.name)
+		if c.detail != "" {
+			b.WriteString(" (" + c.detail + ")")
+		}
+	}
+	return b.String()
 }
 
 func (f *Flags) collectGoDeps() []dep {
@@ -365,7 +399,7 @@ func (f *Flags) collectGHADeps() []dep {
 			if strings.HasPrefix(ref, "./") || strings.HasPrefix(ref, "docker://") {
 				continue
 			}
-			path, _, _ := strings.Cut(ref, "@")
+			path, ver, _ := strings.Cut(ref, "@")
 			parts := strings.SplitN(path, "/", 3)
 			if len(parts) < 2 {
 				continue
@@ -375,7 +409,11 @@ func (f *Flags) collectGHADeps() []dep {
 				continue
 			}
 			seen[key] = true
-			deps = append(deps, dep{source: SourceGHA, label: key, owner: parts[0], repo: parts[1]})
+			d := dep{source: SourceGHA, label: key, owner: parts[0], repo: parts[1]}
+			if shaRe.MatchString(ver) {
+				d.pinnedSHA = ver
+			}
+			deps = append(deps, d)
 		}
 	}
 	return deps
@@ -401,7 +439,11 @@ func (f *Flags) collectPreCommitDeps() []dep {
 			deps = append(deps, dep{source: SourcePreCommit, label: r.Repo, skip: "not on GitHub"})
 			continue
 		}
-		deps = append(deps, dep{source: SourcePreCommit, label: r.Repo, owner: owner, repo: repo})
+		d := dep{source: SourcePreCommit, label: r.Repo, owner: owner, repo: repo}
+		if shaRe.MatchString(r.Rev) {
+			d.pinnedSHA = r.Rev
+		}
+		deps = append(deps, d)
 	}
 	return deps
 }
