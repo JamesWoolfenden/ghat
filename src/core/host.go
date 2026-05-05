@@ -28,6 +28,20 @@ type hostProvider interface {
 	WaitForRateLimit(threshold int)
 }
 
+// withBasicAuth injects user:token@ into an https clone URL so git can fetch
+// private repos without a credential helper.
+func withBasicAuth(cloneURL, user, token string) string {
+	if token == "" {
+		return cloneURL
+	}
+	u, err := url.Parse(cloneURL)
+	if err != nil || u.Scheme != "https" {
+		return cloneURL
+	}
+	u.User = url.UserPassword(user, token)
+	return u.String()
+}
+
 func newHost(provider, owner, token, baseURL string) (hostProvider, error) {
 	switch strings.ToLower(provider) {
 	case "", "github":
@@ -78,7 +92,7 @@ func (h *githubHost) ListRepos() ([]hostRepo, error) {
 			name, _ := m["full_name"].(string)
 			clone, _ := m["clone_url"].(string)
 			if name != "" {
-				all = append(all, hostRepo{Name: name, CloneURL: clone, id: name})
+				all = append(all, hostRepo{Name: name, CloneURL: withBasicAuth(clone, "x-access-token", h.token), id: name})
 			}
 		}
 		u = next
@@ -87,7 +101,8 @@ func (h *githubHost) ListRepos() ([]hostRepo, error) {
 }
 
 func (h *githubHost) RepoFromName(name string) (hostRepo, error) {
-	return hostRepo{Name: name, CloneURL: "https://github.com/" + name + ".git", id: name}, nil
+	clone := withBasicAuth("https://github.com/"+name+".git", "x-access-token", h.token)
+	return hostRepo{Name: name, CloneURL: clone, id: name}, nil
 }
 
 func (h *githubHost) PRExists(r hostRepo, branch string) (bool, string, string, error) {
@@ -200,7 +215,7 @@ func (h *gitlabHost) ListRepos() ([]hostRepo, error) {
 			clone, _ := m["http_url_to_repo"].(string)
 			id, _ := m["id"].(float64)
 			if name != "" {
-				all = append(all, hostRepo{Name: name, CloneURL: clone, id: fmt.Sprintf("%d", int64(id))})
+				all = append(all, hostRepo{Name: name, CloneURL: withBasicAuth(clone, "oauth2", h.token), id: fmt.Sprintf("%d", int64(id))})
 			}
 		}
 		u = next
@@ -218,7 +233,7 @@ func (h *gitlabHost) RepoFromName(name string) (hostRepo, error) {
 	m, _ := body.(map[string]interface{})
 	clone, _ := m["http_url_to_repo"].(string)
 	pid, _ := m["id"].(float64)
-	return hostRepo{Name: name, CloneURL: clone, id: fmt.Sprintf("%d", int64(pid))}, nil
+	return hostRepo{Name: name, CloneURL: withBasicAuth(clone, "oauth2", h.token), id: fmt.Sprintf("%d", int64(pid))}, nil
 }
 
 func (h *gitlabHost) PRExists(r hostRepo, branch string) (bool, string, string, error) {
