@@ -41,7 +41,7 @@ repos:
         - id: terraform-fmt
           language_version: python3.11
       repo: https://github.com/jameswoolfenden/pre-commit
-      rev: 0675a2a9064449980d946a7e2ac7351f708c57ca # v0.1.54
+      rev: 8ddc242e16a0ec7763b63e6f5a464f14325bbc10 # v0.1.55
     - hooks:
         - id: golangci-lint
       repo: https://github.com/golangci/golangci-lint
