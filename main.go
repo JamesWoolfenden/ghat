@@ -602,8 +602,8 @@ var sweepCmd = &cli.Command{
 var auditCmd = &cli.Command{
 	Name:      "audit",
 	Aliases:   []string{"sc"},
-	Usage:     "scores your dependencies (go.mod, GHA uses:, pre-commit, Terraform modules) by whether their CI workflows pin actions to SHAs",
-	UsageText: "ghat audit -d . [--source go,gha,pre-commit,terraform] [--deep]",
+	Usage:     "scores your dependencies (go.mod, GHA uses:, pre-commit, Terraform, npm, PyPI, Cargo, RubyGems) on supply-chain hygiene",
+	UsageText: "ghat audit -d . [--source go,gha,pre-commit,terraform,npm,pypi,cargo,gem] [--deep]",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:    "directory",

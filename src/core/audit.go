@@ -33,7 +33,7 @@ const (
 	SourceTerraform = "terraform"
 )
 
-var allSources = []string{SourceGo, SourceGHA, SourcePreCommit, SourceTerraform}
+var allSources = []string{SourceGo, SourceGHA, SourcePreCommit, SourceTerraform, SourceNpm, SourcePypi, SourceCargo, SourceGem}
 
 type dep struct {
 	source    string
@@ -74,6 +74,14 @@ func (f *Flags) Audit() error {
 			deps = append(deps, f.collectPreCommitDeps()...)
 		case SourceTerraform:
 			deps = append(deps, f.collectTerraformDeps()...)
+		case SourceNpm:
+			deps = append(deps, f.collectNpmDeps()...)
+		case SourcePypi:
+			deps = append(deps, f.collectPypiDeps()...)
+		case SourceCargo:
+			deps = append(deps, f.collectCargoDeps()...)
+		case SourceGem:
+			deps = append(deps, f.collectGemDeps()...)
 		default:
 			return fmt.Errorf("unknown audit source %q (valid: %s)", s, strings.Join(allSources, ", "))
 		}

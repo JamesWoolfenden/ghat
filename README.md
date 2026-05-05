@@ -532,7 +532,20 @@ ghat audit -d . --source go,gha
 ghat audit -d . --source go --deep
 ```
 
-`--source` narrows to one or more of `go`, `gha`, `pre-commit`, `terraform` (default: all). `--deep` walks transitive Go modules via `go list -m all`.
+`--source` narrows to one or more of `go`, `gha`, `pre-commit`, `terraform`,
+`npm`, `pypi`, `cargo`, `gem` (default: all that have a manifest present).
+`--deep` walks transitive Go modules via `go list -m all`.
+
+| source | manifest read | repo resolved via |
+| --- | --- | --- |
+| `go` | `go.mod` | go-import meta tag |
+| `gha` | `.github/workflows/*.yml` | `uses:` owner/repo |
+| `pre-commit` | `.pre-commit-config.yaml` | `repo:` URL |
+| `terraform` | `*.tf` | module `source` |
+| `npm` | `package.json` | registry.npmjs.org |
+| `pypi` | `requirements*.txt`, `pyproject.toml` | pypi.org |
+| `cargo` | `Cargo.toml` | crates.io |
+| `gem` | `Gemfile` | rubygems.org |
 
 Checks (✓ pass / ✗ fail / - n/a):
 
@@ -627,7 +640,7 @@ AUTHOR:
 
 COMMANDS:
    all, sweep  runs every pinner (GHA, GitLab, pre-commit, Terraform, Kubernetes, Dockerfiles) against a directory
-   audit, sc   scores your dependencies (go.mod, GHA uses:, pre-commit, Terraform modules) by whether their CI workflows pin actions to SHAs
+   audit, sc   scores your dependencies (go.mod, GHA uses:, pre-commit, Terraform, npm, PyPI, Cargo, RubyGems) on supply-chain hygiene
    cache       Manage API response cache
    dock, df    pins Dockerfile FROM images to SHA digests
    kube, k8s   pins container images in Kubernetes manifests to SHA digests
