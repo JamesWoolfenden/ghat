@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/jameswoolfenden/ghat/src/core"
@@ -703,9 +704,8 @@ var orgCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:     "token",
 			Aliases:  []string{"t"},
-			Usage:    "PAT for the chosen provider",
+			Usage:    "PAT for the chosen provider (default: $GITHUB_TOKEN or $GITLAB_TOKEN per --provider)",
 			Category: "authentication",
-			EnvVars:  []string{"GITHUB_TOKEN", "GITHUB_API", "GITLAB_TOKEN"},
 		},
 		&cli.StringFlag{
 			Name:  "branch",
@@ -734,8 +734,13 @@ var orgCmd = &cli.Command{
 			Threshold: c.Int("rate-threshold"),
 		}
 		if flags.Token == "" {
-			flags.Token = githubToken()
+			if strings.EqualFold(flags.Provider, "gitlab") {
+				flags.Token = os.Getenv("GITLAB_TOKEN")
+			} else {
+				flags.Token = githubToken()
+			}
 		}
+		flags.GitHubToken = githubToken()
 
 		results, err := flags.RunBulk()
 		if err != nil {

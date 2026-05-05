@@ -131,6 +131,9 @@ module "ip" {
     - [swipe](#swipe)
     - [sift](#sift)
     - [kube](#kube)
+    - [sweep](#sweep)
+    - [audit](#audit)
+    - [org](#org)
     - [pre-commit](#pre-commit)
 
 <!--toc:end-->
@@ -257,7 +260,7 @@ I got you covered:
 $ghat swot -d . --stable 14
 ```
 
-#### Tag mutation detethen ghat leamaybe ction
+#### Tag mutation detection
 
 When `swot` processes a workflow file that already has a pinned action (`action@sha # vX.Y.Z`), it checks whether the SHA GitHub now resolves for that same tag matches what was previously pinned. If the tag name is unchanged but the SHA has changed, ghat emits a warning:
 
@@ -266,7 +269,7 @@ WARN  SUSPICIOUS: actions/checkout@v4.2.2 — SHA changed from abc123... to def4
       The tag may have been moved to a different commit. Verify this is intentional before accepting.
 ```
 
-This is a sign that a repository maintainer (or attacker) has rewritten a published tag to point to a different commit — the pattern behind supply chain attacks like those reported via Dependabot. **Do not accept the update without reviewing the new commit.**
+This is a sign that a repository maintainer (or attacker) has rewritten a published tag to point to a different commit — the pattern behind supply chain attacks like those reported via Dependabot. The warning includes the new commit's signature status (`signed, verified` / `signed, unverified — <reason>` / `UNSIGNED`) to help triage. **Do not accept the update without reviewing the new commit.**
 
 ## Substitutions
 
@@ -543,6 +546,31 @@ Sample output:
   go         5/8 dependencies have unpinned CI
   gha        10/14 dependencies have unpinned CI
 ```
+
+### org
+
+Runs `sweep` against every non-fork repo owned by a user, organisation, or GitLab group, and optionally opens a PR/MR with the pinning changes. Use this to roll out SHA-pinning across an entire estate in one shot.
+
+```shell
+# dry-run across every repo the token owns
+ghat org --dry-run
+
+# pin and open PRs for every repo in an org
+ghat org --owner my-org --pr
+
+# target specific repos only
+ghat org --repo my-org/app --repo my-org/infra --pr --auto-merge
+
+# GitLab (gitlab.com or self-hosted)
+ghat org --provider gitlab --owner my-group --pr
+ghat org --provider gitlab --base-url https://gitlab.example.com --owner my-group --pr
+```
+
+Each repo is shallow-cloned to a temp dir, swept, and (with `--pr`) pushed to `--branch` (default `ghat/pin-dependencies`) before a PR/MR is opened. Re-running is idempotent: if the branch and PR already exist they're force-pushed and refreshed rather than duplicated. `--auto-merge` enables squash-auto-merge on each PR where the repo allows it.
+
+`--token` falls back to `$GITHUB_TOKEN` / `$GITLAB_TOKEN`. The token needs `repo` scope on GitHub, or `api` + `write_repository` on GitLab. `--offset`/`--limit` let you shard a large org across multiple runs, and `--rate-threshold` pauses before exhausting the GitHub rate limit.
+
+The summary also reports **gaps**: version-pinned installs ghat doesn't yet rewrite (e.g. `go install …@v1.2.3`, `pip install foo==1.0`, `curl …/releases/download/…`) so you can see what's left to lock down by hand.
 
 ## Help
 

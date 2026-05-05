@@ -125,8 +125,6 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 	r := regexp.MustCompile(`uses:(.*)`)
 	matches := r.FindAllStringSubmatch(string(buffer), -1)
 	for _, match := range matches {
-		var newUrl string
-
 		if ok, reason := parseSuppression(match[0]); ok {
 			log.Info().Str("ref", strings.TrimSpace(match[1])).Str("reason", reason).Msg("skipping suppressed uses: line")
 			continue
@@ -218,9 +216,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		body, err := getPayload(action[0], myFlags.GitHubToken, myFlags.Days)
 
 		if err != nil {
-			splitter := strings.SplitN(action[0], "/", 3)
-			newUrl = splitter[0] + "/" + splitter[1]
-			body, err = getPayload(newUrl, myFlags.GitHubToken, myFlags.Days)
+			body, err = getPayload(ownerRepo(action[0]), myFlags.GitHubToken, myFlags.Days)
 			if err != nil {
 				if myFlags.ContinueOnError {
 					log.Info().Err(err).Msgf("skipping action %s", action[0])
@@ -239,53 +235,16 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		if msg["tag_name"] != nil {
 			tag := msg["tag_name"].(string)
 
-			url := action[0]
-
-			if newUrl != "" {
-				url = newUrl
-			}
-
-			payload, err := getHash(url, tag, myFlags.GitHubToken)
+			sha, err := resolveTagSHA(action[0], tag, myFlags.GitHubToken)
 			if err != nil {
-				log.Warn().Msgf("failed to retrieve commit hash %s for %s", err, action[0])
+				log.Warn().Msgf("failed to retrieve commit hash for %s@%s: %s", action[0], tag, err)
 				continue
-			}
-
-			body, ok := payload.(map[string]interface{})
-			if !ok {
-				log.Warn().Msgf("Payload is not expected map %s", body)
-				continue
-			}
-
-			object, ok := body["object"].(map[string]interface{})
-			if !ok {
-				log.Warn().Msgf("failed to assert map of string %s", err)
-				continue
-			}
-
-			sha, ok := object["sha"].(string)
-			if !ok {
-				log.Warn().Msgf("failed to assert string %s", err)
-				continue
-			}
-
-			if objectType, _ := object["type"].(string); objectType == "tag" {
-				if tagURL, _ := object["url"].(string); tagURL != "" {
-					if tagPayload, err := GetGithubBody(myFlags.GitHubToken, tagURL); err == nil {
-						if tagMap, ok := tagPayload.(map[string]interface{}); ok {
-							if tagObject, ok := tagMap["object"].(map[string]interface{}); ok {
-								if commitSha, ok := tagObject["sha"].(string); ok {
-									sha = commitSha
-								}
-							}
-						}
-					}
-				}
 			}
 
 			if isTagMutation(currentSHA, currentTag, sha, tag) {
-				log.Warn().Msgf("SUSPICIOUS: %s@%s — SHA changed from %s to %s with the same tag. "+
-					"The tag may have been moved to a different commit. Verify this is intentional before accepting.", action[0], tag, currentSHA, sha)
+				log.Warn().Msgf("SUSPICIOUS: %s@%s — SHA changed from %s to %s with the same tag%s. "+
+					"The tag may have been moved to a different commit. Verify this is intentional before accepting.",
+					action[0], tag, currentSHA, sha, commitVerification(ownerRepo(action[0]), sha, myFlags.GitHubToken))
 			}
 
 			// Don't downgrade: if the current pin is semver-higher than what the
@@ -520,9 +479,10 @@ func GetLatestRelease(action string, gitHubToken string) (interface{}, error) {
 }
 
 func GetLatestTag(action string, gitHubToken string) (interface{}, error) {
+	const maxPages = 5
 	url := "https://api.github.com/repos/" + action + "/tags?per_page=100"
 	var tagged []interface{}
-	for url != "" {
+	for p := 0; url != "" && p < maxPages; p++ {
 		page, next, err := getPagedGithubBody(gitHubToken, url)
 		if err != nil {
 			return nil, err
@@ -656,6 +616,28 @@ func resolveTagSHA(action, tag, token string) (string, error) {
 		return "", fmt.Errorf("no sha for %s@%s", action, tag)
 	}
 	return sha, nil
+}
+
+// commitVerification returns a short " (new commit: …)" suffix describing the
+// GPG/SSH signature status of sha, for triaging tag-repoint warnings. Returns
+// "" if the lookup fails so the warning still fires.
+func commitVerification(repo, sha, token string) string {
+	body, err := GetGithubBody(token, "https://api.github.com/repos/"+repo+"/commits/"+sha)
+	if err != nil {
+		return ""
+	}
+	m, _ := body.(map[string]interface{})
+	commit, _ := m["commit"].(map[string]interface{})
+	v, _ := commit["verification"].(map[string]interface{})
+	verified, _ := v["verified"].(bool)
+	reason, _ := v["reason"].(string)
+	if reason == "unsigned" {
+		return " (new commit: UNSIGNED)"
+	}
+	if verified {
+		return " (new commit: signed, verified)"
+	}
+	return fmt.Sprintf(" (new commit: signed, unverified — %s)", reason)
 }
 
 // GetGithubBodyWithCache fetches data from GitHub API with caching support
@@ -795,8 +777,12 @@ func getPagedGithubBody(token, url string) (interface{}, string, error) {
 
 // postGithubBody sends a JSON POST to the GitHub API and returns the parsed response.
 func postGithubBody(token, url string, payload []byte) (interface{}, error) {
+	return sendGithubBody(token, http.MethodPost, url, payload)
+}
+
+func sendGithubBody(token, method, url string, payload []byte) (interface{}, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
-	req, err := http.NewRequest("POST", url, strings.NewReader(string(payload)))
+	req, err := http.NewRequest(method, url, strings.NewReader(string(payload)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

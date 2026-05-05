@@ -13,18 +13,19 @@ import (
 )
 
 type OrgFlags struct {
-	Provider  string // "github" (default) or "gitlab"
-	BaseURL   string // self-hosted API root, e.g. https://gitlab.example.com
-	Owner     string
-	Repos     []string // explicit list; if set, Owner/Limit are ignored
-	Token     string
-	Branch    string
-	Offset    int
-	Limit     int
-	DryRun    bool
-	OpenPR    bool
-	AutoMerge bool
-	Threshold int // pause when fewer than this many API requests remain
+	Provider    string // "github" (default) or "gitlab"
+	BaseURL     string // self-hosted API root, e.g. https://gitlab.example.com
+	Owner       string
+	Repos       []string // explicit list; if set, Owner/Limit are ignored
+	Token       string   // PAT for Provider (clone/push/PR)
+	GitHubToken string   // separate PAT for api.github.com lookups during the sweep
+	Branch      string
+	Offset      int
+	Limit       int
+	DryRun      bool
+	OpenPR      bool
+	AutoMerge   bool
+	Threshold   int // pause when fewer than this many API requests remain
 }
 
 type RepoResult struct {
@@ -133,9 +134,13 @@ func (o *OrgFlags) processRepo(host hostProvider, repo hostRepo) RepoResult {
 
 	// Always write to the temp clone so git status accurately reflects what
 	// changed. o.DryRun only controls whether we push and open a PR.
+	ghToken := o.GitHubToken
+	if ghToken == "" && !strings.EqualFold(o.Provider, "gitlab") {
+		ghToken = o.Token
+	}
 	myFlags := &Flags{
 		Directory:       dir,
-		GitHubToken:     o.Token,
+		GitHubToken:     ghToken,
 		DryRun:          false,
 		ContinueOnError: true,
 		Silent:          true,

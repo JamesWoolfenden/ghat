@@ -287,12 +287,8 @@ func (h *gitlabHost) EnableAutoMerge(mergeID string) error {
 		"merge_when_pipeline_succeeds": true,
 		"squash":                       true,
 	})
-	// GitLab uses PUT for this endpoint; postGithubBody is POST-only, so this
-	// will 404. Auto-merge on GitLab is best-effort — log and move on.
-	if _, err := postGithubBody(h.token, u, payload); err != nil {
-		return err
-	}
-	return nil
+	_, err := sendGithubBody(h.token, "PUT", u, payload)
+	return err
 }
 
 // WaitForRateLimit is a no-op for GitLab: gitlab.com exposes per-endpoint
