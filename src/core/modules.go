@@ -39,8 +39,6 @@ func (myFlags *Flags) UpdateModule(file string) error {
 
 			source := GetStringValue(block, "source")
 
-			block.Body().RemoveAttribute("version")
-
 			myType, err := myFlags.GetType(source)
 
 			if err != nil {
@@ -48,8 +46,9 @@ func (myFlags *Flags) UpdateModule(file string) error {
 			} else {
 				newValue, version, err = myFlags.UpdateSource(source, myType, version)
 				if err != nil {
-					log.Info().Msgf("failed to update module source %s", err)
+					log.Warn().Err(err).Str("source", source).Msg("failed to update module source, leaving unchanged")
 				} else {
+					block.Body().RemoveAttribute("version")
 					block.Body().SetAttributeValue("source", cty.StringVal(newValue))
 				}
 			}
@@ -383,7 +382,12 @@ func (myFlags *Flags) UpdateGithubSource(version string, newModule string) (stri
 		if version != "" {
 			hash, err = myFlags.GetGithubHash(newModule, version)
 			if err != nil {
-				return "", "", err
+				// Tag not found — upgrade to latest available version.
+				log.Warn().Str("module", newModule).Str("version", version).Msg("version tag not found, upgrading to latest")
+				hash, version, err = myFlags.GetGithubLatestHash(newModule)
+				if err != nil {
+					return "", "", err
+				}
 			}
 		} else {
 			hash, version, err = myFlags.GetGithubLatestHash(newModule)
@@ -439,6 +443,9 @@ func (myFlags *Flags) GetGithubHash(newModule string, tag string) (string, error
 	var payload interface{}
 
 	name := strings.Split(newModule, "github.com/")
+	if len(name) < 2 {
+		return "", fmt.Errorf("module %q does not contain a github.com/ path", newModule)
+	}
 	action := strings.Split(name[1], ".git")
 
 	valid := semver.IsValid(tag)

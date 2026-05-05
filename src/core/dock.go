@@ -90,7 +90,7 @@ func (myFlags *Flags) UpdateDockerfile(file string) error {
 		}
 
 		imgRef := parseImageReference(bareResolved)
-		digest, err := myFlags.getImageDigest(imgRef)
+		digest, err := myFlags.getImageDigest(&imgRef)
 		if err != nil {
 			log.Warn().Err(err).Str("image", bareResolved).Msg("failed to get digest, skipping")
 			continue

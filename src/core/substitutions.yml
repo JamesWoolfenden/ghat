@@ -1,0 +1,9 @@
+substitutions:
+  - from: iamnotaturtle/auto-gofmt
+    to: JamesWoolfenden/auto-gofmt
+
+input_upgrades:
+  - action: golangci/golangci-lint-action
+    input: version
+    from_pattern: "^v1\\."
+    to: "latest:golangci/golangci-lint"

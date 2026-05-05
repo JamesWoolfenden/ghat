@@ -158,6 +158,18 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			continue
 		}
 
+		// Apply substitution: swap untrusted/abandoned action for a preferred fork.
+		// Keep the original name for building the replacement string in the file.
+		originalAction := action[0]
+		if sub, changed := myFlags.applySubstitution(action[0]); changed {
+			log.Warn().Str("from", action[0]).Str("to", sub).Msg("substituting action")
+			action[0] = sub
+			// Clear existing pin — must re-resolve against the new target.
+			if len(action) > 1 {
+				action[1] = ""
+			}
+		}
+
 		// Warn and skip dynamically constructed tags (e.g. ${{ env.VERSION }}) — unpinned refs are a supply chain risk
 		if len(action) > 1 && strings.HasPrefix(strings.TrimSpace(action[1]), "$") {
 			log.Warn().Msgf("SUPPLY CHAIN RISK: %s uses a dynamic tag expression '%s' which cannot be pinned — resolve to a specific version", strings.TrimSpace(action[0]), strings.TrimSpace(action[1]))
@@ -195,7 +207,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			if body, ok := payload.(map[string]interface{}); ok {
 				if object, ok := body["object"].(map[string]interface{}); ok {
 					if sha, ok := object["sha"].(string); ok {
-						oldAction := leadingQuote + action[0] + "@" + action[1] + trailingQuote
+						oldAction := leadingQuote + originalAction + "@" + action[1] + trailingQuote
 						newAction := action[0] + "@" + sha + " # " + currentRef
 						replacement = strings.ReplaceAll(replacement, oldAction, newAction)
 					}
@@ -290,13 +302,19 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 				}
 			}
 
-			oldAction := leadingQuote + action[0] + "@" + action[1] + trailingQuote
+			oldAction := leadingQuote + originalAction + "@" + action[1] + trailingQuote
 			newAction := action[0] + "@" + sha + " # " + tag
 
 			replacement = strings.ReplaceAll(replacement, oldAction, newAction)
 		} else {
 			log.Warn().Msgf("tag field empty skipping %s", action[0])
 		}
+	}
+
+	if upgraded, upgradeErr := myFlags.applyInputUpgrades(replacement); upgradeErr == nil {
+		replacement = upgraded
+	} else {
+		log.Warn().Err(upgradeErr).Msg("input upgrades failed, skipping")
 	}
 
 	// Pin images in container: and services: blocks.
@@ -307,7 +325,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 	}
 	for _, imageStr := range containerImages {
 		imgRef := parseImageReference(imageStr)
-		digest, err := myFlags.getImageDigest(imgRef)
+		digest, err := myFlags.getImageDigest(&imgRef)
 		if err != nil {
 			log.Warn().Err(err).Str("image", imageStr).Msg("failed to get digest for container image, skipping")
 			continue
@@ -372,6 +390,100 @@ func extractGHAContainerImages(content string) ([]string, error) {
 	}
 	sort.Strings(images)
 	return images, nil
+}
+
+// applyInputUpgrades scans workflow content for action `with:` inputs that need
+// upgrading when the action's major version changes (e.g. golangci-lint-action v7+
+// requires golangci-lint v2+). Rules are loaded from substitutions.yml / ~/.ghat.yml.
+func (myFlags *Flags) applyInputUpgrades(content string) (string, error) {
+	if len(myFlags.InputUpgrades) == 0 {
+		return content, nil
+	}
+
+	// Pre-compile patterns and resolve "latest:owner/repo" values once.
+	type resolvedRule struct {
+		action  string
+		input   string
+		pattern *regexp.Regexp
+		to      string
+	}
+	var rules []resolvedRule
+	for _, u := range myFlags.InputUpgrades {
+		pat, err := regexp.Compile(u.FromPattern)
+		if err != nil {
+			log.Warn().Err(err).Str("pattern", u.FromPattern).Msg("invalid input_upgrade from_pattern, skipping")
+			continue
+		}
+		to := u.To
+		if strings.HasPrefix(to, "latest:") {
+			repo := strings.TrimPrefix(to, "latest:")
+			body, err := GetLatestRelease(repo, myFlags.GitHubToken)
+			if err != nil {
+				log.Warn().Err(err).Str("repo", repo).Msg("failed to fetch latest release for input upgrade, skipping")
+				continue
+			}
+			if m, ok := body.(map[string]interface{}); ok {
+				if tag, ok := m["tag_name"].(string); ok {
+					to = tag
+				}
+			}
+		}
+		rules = append(rules, resolvedRule{action: u.Action, input: u.Input, pattern: pat, to: to})
+	}
+	if len(rules) == 0 {
+		return content, nil
+	}
+
+	lines := strings.Split(content, "\n")
+	var activeRule *resolvedRule
+
+	usesRe := regexp.MustCompile(`uses:\s+(\S+?)@`)
+	inputRe := regexp.MustCompile(`^(\s+)(\w[\w-]*):\s+(\S+.*)$`)
+	stepStartRe := regexp.MustCompile(`-\s+(uses|name|run|with):\s`)
+
+	for i, line := range lines {
+		// New step boundary — clear active rule.
+		if activeRule != nil && stepStartRe.MatchString(strings.TrimSpace(line)) {
+			if !strings.Contains(line, "uses:") {
+				activeRule = nil
+			}
+		}
+
+		// Check if this line uses an action we have a rule for.
+		if m := usesRe.FindStringSubmatch(line); m != nil {
+			actionName := m[1]
+			for j := range rules {
+				if actionName == rules[j].action {
+					activeRule = &rules[j]
+					break
+				}
+			}
+			continue
+		}
+
+		// Check if this is the target input line within an active rule's step.
+		if activeRule == nil {
+			continue
+		}
+		m := inputRe.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+		indent, key, value := m[1], m[2], m[3]
+		if key != activeRule.input {
+			continue
+		}
+		if !activeRule.pattern.MatchString(value) {
+			activeRule = nil
+			continue
+		}
+		log.Warn().Str("action", activeRule.action).Str("input", key).
+			Str("from", value).Str("to", activeRule.to).Msg("upgrading action input")
+		lines[i] = indent + key + ": " + activeRule.to
+		activeRule = nil
+	}
+
+	return strings.Join(lines, "\n"), nil
 }
 
 // parsePinnedRef extracts the SHA and tag from a ref already pinned in "sha # tag" format.

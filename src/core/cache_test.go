@@ -158,6 +158,43 @@ func TestCache_Stats(t *testing.T) {
 	t.Logf("Cache has %d entries totaling %d bytes", count, size)
 }
 
+func TestCache_IsEnabled(t *testing.T) {
+	t.Parallel()
+
+	enabled, _ := NewCache(time.Hour, true)
+	if !enabled.IsEnabled() {
+		t.Error("IsEnabled() = false, want true")
+	}
+
+	disabled, _ := NewCache(time.Hour, false)
+	if disabled.IsEnabled() {
+		t.Error("IsEnabled() = true, want false")
+	}
+}
+
+func TestCache_GetCacheKey(t *testing.T) {
+	t.Parallel()
+
+	cache, _ := NewCache(time.Hour, true)
+	defer func() { _ = cache.Clear() }()
+
+	url := "https://api.github.com/repos/owner/repo/releases/latest"
+	key1 := cache.getCacheKey(url)
+	key2 := cache.getCacheKey(url)
+
+	if key1 != key2 {
+		t.Error("getCacheKey() not deterministic")
+	}
+	if len(key1) != 64 {
+		t.Errorf("getCacheKey() len = %d, want 64 (sha256 hex)", len(key1))
+	}
+
+	other := cache.getCacheKey("https://api.github.com/repos/other/repo")
+	if key1 == other {
+		t.Error("getCacheKey() returned same key for different URLs")
+	}
+}
+
 func TestCache_ClearExpired(t *testing.T) {
 	cache, err := NewCache(100*time.Millisecond, true)
 	if err != nil {

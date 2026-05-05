@@ -24,8 +24,10 @@ type Flags struct {
 	CacheEnabled bool
 	CacheTTL     time.Duration
 
-	Silent  bool // suppress diff output (used by org bulk mode)
-	PinOnly bool // pin current tag to SHA without checking for upgrades
+	Silent        bool // suppress diff output (used by org bulk mode)
+	PinOnly       bool // pin current tag to SHA without checking for upgrades
+	Substitutions []Substitution
+	InputUpgrades []InputUpgrade
 }
 
 // NewFlags creates a new Flags instance with default cache settings
@@ -44,5 +46,8 @@ func (f *Flags) InitializeCache() error {
 		return err
 	}
 	f.Cache = cache
+	cfg := LoadConfig(f.Directory)
+	f.Substitutions = cfg.Substitutions
+	f.InputUpgrades = cfg.InputUpgrades
 	return nil
 }

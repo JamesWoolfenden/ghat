@@ -54,8 +54,9 @@ const (
 )
 
 type revPin struct {
-	sha string
-	tag string
+	sha    string
+	tag    string
+	newURL string // if non-empty, rewrite the repo: line too
 }
 
 // rewritePreCommitRevs replaces each `rev:` line with `<sha> # <tag>` for repos
@@ -74,6 +75,10 @@ func rewritePreCommitRevs(data string, pins map[string]revPin) string {
 		if after, ok := strings.CutPrefix(bare, "repo:"); ok {
 			currentRepo = strings.TrimSpace(after)
 			suppressCurrent, suppressCurrentReason = parseSuppression(line)
+			if p, ok := pins[currentRepo]; ok && p.newURL != "" {
+				indent := line[:strings.Index(line, "repo:")]
+				lines[i] = indent + "repo: " + p.newURL
+			}
 			continue
 		}
 
@@ -140,10 +145,18 @@ func (myFlags *Flags) UpdateHooks() error {
 			continue
 		}
 
-		if strings.HasPrefix(item.Repo, GitHubPrefix) {
+		repoURL := item.Repo
+		newURL := ""
+		if sub, changed := myFlags.applyRepoSubstitution(repoURL); changed {
+			log.Warn().Str("from", repoURL).Str("to", sub).Msg("substituting pre-commit repo")
+			newURL = sub
+			repoURL = sub
+		}
+
+		if strings.HasPrefix(repoURL, GitHubPrefix) {
 			// pre-commit accepts `https://github.com/org/repo.git` but the
 			// REST API does not — /repos/org/repo.git/tags is a 404.
-			action := strings.TrimSuffix(strings.TrimPrefix(item.Repo, GitHubPrefix), ".git")
+			action := strings.TrimSuffix(strings.TrimPrefix(repoURL, GitHubPrefix), ".git")
 			tag, err := GetLatestTag(action, myFlags.GitHubToken)
 
 			if err != nil {
@@ -154,18 +167,19 @@ func (myFlags *Flags) UpdateHooks() error {
 			myTag := tag.(map[string]interface{})
 			commit := myTag["commit"].(map[string]interface{})
 			pins[item.Repo] = revPin{
-				sha: commit["sha"].(string),
-				tag: myTag["name"].(string),
+				sha:    commit["sha"].(string),
+				tag:    myTag["name"].(string),
+				newURL: newURL,
 			}
 			continue
 		}
 
-		sha, tag, err := getLatestTagViaGit(item.Repo)
+		sha, tag, err := getLatestTagViaGit(repoURL)
 		if err != nil {
 			log.Info().Err(err).Msgf("failed to resolve %s via git ls-remote", item.Repo)
 			continue
 		}
-		pins[item.Repo] = revPin{sha: sha, tag: tag}
+		pins[item.Repo] = revPin{sha: sha, tag: tag, newURL: newURL}
 	}
 
 	replacement := rewritePreCommitRevs(string(data), pins)

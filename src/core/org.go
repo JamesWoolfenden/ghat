@@ -19,9 +19,11 @@ type OrgFlags struct {
 	Repos     []string // explicit list; if set, Owner/Limit are ignored
 	Token     string
 	Branch    string
+	Offset    int
 	Limit     int
 	DryRun    bool
 	OpenPR    bool
+	AutoMerge bool
 	Threshold int // pause when fewer than this many API requests remain
 }
 
@@ -60,6 +62,12 @@ func (o *OrgFlags) RunBulk() ([]RepoResult, error) {
 		repos, err = o.listRepos()
 		if err != nil {
 			return nil, fmt.Errorf("listing repos: %w", err)
+		}
+		if o.Offset > 0 {
+			if o.Offset >= len(repos) {
+				return nil, nil
+			}
+			repos = repos[o.Offset:]
 		}
 		if o.Limit > 0 && len(repos) > o.Limit {
 			repos = repos[:o.Limit]
@@ -116,7 +124,7 @@ func (o *OrgFlags) processRepo(repo string) RepoResult {
 	// If a PR is already open, still re-run and force-push so the branch
 	// stays current — the existing PR picks up the new commits automatically.
 	// Only skip PR creation at the end.
-	prAlreadyOpen, _ := o.prExists(repo)
+	prAlreadyOpen, existingPRUrl, existingNodeID, _ := o.prExists(repo)
 
 	dir, err := os.MkdirTemp("", "ghat-*")
 	if err != nil {
@@ -199,15 +207,23 @@ func (o *OrgFlags) processRepo(repo string) RepoResult {
 
 	if prAlreadyOpen {
 		result.Status = "pr-open"
-		log.Warn().Str("repo", repo).Msg("branch updated, existing PR refreshed")
+		result.PRUrl = existingPRUrl
+		log.Warn().Str("repo", repo).Str("pr", existingPRUrl).Msg("branch updated, existing PR refreshed")
+		if o.AutoMerge && existingNodeID != "" {
+			o.enableAutoMerge(existingNodeID)
+		}
 		return result
 	}
 
-	prURL, err := o.createPR(repo, o.Branch, base)
+	prURL, nodeID, err := o.createPR(repo, o.Branch, base)
 	if err != nil {
-		if open, _ := o.prExists(repo); open {
+		if open, prURL, nodeID, _ := o.prExists(repo); open {
 			result.Status = "pr-open"
-			log.Warn().Str("repo", repo).Msg("PR already existed, branch updated")
+			result.PRUrl = prURL
+			log.Warn().Str("repo", repo).Str("pr", prURL).Msg("PR already existed, branch updated")
+			if o.AutoMerge && nodeID != "" {
+				o.enableAutoMerge(nodeID)
+			}
 			return result
 		}
 		result.Status = "error"
@@ -218,22 +234,33 @@ func (o *OrgFlags) processRepo(repo string) RepoResult {
 	result.Status = "pinned"
 	result.PRUrl = prURL
 	log.Warn().Str("repo", repo).Str("pr", prURL).Msg("PR opened")
+	if o.AutoMerge && nodeID != "" {
+		o.enableAutoMerge(nodeID)
+	}
 	return result
 }
 
-func (o *OrgFlags) prExists(repo string) (bool, error) {
+func (o *OrgFlags) prExists(repo string) (bool, string, string, error) {
 	// GitHub requires owner:branch format for the head filter.
 	owner := strings.SplitN(repo, "/", 2)[0]
 	url := fmt.Sprintf("https://api.github.com/repos/%s/pulls?head=%s:%s&state=open", repo, owner, o.Branch)
 	body, err := GetGithubBody(o.Token, url)
 	if err != nil {
-		return false, err
+		return false, "", "", err
 	}
 	items, ok := body.([]interface{})
-	return ok && len(items) > 0, nil
+	if !ok || len(items) == 0 {
+		return false, "", "", nil
+	}
+	if m, ok := items[0].(map[string]interface{}); ok {
+		prURL, _ := m["html_url"].(string)
+		nodeID, _ := m["node_id"].(string)
+		return true, prURL, nodeID, nil
+	}
+	return true, "", "", nil
 }
 
-func (o *OrgFlags) createPR(repo, head, base string) (string, error) {
+func (o *OrgFlags) createPR(repo, head, base string) (string, string, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/pulls", repo)
 	payload := map[string]string{
 		"title": "chore: pin dependencies to immutable SHAs via ghat",
@@ -244,14 +271,29 @@ func (o *OrgFlags) createPR(repo, head, base string) (string, error) {
 	b, _ := json.Marshal(payload)
 	resp, err := postGithubBody(o.Token, url, b)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	m, ok := resp.(map[string]interface{})
 	if !ok {
-		return "", fmt.Errorf("unexpected PR response")
+		return "", "", fmt.Errorf("unexpected PR response")
 	}
 	prURL, _ := m["html_url"].(string)
-	return prURL, nil
+	nodeID, _ := m["node_id"].(string)
+	return prURL, nodeID, nil
+}
+
+func (o *OrgFlags) enableAutoMerge(nodeID string) {
+	query := `mutation($id:ID!){enablePullRequestAutoMerge(input:{pullRequestId:$id,mergeMethod:SQUASH}){clientMutationId}}`
+	payload, _ := json.Marshal(map[string]interface{}{
+		"query":     query,
+		"variables": map[string]string{"id": nodeID},
+	})
+	_, err := postGithubBody(o.Token, "https://api.github.com/graphql", payload)
+	if err != nil {
+		log.Warn().Err(err).Msg("auto-merge not enabled (repo setting may be off)")
+		return
+	}
+	log.Warn().Str("node", nodeID).Msg("auto-merge enabled")
 }
 
 func (o *OrgFlags) waitForRateLimit() {

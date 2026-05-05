@@ -268,6 +268,47 @@ WARN  SUSPICIOUS: actions/checkout@v4.2.2 — SHA changed from abc123... to def4
 
 This is a sign that a repository maintainer (or attacker) has rewritten a published tag to point to a different commit — the pattern behind supply chain attacks like those reported via Dependabot. **Do not accept the update without reviewing the new commit.**
 
+## Substitutions
+
+Sometimes an action or pre-commit hook you depend on is abandoned, taken over, or superseded by a fork. Substitutions let ghat swap the old reference for a trusted replacement before pinning, so every repo that references the old name gets silently migrated.
+
+### Built-in defaults
+
+ghat ships with a set of known substitutions embedded in the binary (`src/core/substitutions.yml`):
+
+```yaml
+substitutions:
+  - from: iamnotaturtle/auto-gofmt
+    to: JamesWoolfenden/auto-gofmt
+```
+
+These are applied automatically — no configuration required.
+
+### User-defined substitutions
+
+Add your own rules in `~/.ghat.yml`. They are merged with (and can override) the built-in defaults:
+
+```yaml
+substitutions:
+  - from: old-org/abandoned-action
+    to: your-org/maintained-fork
+```
+
+### Per-repo substitutions
+
+A `.ghat.yml` in the root of the repo being processed is also loaded and merged last, so it takes precedence over both the built-in defaults and your global config:
+
+```yaml
+substitutions:
+  - from: company/legacy-action
+    to: company/new-action
+```
+
+### What gets substituted
+
+- `uses:` lines in GitHub Actions workflows (the action owner/repo is swapped and re-pinned to the fork's latest SHA)
+- `repo:` lines in `.pre-commit-config.yaml` (both the URL and the `rev:` are rewritten)
+
 ### stun
 
 Stun updates GitLab CI/CD container image references to use immutable SHA256 digests instead of mutable tags. This prevents supply chain attacks through image tampering and ensures build reproducibility.

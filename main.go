@@ -661,6 +661,11 @@ var orgCmd = &cli.Command{
 			Usage:   "target a specific repo (owner/name); repeat for multiple; skips listing",
 		},
 		&cli.IntFlag{
+			Name:  "offset",
+			Usage: "skip the first N repos",
+			Value: 0,
+		},
+		&cli.IntFlag{
 			Name:  "limit",
 			Usage: "stop after N repos (0 = all)",
 			Value: 0,
@@ -672,6 +677,10 @@ var orgCmd = &cli.Command{
 		&cli.BoolFlag{
 			Name:  "pr",
 			Usage: "open a pull request for each repo with changes",
+		},
+		&cli.BoolFlag{
+			Name:  "auto-merge",
+			Usage: "enable auto-merge on each PR (requires repo setting to be on)",
 		},
 		&cli.StringFlag{
 			Name:     "token",
@@ -697,9 +706,11 @@ var orgCmd = &cli.Command{
 			Repos:     c.StringSlice("repo"),
 			Token:     c.String("token"),
 			Branch:    c.String("branch"),
+			Offset:    c.Int("offset"),
 			Limit:     c.Int("limit"),
 			DryRun:    c.Bool("dry-run"),
 			OpenPR:    c.Bool("pr"),
+			AutoMerge: c.Bool("auto-merge"),
 			Threshold: c.Int("rate-threshold"),
 		}
 		if flags.Token == "" {
@@ -723,6 +734,9 @@ var orgCmd = &cli.Command{
 				already++
 			case "pr-open":
 				prOpen++
+				if r.PRUrl != "" {
+					fmt.Printf("  PR  %s\n", r.PRUrl)
+				}
 			case "error":
 				errors++
 				fmt.Fprintf(os.Stderr, "  ERR %s: %v\n", r.Repo, r.Error)

@@ -49,11 +49,12 @@ func (e *gitlabProjectEmptyError) Error() string {
 
 // ImageReference represents a container image reference
 type ImageReference struct {
-	Registry   string
-	Repository string
-	Tag        string
-	Digest     string
-	Original   string
+	Registry    string
+	Repository  string
+	Tag         string
+	Digest      string
+	Original    string
+	TagImplicit bool // true when no tag was written in the source (defaulted to latest)
 }
 
 func (myFlags *Flags) UpdateGitlab() error {
@@ -118,7 +119,7 @@ func (myFlags *Flags) UpdateGitlab() error {
 		log.Info().Str("image", imageStr).Msg("Processing image")
 
 		// Get the digest for the image
-		digest, err := myFlags.getImageDigest(imgRef)
+		digest, err := myFlags.getImageDigest(&imgRef)
 		if err != nil {
 			log.Warn().Err(err).Str("image", imageStr).Msg("Failed to get digest, skipping")
 			continue
@@ -253,6 +254,7 @@ func parseImageReference(image string) ImageReference {
 	} else {
 		ref.Repository = repoTag
 		ref.Tag = "latest"
+		ref.TagImplicit = true
 	}
 
 	// Docker Hub short names need library/ prefix
@@ -263,6 +265,38 @@ func parseImageReference(image string) ImageReference {
 	return ref
 }
 
+// bestSemanticTag queries the registry for all tags on an image and returns
+// the highest stable semver tag. Falls back to "latest" if none are found.
+// Only used when the source image had no explicit tag (e.g. FROM alpine).
+func (myFlags *Flags) bestSemanticTag(ref ImageReference) string {
+	repoStr := ref.Registry + "/" + ref.Repository
+	repo, err := name.NewRepository(repoStr)
+	if err != nil {
+		return "latest"
+	}
+
+	opts := []remote.Option{remote.WithAuthFromKeychain(authn.DefaultKeychain)}
+	tags, err := remote.List(repo, opts...)
+	if err != nil {
+		return "latest"
+	}
+
+	// Convert to []interface{} so pickLatestTag can be reused.
+	items := make([]interface{}, 0, len(tags))
+	for _, t := range tags {
+		items = append(items, map[string]interface{}{"name": t})
+	}
+	if len(items) == 0 {
+		return "latest"
+	}
+
+	best := tags[pickLatestTag(items)]
+	if best == "" {
+		return "latest"
+	}
+	return best
+}
+
 // getImageDigest retrieves the SHA256 digest for a container image.
 //
 // go-containerregistry's default keychain reads ~/.docker/config.json plus any
@@ -271,10 +305,19 @@ func parseImageReference(image string) ImageReference {
 // `docker login` against (notably internal Artifactory). It also sends the
 // full Accept header set (manifest list / OCI index), so multi-arch images
 // resolve to the index digest rather than a single-arch manifest.
-func (myFlags *Flags) getImageDigest(ref ImageReference) (string, error) {
-	parsed, err := name.ParseReference(ref.Original)
+func (myFlags *Flags) getImageDigest(ref *ImageReference) (string, error) {
+	if ref.TagImplicit {
+		ref.Tag = myFlags.bestSemanticTag(*ref)
+		log.Info().Str("image", ref.Repository).Str("tag", ref.Tag).Msg("resolved implicit tag to best semantic version")
+	}
+
+	imageStr := ref.Registry + "/" + ref.Repository + ":" + ref.Tag
+	if ref.Registry == "docker.io" {
+		imageStr = strings.TrimPrefix(ref.Repository, "library/") + ":" + ref.Tag
+	}
+	parsed, err := name.ParseReference(imageStr)
 	if err != nil {
-		return "", fmt.Errorf("parse %q: %w", ref.Original, err)
+		return "", fmt.Errorf("parse %q: %w", imageStr, err)
 	}
 
 	opts := []remote.Option{remote.WithAuthFromKeychain(authn.DefaultKeychain)}

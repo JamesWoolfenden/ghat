@@ -67,7 +67,7 @@ func (myFlags *Flags) UpdateKube(file string) error {
 			continue
 		}
 		imgRef := parseImageReference(imageStr)
-		digest, err := myFlags.getImageDigest(imgRef)
+		digest, err := myFlags.getImageDigest(&imgRef)
 		if err != nil {
 			log.Warn().Err(err).Str("image", imageStr).Msg("failed to get digest, skipping")
 			continue
@@ -238,7 +238,7 @@ func (myFlags *Flags) UpdateCompose(file string) error {
 	replacement := string(content)
 	for _, imageStr := range images {
 		imgRef := parseImageReference(imageStr)
-		digest, err := myFlags.getImageDigest(imgRef)
+		digest, err := myFlags.getImageDigest(&imgRef)
 		if err != nil {
 			log.Warn().Err(err).Str("image", imageStr).Msg("failed to get digest, skipping")
 			continue
