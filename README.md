@@ -538,10 +538,10 @@ Checks (✓ pass / ✗ fail / - n/a):
 
 | check | severity | what it means |
 | --- | --- | --- |
-| `signed-pin` | RISK | the SHA *you* pinned this dep to is a signed, verified commit |
 | `ci-pinned` | RISK | the dep's own workflows pin every `uses:` to a SHA |
 | `permissions` | RISK | every workflow declares a top-level `permissions:` block (no default write-all) |
 | `dangerous-trigger` | RISK | no `pull_request_target` + PR-head checkout, no `${{ github.event.* }}` in `run:` |
+| `signed-pin` | STALE | the SHA you pinned is a signed/verified commit — catches account takeover, not malicious maintainers |
 | `maintained` | STALE | a release or push in the last 365 days |
 | `alive` | STALE | repo exists and is not archived/disabled |
 

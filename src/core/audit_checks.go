@@ -23,7 +23,7 @@ type checkResult struct {
 // severity classifies which bucket a failed check pushes the dep into.
 // "risk" → active attack surface; "stale" → maintenance concern.
 var checkSeverity = map[string]string{
-	"signed-pin":        "risk",
+	"signed-pin":        "stale",
 	"ci-pinned":         "risk",
 	"permissions":       "risk",
 	"dangerous-trigger": "risk",
