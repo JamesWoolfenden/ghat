@@ -133,6 +133,7 @@ func TestCheckPermissions(t *testing.T) {
 			"a.yml": []byte("permissions: {}\n"),
 			"b.yml": []byte("on: push\n"),
 		}, checkFail},
+		{"write-all", map[string][]byte{"a.yml": []byte("permissions: write-all\njobs:\n")}, checkFail},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

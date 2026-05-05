@@ -89,16 +89,16 @@ func checkPermissions(workflows map[string][]byte) checkResult {
 	if len(workflows) == 0 {
 		return checkResult{"permissions", checkSkip, "no workflows"}
 	}
-	missing := 0
+	bad := 0
 	for _, body := range workflows {
-		if !permsRe.Match(body) {
-			missing++
+		if !permsRe.Match(body) || writeAllRe.Match(body) {
+			bad++
 		}
 	}
-	if missing == 0 {
+	if bad == 0 {
 		return checkResult{"permissions", checkPass, ""}
 	}
-	return checkResult{"permissions", checkFail, fmt.Sprintf("%d/%d default write-all", missing, len(workflows))}
+	return checkResult{"permissions", checkFail, fmt.Sprintf("%d/%d write-all", bad, len(workflows))}
 }
 
 func checkDangerousTrigger(workflows map[string][]byte) checkResult {

@@ -299,6 +299,8 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		}
 	}
 
+	replacement = ensurePermissions(file, replacement)
+
 	myFlags.printDiff(file, string(buffer), replacement)
 
 	if !myFlags.DryRun {
@@ -312,6 +314,30 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 	}
 
 	return nil
+}
+
+var (
+	jobsRe     = regexp.MustCompile(`(?m)^jobs\s*:`)
+	writeAllRe = regexp.MustCompile(`(?m)^\s*permissions\s*:\s*write-all\b`)
+)
+
+// ensurePermissions inserts a least-privilege top-level permissions: block
+// if the workflow doesn't declare one. Anchors on ^jobs: so composite
+// action.yml files (which have runs:, not jobs:) are left alone. If a
+// permissions block exists but is write-all, warns without rewriting.
+func ensurePermissions(file, body string) string {
+	loc := jobsRe.FindStringIndex(body)
+	if loc == nil {
+		return body
+	}
+	if writeAllRe.MatchString(body) {
+		log.Warn().Str("file", file).Msg("SUPPLY CHAIN RISK: permissions: write-all grants the GITHUB_TOKEN full repo write — narrow to the scopes each job needs")
+	}
+	if permsRe.MatchString(body) {
+		return body
+	}
+	log.Warn().Str("file", file).Msg("workflow has no top-level permissions: block (default GITHUB_TOKEN is write-all) — adding contents: read")
+	return body[:loc[0]] + "permissions:\n  contents: read\n\n" + body[loc[0]:]
 }
 
 // extractGHAContainerImages finds image references in container: and services: blocks

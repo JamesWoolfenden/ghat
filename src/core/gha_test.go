@@ -1078,3 +1078,28 @@ jobs:
 		})
 	}
 }
+
+func TestEnsurePermissions(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      string
+		changed bool
+	}{
+		{"already-set", "on: push\npermissions:\n  contents: read\njobs:\n  x: {}\n", false},
+		{"missing", "on: push\njobs:\n  x: {}\n", true},
+		{"action-yml", "name: a\nruns:\n  using: composite\n", false},
+		{"write-all-kept", "on: push\npermissions: write-all\njobs:\n  x: {}\n", false},
+		{"job-level-only", "on: push\njobs:\n  x:\n    permissions:\n      contents: read\n", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := ensurePermissions("f.yml", tt.in)
+			if (out != tt.in) != tt.changed {
+				t.Fatalf("changed=%v, want %v\n---\n%s", out != tt.in, tt.changed, out)
+			}
+			if tt.changed && !permsRe.MatchString(out) {
+				t.Fatalf("injected block not detected by audit regex:\n%s", out)
+			}
+		})
+	}
+}
