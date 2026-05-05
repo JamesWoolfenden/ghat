@@ -5,6 +5,7 @@ FULL_PKG_NAME=github.com/jameswoolfenden/ghat
 VERSION_PLACEHOLDER=version.ProviderVersion
 NAMESPACE=dev
 BINARY=ghat
+EXE=$(if $(filter Windows_NT,$(OS)),.exe,)
 OS_ARCH=darwin_amd64
 TERRAFORM=./terraform/
 TF_TEST=./terraform_test/
@@ -12,7 +13,7 @@ TF_TEST=./terraform_test/
 default:
 
 build:
-	go build -o ${BINARY}
+	go build -o ${BINARY}${EXE}
 
 release:
 	GOOS=darwin GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_darwin_amd64
