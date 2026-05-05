@@ -25,13 +25,13 @@ func (myFlags *Flags) UpdateModule(file string) error {
 		return fmt.Errorf("failed to read %s", file)
 	}
 
-	inFile, _ := hclwrite.ParseConfig(src, "", hcl.Pos{Line: 1, Column: 1})
+	inFile, diags := hclwrite.ParseConfig(src, file, hcl.Pos{Line: 1, Column: 1})
+	if inFile == nil {
+		log.Warn().Str("file", file).Str("diags", diags.Error()).Msg("skipping unparseable HCL")
+		return nil
+	}
 
-	// FIX: Don't create a new file! Work with the original inFile
-	// outFile := hclwrite.NewEmptyFile()  // REMOVE THIS LINE
-	// newBody := outFile.Body()            // REMOVE THIS LINE
-
-	root := inFile.Body() // Work directly with the original file's body
+	root := inFile.Body()
 
 	for _, block := range root.Blocks() {
 		if block.Type() == "module" {

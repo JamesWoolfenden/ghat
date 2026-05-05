@@ -319,6 +319,23 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 var (
 	jobsRe     = regexp.MustCompile(`(?m)^jobs\s*:`)
 	writeAllRe = regexp.MustCompile(`(?m)^\s*permissions\s*:\s*write-all\b`)
+	// Workflows that clearly push back to the repo. False positives are cheap
+	// (write is still narrower than the write-all default they had before).
+	needsWriteRe = regexp.MustCompile(`(?m)uses:\s*["']?(?i:` +
+		`softprops/action-gh-release|` +
+		`goreleaser/goreleaser-action|` +
+		`marvinpinto/action-automatic-releases|` +
+		`ncipollo/release-action|` +
+		`svenstaro/upload-release-action|` +
+		`anothrNick/github-tag-action|` +
+		`mathieudutour/github-tag-action|` +
+		`actions/create-release|` +
+		`elgohr/Github-Release-Action|` +
+		`ad-m/github-push-action|` +
+		`stefanzweifel/git-auto-commit-action|` +
+		`EndBug/add-and-commit|` +
+		`peter-evans/create-pull-request` +
+		`)@|run:\s*git (?:push|tag)\b|^\s+git (?:push|tag)\b`)
 )
 
 // ensurePermissions inserts a least-privilege top-level permissions: block
@@ -336,8 +353,12 @@ func ensurePermissions(file, body string) string {
 	if permsRe.MatchString(body) {
 		return body
 	}
-	log.Warn().Str("file", file).Msg("workflow has no top-level permissions: block (default GITHUB_TOKEN is write-all) — adding contents: read")
-	return body[:loc[0]] + "permissions:\n  contents: read\n\n" + body[loc[0]:]
+	scope := "read"
+	if needsWriteRe.MatchString(body) {
+		scope = "write"
+	}
+	log.Warn().Str("file", file).Msgf("workflow has no top-level permissions: block (default GITHUB_TOKEN is write-all) — adding contents: %s", scope)
+	return body[:loc[0]] + "permissions:\n  contents: " + scope + "\n\n" + body[loc[0]:]
 }
 
 // extractGHAContainerImages finds image references in container: and services: blocks

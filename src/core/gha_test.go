@@ -1084,12 +1084,18 @@ func TestEnsurePermissions(t *testing.T) {
 		name    string
 		in      string
 		changed bool
+		scope   string
 	}{
-		{"already-set", "on: push\npermissions:\n  contents: read\njobs:\n  x: {}\n", false},
-		{"missing", "on: push\njobs:\n  x: {}\n", true},
-		{"action-yml", "name: a\nruns:\n  using: composite\n", false},
-		{"write-all-kept", "on: push\npermissions: write-all\njobs:\n  x: {}\n", false},
-		{"job-level-only", "on: push\njobs:\n  x:\n    permissions:\n      contents: read\n", true},
+		{"already-set", "on: push\npermissions:\n  contents: read\njobs:\n  x: {}\n", false, ""},
+		{"missing", "on: push\njobs:\n  x: {}\n", true, "read"},
+		{"action-yml", "name: a\nruns:\n  using: composite\n", false, ""},
+		{"write-all-kept", "on: push\npermissions: write-all\njobs:\n  x: {}\n", false, ""},
+		{"job-level-only", "on: push\njobs:\n  x:\n    permissions:\n      contents: read\n", true, "read"},
+		{"release-action", "on: push\njobs:\n  r:\n    steps:\n      - uses: marvinpinto/action-automatic-releases@v1\n", true, "write"},
+		{"tag-action", "on: push\njobs:\n  r:\n    steps:\n      - uses: anothrNick/github-tag-action@1.75.0\n", true, "write"},
+		{"goreleaser", "on: push\njobs:\n  r:\n    steps:\n      - uses: goreleaser/goreleaser-action@v6\n", true, "write"},
+		{"git-push-inline", "on: push\njobs:\n  r:\n    steps:\n      - run: git push origin HEAD\n", true, "write"},
+		{"git-push-block", "on: push\njobs:\n  r:\n    steps:\n      - run: |\n          git tag v1\n          git push --tags\n", true, "write"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1099,6 +1105,9 @@ func TestEnsurePermissions(t *testing.T) {
 			}
 			if tt.changed && !permsRe.MatchString(out) {
 				t.Fatalf("injected block not detected by audit regex:\n%s", out)
+			}
+			if tt.scope != "" && !strings.Contains(out, "contents: "+tt.scope) {
+				t.Fatalf("expected contents: %s, got:\n%s", tt.scope, out)
 			}
 		})
 	}
