@@ -558,6 +558,26 @@ Sample output:
   gha           13     1    12     0
 ```
 
+#### Fixing `signed-pin` on your own repos
+
+If `✗ signed-pin` flags a repo *you* own, turn on SSH commit signing once
+(git ≥ 2.34) and every future commit will pass:
+
+```shell
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub   # or id_rsa.pub
+git config --global commit.gpgsign true
+git config --global tag.gpgsign true
+```
+
+Then register the same public key as a **signing** key (separate from auth):
+
+- GitHub: Settings → SSH and GPG keys → New SSH key → Key type: **Signing Key**
+- GitLab: Preferences → SSH Keys → Usage type: **Authentication & Signing**
+
+Third-party deps failing `signed-pin` aren't yours to fix — that's why the
+check is STALE, not RISK.
+
 ### org
 
 Runs `sweep` against every non-fork repo owned by a user, organisation, or GitLab group, and optionally opens a PR/MR with the pinning changes. Use this to roll out SHA-pinning across an entire estate in one shot.
