@@ -647,13 +647,22 @@ var auditCmd = &cli.Command{
 // githubToken returns the first non-empty value of GITHUB_TOKEN or GITHUB_API.
 var orgCmd = &cli.Command{
 	Name:      "org",
-	Usage:     "run ghat all across every non-fork repo for a GitHub user or org",
-	UsageText: "ghat org [--owner name] [--limit 10] [--dry-run] [--pr]",
+	Usage:     "run ghat all across every non-fork repo for a GitHub/GitLab user, org or group",
+	UsageText: "ghat org [--provider github|gitlab] [--owner name] [--limit 10] [--dry-run] [--pr]",
 	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:  "provider",
+			Usage: "code host: github or gitlab",
+			Value: "github",
+		},
+		&cli.StringFlag{
+			Name:  "base-url",
+			Usage: "self-hosted API root (e.g. https://gitlab.example.com)",
+		},
 		&cli.StringFlag{
 			Name:    "owner",
 			Aliases: []string{"o"},
-			Usage:   "GitHub user or org (default: authenticated user)",
+			Usage:   "user, org, or GitLab group (default: authenticated user)",
 		},
 		&cli.StringSliceFlag{
 			Name:    "repo",
@@ -685,9 +694,9 @@ var orgCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:     "token",
 			Aliases:  []string{"t"},
-			Usage:    "GitHub PAT token",
+			Usage:    "PAT for the chosen provider",
 			Category: "authentication",
-			EnvVars:  []string{"GITHUB_TOKEN", "GITHUB_API"},
+			EnvVars:  []string{"GITHUB_TOKEN", "GITHUB_API", "GITLAB_TOKEN"},
 		},
 		&cli.StringFlag{
 			Name:  "branch",
@@ -702,6 +711,8 @@ var orgCmd = &cli.Command{
 	},
 	Action: func(c *cli.Context) error {
 		flags := &core.OrgFlags{
+			Provider:  c.String("provider"),
+			BaseURL:   c.String("base-url"),
 			Owner:     c.String("owner"),
 			Repos:     c.StringSlice("repo"),
 			Token:     c.String("token"),

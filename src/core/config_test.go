@@ -113,6 +113,20 @@ func TestLoadConfig_DefaultsAlwaysPresent(t *testing.T) {
 	if !found {
 		t.Error("built-in iamnotaturtle/auto-gofmt substitution not found in defaults")
 	}
+
+	if len(cfg.InputUpgrades) == 0 {
+		t.Fatal("expected built-in default input_upgrades, got none")
+	}
+	foundUpgrade := false
+	for _, u := range cfg.InputUpgrades {
+		if u.Action == "golangci/golangci-lint-action" && u.Input == "version" {
+			foundUpgrade = true
+			break
+		}
+	}
+	if !foundUpgrade {
+		t.Error("built-in golangci-lint input_upgrade not found in defaults")
+	}
 }
 
 func TestLoadConfig_UserFilesMerge(t *testing.T) {

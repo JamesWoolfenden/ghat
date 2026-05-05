@@ -450,6 +450,18 @@ func TestFlags_UpdateGHA(t *testing.T) {
 			},
 			args: args{"./testdata/dynref/.github/workflows/test.yml"},
 		},
+		{
+			name: "Reusable workflow refs are skipped",
+			fields: fields{
+				File:        "./testdata/reusable/.github/workflows/test.yml",
+				GitHubToken: gitHubToken,
+				Days:        &days,
+				DryRun:      true,
+				Entries:     []string{"./testdata/reusable/.github/workflows/test.yml"},
+				Update:      true,
+			},
+			args: args{"./testdata/reusable/.github/workflows/test.yml"},
+		},
 	}
 	for _, tt := range tests {
 		tt := tt

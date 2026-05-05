@@ -1,0 +1,12 @@
+---
+name: Pull Request
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pr:
+    uses: JamesWoolfenden/.github/.github/workflows/terraform-pr.yml@main

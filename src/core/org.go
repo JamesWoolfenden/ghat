@@ -1,20 +1,20 @@
 package core
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 type OrgFlags struct {
+	Provider  string // "github" (default) or "gitlab"
+	BaseURL   string // self-hosted API root, e.g. https://gitlab.example.com
 	Owner     string
 	Repos     []string // explicit list; if set, Owner/Limit are ignored
 	Token     string
@@ -54,12 +54,22 @@ var gapPatterns = []gapPattern{
 }
 
 func (o *OrgFlags) RunBulk() ([]RepoResult, error) {
-	var repos []string
+	host, err := newHost(o.Provider, o.Owner, o.Token, o.BaseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	var repos []hostRepo
 	if len(o.Repos) > 0 {
-		repos = o.Repos
+		for _, name := range o.Repos {
+			r, err := host.RepoFromName(name)
+			if err != nil {
+				return nil, fmt.Errorf("resolving --repo %s: %w", name, err)
+			}
+			repos = append(repos, r)
+		}
 	} else {
-		var err error
-		repos, err = o.listRepos()
+		repos, err = host.ListRepos()
 		if err != nil {
 			return nil, fmt.Errorf("listing repos: %w", err)
 		}
@@ -78,53 +88,28 @@ func (o *OrgFlags) RunBulk() ([]RepoResult, error) {
 
 	var results []RepoResult
 	for i, repo := range repos {
-		log.Info().Msgf("[%d/%d] %s", i+1, len(repos), repo)
-		result := o.processRepo(repo)
+		log.Info().Msgf("[%d/%d] %s", i+1, len(repos), repo.Name)
+		result := o.processRepo(host, repo)
 		results = append(results, result)
 		if result.Error != nil {
-			log.Warn().Err(result.Error).Str("repo", repo).Msg("skipping")
+			log.Warn().Err(result.Error).Str("repo", repo.Name).Msg("skipping")
 		}
-		o.waitForRateLimit()
+		host.WaitForRateLimit(o.Threshold)
 	}
 	return results, nil
 }
 
-func (o *OrgFlags) listRepos() ([]string, error) {
-	url := "https://api.github.com/user/repos?type=owner&per_page=100"
-	var all []string
-	for url != "" {
-		body, next, err := getPagedGithubBody(o.Token, url)
-		if err != nil {
-			return nil, err
-		}
-		items, ok := body.([]interface{})
-		if !ok {
-			return nil, fmt.Errorf("unexpected repos response type")
-		}
-		for _, item := range items {
-			m, ok := item.(map[string]interface{})
-			if !ok {
-				continue
-			}
-			if fork, _ := m["fork"].(bool); fork {
-				continue
-			}
-			if name, _ := m["full_name"].(string); name != "" {
-				all = append(all, name)
-			}
-		}
-		url = next
-	}
-	return all, nil
-}
+func (o *OrgFlags) processRepo(host hostProvider, repo hostRepo) RepoResult {
+	result := RepoResult{Repo: repo.Name}
 
-func (o *OrgFlags) processRepo(repo string) RepoResult {
-	result := RepoResult{Repo: repo}
-
-	// If a PR is already open, still re-run and force-push so the branch
+	// If a PR/MR is already open, still re-run and force-push so the branch
 	// stays current — the existing PR picks up the new commits automatically.
-	// Only skip PR creation at the end.
-	prAlreadyOpen, existingPRUrl, existingNodeID, _ := o.prExists(repo)
+	// Only skip PR creation at the end. A failed check is non-fatal: CreatePR
+	// will surface the real error and its fallback re-checks PRExists.
+	prAlreadyOpen, existingPRUrl, existingMergeID, err := host.PRExists(repo, o.Branch)
+	if err != nil {
+		log.Warn().Err(err).Str("repo", repo.Name).Msg("PR existence check failed; continuing")
+	}
 
 	dir, err := os.MkdirTemp("", "ghat-*")
 	if err != nil {
@@ -134,8 +119,7 @@ func (o *OrgFlags) processRepo(repo string) RepoResult {
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
 
-	cloneURL := "https://github.com/" + repo + ".git"
-	if out, err := exec.Command("git", "clone", "--depth=1", "--quiet", cloneURL, dir).CombinedOutput(); err != nil {
+	if out, err := exec.Command("git", "clone", "--depth=1", "--quiet", repo.CloneURL, dir).CombinedOutput(); err != nil {
 		result.Status = "error"
 		result.Error = fmt.Errorf("clone: %w: %s", err, strings.TrimSpace(string(out)))
 		return result
@@ -208,21 +192,25 @@ func (o *OrgFlags) processRepo(repo string) RepoResult {
 	if prAlreadyOpen {
 		result.Status = "pr-open"
 		result.PRUrl = existingPRUrl
-		log.Warn().Str("repo", repo).Str("pr", existingPRUrl).Msg("branch updated, existing PR refreshed")
-		if o.AutoMerge && existingNodeID != "" {
-			o.enableAutoMerge(existingNodeID)
+		log.Warn().Str("repo", repo.Name).Str("pr", existingPRUrl).Msg("branch updated, existing PR refreshed")
+		if o.AutoMerge && existingMergeID != "" {
+			if err := host.EnableAutoMerge(existingMergeID); err != nil {
+				log.Warn().Err(err).Msg("auto-merge not enabled")
+			}
 		}
 		return result
 	}
 
-	prURL, nodeID, err := o.createPR(repo, o.Branch, base)
+	prURL, mergeID, err := host.CreatePR(repo, o.Branch, base)
 	if err != nil {
-		if open, prURL, nodeID, _ := o.prExists(repo); open {
+		if open, prURL, mergeID, _ := host.PRExists(repo, o.Branch); open {
 			result.Status = "pr-open"
 			result.PRUrl = prURL
-			log.Warn().Str("repo", repo).Str("pr", prURL).Msg("PR already existed, branch updated")
-			if o.AutoMerge && nodeID != "" {
-				o.enableAutoMerge(nodeID)
+			log.Warn().Str("repo", repo.Name).Str("pr", prURL).Msg("PR already existed, branch updated")
+			if o.AutoMerge && mergeID != "" {
+				if err := host.EnableAutoMerge(mergeID); err != nil {
+					log.Warn().Err(err).Msg("auto-merge not enabled")
+				}
 			}
 			return result
 		}
@@ -233,96 +221,13 @@ func (o *OrgFlags) processRepo(repo string) RepoResult {
 
 	result.Status = "pinned"
 	result.PRUrl = prURL
-	log.Warn().Str("repo", repo).Str("pr", prURL).Msg("PR opened")
-	if o.AutoMerge && nodeID != "" {
-		o.enableAutoMerge(nodeID)
-	}
-	return result
-}
-
-func (o *OrgFlags) prExists(repo string) (bool, string, string, error) {
-	// GitHub requires owner:branch format for the head filter.
-	owner := strings.SplitN(repo, "/", 2)[0]
-	url := fmt.Sprintf("https://api.github.com/repos/%s/pulls?head=%s:%s&state=open", repo, owner, o.Branch)
-	body, err := GetGithubBody(o.Token, url)
-	if err != nil {
-		return false, "", "", err
-	}
-	items, ok := body.([]interface{})
-	if !ok || len(items) == 0 {
-		return false, "", "", nil
-	}
-	if m, ok := items[0].(map[string]interface{}); ok {
-		prURL, _ := m["html_url"].(string)
-		nodeID, _ := m["node_id"].(string)
-		return true, prURL, nodeID, nil
-	}
-	return true, "", "", nil
-}
-
-func (o *OrgFlags) createPR(repo, head, base string) (string, string, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/pulls", repo)
-	payload := map[string]string{
-		"title": "chore: pin dependencies to immutable SHAs via ghat",
-		"body":  "Automated dependency pinning by [ghat](https://github.com/JamesWoolfenden/ghat).\n\nPins GitHub Actions, pre-commit hooks, Terraform modules/providers, Dockerfiles, and Kubernetes images to SHA digests.",
-		"head":  head,
-		"base":  base,
-	}
-	b, _ := json.Marshal(payload)
-	resp, err := postGithubBody(o.Token, url, b)
-	if err != nil {
-		return "", "", err
-	}
-	m, ok := resp.(map[string]interface{})
-	if !ok {
-		return "", "", fmt.Errorf("unexpected PR response")
-	}
-	prURL, _ := m["html_url"].(string)
-	nodeID, _ := m["node_id"].(string)
-	return prURL, nodeID, nil
-}
-
-func (o *OrgFlags) enableAutoMerge(nodeID string) {
-	query := `mutation($id:ID!){enablePullRequestAutoMerge(input:{pullRequestId:$id,mergeMethod:SQUASH}){clientMutationId}}`
-	payload, _ := json.Marshal(map[string]interface{}{
-		"query":     query,
-		"variables": map[string]string{"id": nodeID},
-	})
-	_, err := postGithubBody(o.Token, "https://api.github.com/graphql", payload)
-	if err != nil {
-		log.Warn().Err(err).Msg("auto-merge not enabled (repo setting may be off)")
-		return
-	}
-	log.Warn().Str("node", nodeID).Msg("auto-merge enabled")
-}
-
-func (o *OrgFlags) waitForRateLimit() {
-	url := "https://api.github.com/rate_limit"
-	body, err := GetGithubBody(o.Token, url)
-	if err != nil {
-		return
-	}
-	m, ok := body.(map[string]interface{})
-	if !ok {
-		return
-	}
-	resources, ok := m["resources"].(map[string]interface{})
-	if !ok {
-		return
-	}
-	core, ok := resources["core"].(map[string]interface{})
-	if !ok {
-		return
-	}
-	remaining, _ := core["remaining"].(float64)
-	reset, _ := core["reset"].(float64)
-	if int(remaining) < o.Threshold {
-		wait := time.Duration(int64(reset)-time.Now().Unix()+5) * time.Second
-		if wait > 0 {
-			log.Info().Int("remaining", int(remaining)).Dur("wait", wait).Msg("rate limit low — pausing")
-			time.Sleep(wait)
+	log.Warn().Str("repo", repo.Name).Str("pr", prURL).Msg("PR opened")
+	if o.AutoMerge && mergeID != "" {
+		if err := host.EnableAutoMerge(mergeID); err != nil {
+			log.Warn().Err(err).Msg("auto-merge not enabled")
 		}
 	}
+	return result
 }
 
 func scanGaps(dir string) []string {

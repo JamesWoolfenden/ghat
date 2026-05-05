@@ -158,9 +158,19 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			continue
 		}
 
+		// Reusable workflow call (owner/repo/.github/workflows/x.yml) — no releases to resolve.
+		if strings.Contains(action[0], "/.github/workflows/") {
+			log.Info().Str("ref", action[0]).Msg("skipping reusable workflow")
+			continue
+		}
+
 		// Apply substitution: swap untrusted/abandoned action for a preferred fork.
-		// Keep the original name for building the replacement string in the file.
+		// Keep the original name+ref so the exact source string can be replaced.
 		originalAction := action[0]
+		originalRef := ""
+		if len(action) > 1 {
+			originalRef = action[1]
+		}
 		if sub, changed := myFlags.applySubstitution(action[0]); changed {
 			log.Warn().Str("from", action[0]).Str("to", sub).Msg("substituting action")
 			action[0] = sub
@@ -207,7 +217,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			if body, ok := payload.(map[string]interface{}); ok {
 				if object, ok := body["object"].(map[string]interface{}); ok {
 					if sha, ok := object["sha"].(string); ok {
-						oldAction := leadingQuote + originalAction + "@" + action[1] + trailingQuote
+						oldAction := leadingQuote + originalAction + "@" + originalRef + trailingQuote
 						newAction := action[0] + "@" + sha + " # " + currentRef
 						replacement = strings.ReplaceAll(replacement, oldAction, newAction)
 					}
@@ -302,7 +312,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 				}
 			}
 
-			oldAction := leadingQuote + originalAction + "@" + action[1] + trailingQuote
+			oldAction := leadingQuote + originalAction + "@" + originalRef + trailingQuote
 			newAction := action[0] + "@" + sha + " # " + tag
 
 			replacement = strings.ReplaceAll(replacement, oldAction, newAction)

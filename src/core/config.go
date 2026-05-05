@@ -35,19 +35,20 @@ var defaultSubstitutionsData []byte
 // LoadConfig merges built-in substitutions.yml, ~/.ghat.yml (global),
 // and <dir>/.ghat.yml (local). Later entries win on duplicate From values.
 func LoadConfig(dir string) GhatConfig {
-	var defaults GhatConfig
-	_ = yaml.Unmarshal(defaultSubstitutionsData, &defaults)
+	var merged GhatConfig
+	_ = yaml.Unmarshal(defaultSubstitutionsData, &merged)
 
-	merged := GhatConfig{Substitutions: append([]Substitution{}, defaults.Substitutions...)}
-	if home, err := os.UserHomeDir(); err == nil {
-		if cfg, err := loadConfigFile(filepath.Join(home, ".ghat.yml")); err == nil {
+	overlay := func(path string) {
+		if cfg, err := loadConfigFile(path); err == nil {
 			merged.Substitutions = append(merged.Substitutions, cfg.Substitutions...)
+			merged.InputUpgrades = append(merged.InputUpgrades, cfg.InputUpgrades...)
 		}
 	}
+	if home, err := os.UserHomeDir(); err == nil {
+		overlay(filepath.Join(home, ".ghat.yml"))
+	}
 	if dir != "" {
-		if cfg, err := loadConfigFile(filepath.Join(dir, ".ghat.yml")); err == nil {
-			merged.Substitutions = append(merged.Substitutions, cfg.Substitutions...)
-		}
+		overlay(filepath.Join(dir, ".ghat.yml"))
 	}
 	return merged
 }
