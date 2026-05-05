@@ -83,9 +83,10 @@ func main() {
 						Category:    "delay",
 					},
 					&cli.BoolFlag{
-						Name:  "dry-run",
-						Usage: "show but don't write changes",
-						Value: false,
+						Name:    "dry-run",
+						Aliases: []string{"dryrun"},
+						Usage:   "show but don't write changes",
+						Value:   false,
 					},
 				},
 			},
@@ -121,6 +122,7 @@ func main() {
 					},
 					&cli.BoolFlag{
 						Name:        "dry-run",
+						Aliases:     []string{"dryrun"},
 						Usage:       "show but don't write changes",
 						Destination: &myFlags.DryRun,
 						Value:       false,
@@ -153,6 +155,7 @@ func main() {
 					},
 					&cli.BoolFlag{
 						Name:        "dry-run",
+						Aliases:     []string{"dryrun"},
 						Usage:       "show but don't write changes",
 						Destination: &myFlags.DryRun,
 						Value:       false,
@@ -210,8 +213,9 @@ var swotCmd = &cli.Command{
 			Usage:   "Specific workflow file to update",
 		},
 		&cli.BoolFlag{
-			Name:  "dry-run",
-			Usage: "Show changes without modifying files",
+			Name:    "dry-run",
+			Aliases: []string{"dryrun"},
+			Usage:   "Show changes without modifying files",
 		},
 		&cli.BoolFlag{
 			Name:  "continue-on-error",
@@ -298,8 +302,9 @@ var shakeCmd = &cli.Command{
 			Usage:   "Specific Terraform file to update",
 		},
 		&cli.BoolFlag{
-			Name:  "dry-run",
-			Usage: "Show changes without modifying files",
+			Name:    "dry-run",
+			Aliases: []string{"dryrun"},
+			Usage:   "Show changes without modifying files",
 		},
 		&cli.BoolFlag{
 			Name:  "continue-on-error",
@@ -405,8 +410,9 @@ var kubeCmd = &cli.Command{
 			Usage:   "specific manifest file to update",
 		},
 		&cli.BoolFlag{
-			Name:  "dry-run",
-			Usage: "show changes without modifying files",
+			Name:    "dry-run",
+			Aliases: []string{"dryrun"},
+			Usage:   "show changes without modifying files",
 		},
 		&cli.BoolFlag{
 			Name:  "continue-on-error",
@@ -450,8 +456,9 @@ var dockCmd = &cli.Command{
 			Usage:   "specific Dockerfile to update",
 		},
 		&cli.BoolFlag{
-			Name:  "dry-run",
-			Usage: "show changes without modifying files",
+			Name:    "dry-run",
+			Aliases: []string{"dryrun"},
+			Usage:   "show changes without modifying files",
 		},
 		&cli.BoolFlag{
 			Name:  "continue-on-error",
@@ -491,8 +498,9 @@ var subCmd = &cli.Command{
 			Value:   ".",
 		},
 		&cli.BoolFlag{
-			Name:  "dry-run",
-			Usage: "show changes without modifying the index",
+			Name:    "dry-run",
+			Aliases: []string{"dryrun"},
+			Usage:   "show changes without modifying the index",
 		},
 		&cli.BoolFlag{
 			Name:  "continue-on-error",
@@ -530,8 +538,9 @@ var sweepCmd = &cli.Command{
 			Value:   ".",
 		},
 		&cli.BoolFlag{
-			Name:  "dry-run",
-			Usage: "show changes without modifying files",
+			Name:    "dry-run",
+			Aliases: []string{"dryrun"},
+			Usage:   "show changes without modifying files",
 		},
 		&cli.BoolFlag{
 			Name:  "continue-on-error",
@@ -644,7 +653,6 @@ var auditCmd = &cli.Command{
 	},
 }
 
-// githubToken returns the first non-empty value of GITHUB_TOKEN or GITHUB_API.
 var orgCmd = &cli.Command{
 	Name:      "org",
 	Usage:     "run ghat all across every non-fork repo for a GitHub/GitLab user, org or group",
@@ -680,8 +688,9 @@ var orgCmd = &cli.Command{
 			Value: 0,
 		},
 		&cli.BoolFlag{
-			Name:  "dry-run",
-			Usage: "show changes without writing or opening PRs",
+			Name:    "dry-run",
+			Aliases: []string{"dryrun"},
+			Usage:   "show changes without writing or opening PRs",
 		},
 		&cli.BoolFlag{
 			Name:  "pr",
@@ -765,6 +774,7 @@ var orgCmd = &cli.Command{
 	},
 }
 
+// githubToken returns the first non-empty value of GITHUB_TOKEN or GITHUB_API.
 func githubToken() string {
 	if t := os.Getenv("GITHUB_TOKEN"); t != "" {
 		return t

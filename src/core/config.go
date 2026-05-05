@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -78,27 +79,13 @@ func (f *Flags) applySubstitution(s string) (result string, changed bool) {
 func (f *Flags) applyRepoSubstitution(repoURL string) (string, bool) {
 	path := repoURL
 	prefix := ""
-	if after, ok := cutPrefix(repoURL, GitHubPrefix); ok {
+	if after, ok := strings.CutPrefix(repoURL, GitHubPrefix); ok {
 		path = after
 		prefix = GitHubPrefix
 	}
-	path = trimSuffix(path, ".git")
+	path = strings.TrimSuffix(path, ".git")
 	if sub, changed := f.applySubstitution(path); changed {
 		return prefix + sub, true
 	}
 	return repoURL, false
-}
-
-func cutPrefix(s, prefix string) (string, bool) {
-	if len(s) >= len(prefix) && s[:len(prefix)] == prefix {
-		return s[len(prefix):], true
-	}
-	return s, false
-}
-
-func trimSuffix(s, suffix string) string {
-	if len(s) >= len(suffix) && s[len(s)-len(suffix):] == suffix {
-		return s[:len(s)-len(suffix)]
-	}
-	return s
 }

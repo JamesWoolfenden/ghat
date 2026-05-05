@@ -122,11 +122,10 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 
 	replacement := string(buffer)
 
-	var newUrl string
-
 	r := regexp.MustCompile(`uses:(.*)`)
 	matches := r.FindAllStringSubmatch(string(buffer), -1)
 	for _, match := range matches {
+		var newUrl string
 
 		if ok, reason := parseSuppression(match[0]); ok {
 			log.Info().Str("ref", strings.TrimSpace(match[1])).Str("reason", reason).Msg("skipping suppressed uses: line")
@@ -205,24 +204,14 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			if currentRef == "" {
 				continue
 			}
-			url := action[0]
-			if newUrl != "" {
-				url = newUrl
-			}
-			payload, err := getHash(url, currentRef, myFlags.GitHubToken)
+			sha, err := resolveTagSHA(action[0], currentRef, myFlags.GitHubToken)
 			if err != nil {
 				log.Warn().Msgf("failed to retrieve commit hash for %s@%s: %s", action[0], currentRef, err)
 				continue
 			}
-			if body, ok := payload.(map[string]interface{}); ok {
-				if object, ok := body["object"].(map[string]interface{}); ok {
-					if sha, ok := object["sha"].(string); ok {
-						oldAction := leadingQuote + originalAction + "@" + originalRef + trailingQuote
-						newAction := action[0] + "@" + sha + " # " + currentRef
-						replacement = strings.ReplaceAll(replacement, oldAction, newAction)
-					}
-				}
-			}
+			oldAction := leadingQuote + originalAction + "@" + originalRef + trailingQuote
+			newAction := action[0] + "@" + sha + " # " + currentRef
+			replacement = strings.ReplaceAll(replacement, oldAction, newAction)
 			continue
 		}
 
@@ -532,14 +521,18 @@ func GetLatestRelease(action string, gitHubToken string) (interface{}, error) {
 
 func GetLatestTag(action string, gitHubToken string) (interface{}, error) {
 	url := "https://api.github.com/repos/" + action + "/tags?per_page=100"
-	tags, err := GetGithubBody(gitHubToken, url)
-	if err != nil {
-		return nil, err
-	}
-
-	tagged, ok := tags.([]interface{})
-	if !ok {
-		return nil, fmt.Errorf("failed to assert slice %s", tags)
+	var tagged []interface{}
+	for url != "" {
+		page, next, err := getPagedGithubBody(gitHubToken, url)
+		if err != nil {
+			return nil, err
+		}
+		items, ok := page.([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("failed to assert slice %s", page)
+		}
+		tagged = append(tagged, items...)
+		url = next
 	}
 
 	if len(tagged) == 0 {
@@ -549,19 +542,18 @@ func GetLatestTag(action string, gitHubToken string) (interface{}, error) {
 	return tagged[pickLatestTag(tagged)], nil
 }
 
+var versionRunRe = regexp.MustCompile(`\d+\.\d`)
+
 // coerceSemver turns common tag spellings into something golang.org/x/mod/semver
-// can compare: strips a leading non-digit prefix (release-, foo-v, krb5-), adds
+// can compare: strips a leading textual prefix (release-, foo-v, krb5-), adds
 // the v, and rejects anything without a dot so date stamps like 20060525 do not
 // parse as a giant major version. Returns "" if unrecognisable.
 func coerceSemver(tag string) string {
-	i := strings.IndexFunc(tag, func(r rune) bool { return r >= '0' && r <= '9' })
-	if i < 0 {
+	loc := versionRunRe.FindStringIndex(tag)
+	if loc == nil {
 		return ""
 	}
-	v := "v" + tag[i:]
-	if !strings.Contains(v, ".") {
-		return ""
-	}
+	v := "v" + tag[loc[0]:]
 	if semver.IsValid(v) {
 		return v
 	}
@@ -619,6 +611,51 @@ func pickLatestTag(tagged []any) int {
 func getHash(action string, tag string, gitHubToken string) (interface{}, error) {
 	url := "https://api.github.com/repos/" + action + "/git/ref/tags/" + tag
 	return GetGithubBody(gitHubToken, url)
+}
+
+// ownerRepo strips any sub-path from an action ref so it can be used as a
+// /repos/{owner}/{repo} API path (e.g. "github/codeql-action/init" → "github/codeql-action").
+func ownerRepo(action string) string {
+	parts := strings.SplitN(action, "/", 3)
+	if len(parts) < 2 {
+		return action
+	}
+	return parts[0] + "/" + parts[1]
+}
+
+// resolveTagSHA returns the commit SHA a tag points at, dereferencing
+// annotated tag objects to the underlying commit.
+func resolveTagSHA(action, tag, token string) (string, error) {
+	payload, err := getHash(ownerRepo(action), tag, token)
+	if err != nil {
+		return "", err
+	}
+	body, ok := payload.(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("unexpected ref payload for %s@%s", action, tag)
+	}
+	object, ok := body["object"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("ref %s@%s has no object", action, tag)
+	}
+	sha, _ := object["sha"].(string)
+	if t, _ := object["type"].(string); t == "tag" {
+		if tagURL, _ := object["url"].(string); tagURL != "" {
+			if tagPayload, err := GetGithubBody(token, tagURL); err == nil {
+				if tagMap, ok := tagPayload.(map[string]interface{}); ok {
+					if tagObject, ok := tagMap["object"].(map[string]interface{}); ok {
+						if commitSha, ok := tagObject["sha"].(string); ok {
+							sha = commitSha
+						}
+					}
+				}
+			}
+		}
+	}
+	if sha == "" {
+		return "", fmt.Errorf("no sha for %s@%s", action, tag)
+	}
+	return sha, nil
 }
 
 // GetGithubBodyWithCache fetches data from GitHub API with caching support

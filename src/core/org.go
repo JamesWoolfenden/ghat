@@ -238,6 +238,10 @@ func scanGaps(dir string) []string {
 	}
 	for _, file := range entries {
 		base := filepath.Base(file)
+		rel, err := filepath.Rel(dir, file)
+		if err != nil {
+			rel = file
+		}
 		content, err := os.ReadFile(file)
 		if err != nil {
 			continue
@@ -248,7 +252,7 @@ func scanGaps(dir string) []string {
 			}
 			for i, line := range strings.Split(string(content), "\n") {
 				if p.re.MatchString(line) {
-					found = append(found, fmt.Sprintf("%s | %s | %s:%d", p.label, file, base, i+1))
+					found = append(found, fmt.Sprintf("%s | %s:%d", p.label, rel, i+1))
 				}
 			}
 		}

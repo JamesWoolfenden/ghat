@@ -41,7 +41,8 @@ func TestCoerceSemver(t *testing.T) {
 		"v3.0.3":                             "v3.0.3",
 		"0.11.0":                             "v0.11.0",
 		"python-ecdsa-0.19.2":                "v0.19.2",
-		"krb5-1.22.1-final":                  "", // digit in the prefix defeats the heuristic
+		"krb5-1.22.1-final":                  "v1.22.1-final",
+		"libssh2-1.11.1":                     "v1.11.1",
 		"tokio-quiche-0.18.0":                "v0.18.0",
 		"ms-bug-test-20060525":               "",
 		"openssl-3.0.0-alpha12-liboqs-0.5.0": "v3.0.0-alpha12-liboqs-0.5.0",
