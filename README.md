@@ -581,30 +581,37 @@ The summary also reports **gaps**: version-pinned installs ghat doesn't yet rewr
 / _` || ' \ / _` ||  _|
 \__, ||_||_|\__,_| \__|
 |___/
-version: v0.1.1
+version: v0.1.26
 NAME:
    ghat - Update GHA dependencies
 
 USAGE:
-   ghat [global options] command [command options] [arguments...]
+   ghat [global options] command [command options]
 
 VERSION:
-   v0.1.1
+   v0.1.26
 
 AUTHOR:
    James Woolfenden <jim.wolf@duck.com>
 
 COMMANDS:
+   all, sweep  runs every pinner (GHA, GitLab, pre-commit, Terraform, Kubernetes, Dockerfiles) against a directory
+   audit, sc   scores your dependencies (go.mod, GHA uses:, pre-commit, Terraform modules) by whether their CI workflows pin actions to SHAs
+   cache       Manage API response cache
+   dock, df    pins Dockerfile FROM images to SHA digests
    kube, k8s   pins container images in Kubernetes manifests to SHA digests
+   org         run ghat all across every non-fork repo for a GitHub/GitLab user, org or group
+   shake, k    updates Terraform provider versions to latest
    sift, p     updates pre-commit version with hashes
-   shake, k    updates Terraform provider versions to latest stable releases
-   stun, t     updates GitLab CI/CD container images with SHA256 digests
+   stun, t     updates Gitlab versions for hashes
+   sub, m      updates git submodule pins to latest tagged release SHA
    swipe, w    updates Terraform module versions with versioned hashes
    swot, a     updates GHA versions for hashes
    version, v  Outputs the application version
    help, h     Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
+   --quiet        suppress banner and log output (useful in pre-commit hooks) (default: false)
    --help, -h     show help
    --version, -v  print the version
 
