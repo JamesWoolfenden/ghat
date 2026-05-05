@@ -117,21 +117,21 @@ func checkDangerousTrigger(workflows map[string][]byte) checkResult {
 }
 
 func checkMaintained(d dep, repo map[string]interface{}, token string) checkResult {
+	var t time.Time
 	body, err := GetGithubBody(token, "https://api.github.com/repos/"+d.owner+"/"+d.repo+"/releases/latest")
-	when := ""
 	if err == nil {
 		if m, _ := body.(map[string]interface{}); m != nil {
-			when, _ = m["published_at"].(string)
+			if s, _ := m["published_at"].(string); s != "" {
+				t, _ = time.Parse(time.RFC3339, s)
+			}
 		}
 	}
-	if when == "" {
-		when, _ = repo["pushed_at"].(string)
+	if s, _ := repo["pushed_at"].(string); s != "" {
+		if p, err := time.Parse(time.RFC3339, s); err == nil && p.After(t) {
+			t = p
+		}
 	}
-	if when == "" {
-		return checkResult{"maintained", checkSkip, ""}
-	}
-	t, err := time.Parse(time.RFC3339, when)
-	if err != nil {
+	if t.IsZero() {
 		return checkResult{"maintained", checkSkip, ""}
 	}
 	days := int(time.Since(t).Hours() / 24)
