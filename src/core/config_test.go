@@ -245,7 +245,7 @@ func TestRewritePreCommitRevs_WithSubstitution(t *testing.T) {
 		"    hooks:\n" +
 		"      - id: auto-gofmt\n"
 
-	got := rewritePreCommitRevs(in, pins)
+	got, _ := rewritePreCommitRevs(in, pins)
 	if got != want {
 		t.Errorf("rewritePreCommitRevs with substitution mismatch\n--- want ---\n%s\n--- got ---\n%s", want, got)
 	}
