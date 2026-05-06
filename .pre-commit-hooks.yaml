@@ -5,7 +5,7 @@
   name: ghat
   description: upgrade action dependencies
   language: golang
-  entry: ghat swot -d .
+  entry: ghat swot -d .github
   pass_filenames: false
   types: [ yaml ]
 
@@ -33,7 +33,7 @@
   name: ghat
   description: upgrade action dependencies
   language: system
-  entry: ghat swot -d .
+  entry: ghat swot -d .github
   pass_filenames: false
   types: [ yaml ]
 
@@ -59,7 +59,7 @@
   name: ghat
   description: upgrade action dependencies (via Docker build)
   language: docker
-  entry: ghat swot -d .
+  entry: ghat swot -d .github
   pass_filenames: false
   types: [ yaml ]
 
