@@ -19,4 +19,5 @@ secrets-scan-file-type: [ ]
 skip-path:
   - terraform
   - venv
+  - testdata
 summary-position: top

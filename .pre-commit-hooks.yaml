@@ -5,7 +5,7 @@
   name: ghat
   description: upgrade action dependencies
   language: golang
-  entry: ghat swot -d .
+  entry: ghat swot -d .github
   pass_filenames: false
   types: [ yaml ]
 
@@ -17,8 +17,7 @@
   pass_filenames: false
   types: [ yaml ]
 
-- id: ghat-go-stunclaude
-
+- id: ghat-go-stun
   name: stun
   description: pin GitLab CI image refs to digests
   language: golang
@@ -33,7 +32,7 @@
   name: ghat
   description: upgrade action dependencies
   language: system
-  entry: ghat swot -d .
+  entry: ghat swot -d .github
   pass_filenames: false
   types: [ yaml ]
 
@@ -59,7 +58,7 @@
   name: ghat
   description: upgrade action dependencies (via Docker build)
   language: docker
-  entry: ghat swot -d .
+  entry: ghat swot -d .github
   pass_filenames: false
   types: [ yaml ]
 

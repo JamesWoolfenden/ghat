@@ -61,9 +61,12 @@ type revPin struct {
 
 // rewritePreCommitRevs replaces each `rev:` line with `<sha> # <tag>` for repos
 // present in pins. Line-based so comments and formatting are preserved
-// (consistent with swot's behaviour in gha.go).
-func rewritePreCommitRevs(data string, pins map[string]revPin) string {
+// (consistent with swot's behaviour in gha.go). Returns the rewritten data and
+// the set of repo URLs the line-parser recognised, so the caller can detect a
+// mismatch between yaml.Unmarshal and this parser.
+func rewritePreCommitRevs(data string, pins map[string]revPin) (string, map[string]bool) {
 	lines := strings.Split(data, "\n")
+	seen := map[string]bool{}
 	var currentRepo string
 	var suppressCurrent bool
 	var suppressCurrentReason string
@@ -71,9 +74,11 @@ func rewritePreCommitRevs(data string, pins map[string]revPin) string {
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(strings.SplitN(line, "#", 2)[0])
 
-		bare := strings.TrimPrefix(trimmed, "- ")
+		// pre-commit autoupdate emits `-   repo:` (4-col indent), not `- repo:`.
+		bare := strings.TrimLeft(strings.TrimPrefix(trimmed, "-"), " ")
 		if after, ok := strings.CutPrefix(bare, "repo:"); ok {
 			currentRepo = strings.TrimSpace(after)
+			seen[currentRepo] = true
 			suppressCurrent, suppressCurrentReason = parseSuppression(line)
 			if p, ok := pins[currentRepo]; ok && p.newURL != "" {
 				indent := line[:strings.Index(line, "repo:")]
@@ -104,7 +109,7 @@ func rewritePreCommitRevs(data string, pins map[string]revPin) string {
 		lines[i] = indent + "rev: " + p.sha + " # " + p.tag
 	}
 
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, "\n"), seen
 }
 
 func (myFlags *Flags) UpdateHooks() error {
@@ -182,7 +187,12 @@ func (myFlags *Flags) UpdateHooks() error {
 		pins[item.Repo] = revPin{sha: sha, tag: tag, newURL: newURL}
 	}
 
-	replacement := rewritePreCommitRevs(string(data), pins)
+	replacement, seen := rewritePreCommitRevs(string(data), pins)
+	for repo := range pins {
+		if !seen[repo] {
+			log.Warn().Str("repo", repo).Msg("resolved pin but line-parser found no matching repo: entry — please report this")
+		}
+	}
 
 	myFlags.printDiff(*config, string(data), replacement)
 

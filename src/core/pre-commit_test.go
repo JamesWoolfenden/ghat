@@ -80,6 +80,19 @@ func TestRewritePreCommitRevs(t *testing.T) {
 				"    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # v6.0.0\n",
 		},
 		{
+			name: "pre-commit autoupdate 4-col indent style",
+			in: "repos:\n" +
+				"-   repo: https://github.com/pre-commit/pre-commit-hooks\n" +
+				"    rev: v5.0.0\n" +
+				"    hooks:\n" +
+				"    -   id: trailing-whitespace\n",
+			want: "repos:\n" +
+				"-   repo: https://github.com/pre-commit/pre-commit-hooks\n" +
+				"    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # v6.0.0\n" +
+				"    hooks:\n" +
+				"    -   id: trailing-whitespace\n",
+		},
+		{
 			name: "rev as the dashed key",
 			in: "repos:\n" +
 				"  - rev: v8.0.0\n" +
@@ -98,7 +111,7 @@ func TestRewritePreCommitRevs(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := rewritePreCommitRevs(tt.in, pins)
+			got, _ := rewritePreCommitRevs(tt.in, pins)
 			if got != tt.want {
 				t.Errorf("rewritePreCommitRevs() mismatch\n--- want ---\n%s\n--- got ---\n%s",
 					strings.ReplaceAll(tt.want, " ", "·"),

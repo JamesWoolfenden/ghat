@@ -209,6 +209,9 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			}
 			oldAction := leadingQuote + originalAction + "@" + originalRef + trailingQuote
 			newAction := action[0] + "@" + sha + " # " + currentRef
+			if !strings.Contains(string(buffer), oldAction) {
+				log.Warn().Str("uses", oldAction).Msg("resolved pin but reconstructed ref not found in source — please report this")
+			}
 			replacement = strings.ReplaceAll(replacement, oldAction, newAction)
 			continue
 		}
@@ -263,6 +266,9 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			oldAction := leadingQuote + originalAction + "@" + originalRef + trailingQuote
 			newAction := action[0] + "@" + sha + " # " + tag
 
+			if !strings.Contains(string(buffer), oldAction) {
+				log.Warn().Str("uses", oldAction).Msg("resolved pin but reconstructed ref not found in source — please report this")
+			}
 			replacement = strings.ReplaceAll(replacement, oldAction, newAction)
 		} else {
 			log.Warn().Msgf("tag field empty skipping %s", action[0])
