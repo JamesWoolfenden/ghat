@@ -120,6 +120,8 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		return &ghaFileError{file}
 	}
 
+	warnRunInstalls(file, buffer)
+
 	replacement := string(buffer)
 
 	r := regexp.MustCompile(`uses:(.*)`)

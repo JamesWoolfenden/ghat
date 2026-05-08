@@ -87,6 +87,15 @@ func (f *Flags) Audit() error {
 		}
 	}
 
+	local := f.scanLocalRunInstalls()
+	if len(local) > 0 {
+		fmt.Printf("local unpinned installs (%d):\n", len(local))
+		for _, l := range local {
+			fmt.Printf("  %s\n", l)
+		}
+		fmt.Println()
+	}
+
 	var results []auditResult
 	seen := map[string]bool{}
 
@@ -117,6 +126,10 @@ func (f *Flags) Audit() error {
 			for _, u := range refs.unpinned {
 				agg.unpinned = append(agg.unpinned, name+": "+u)
 			}
+			for _, u := range findRunInstalls(body) {
+				agg.total++
+				agg.unpinned = append(agg.unpinned, name+": "+u)
+			}
 		}
 		res.total = agg.total
 		res.suppressed = agg.suppressed
@@ -126,7 +139,16 @@ func (f *Flags) Audit() error {
 		results = append(results, res)
 	}
 
-	return reportAudit(results)
+	if err := reportAudit(results); err != nil {
+		if len(local) > 0 {
+			return fmt.Errorf("%w; %d local unpinned installs", err, len(local))
+		}
+		return err
+	}
+	if len(local) > 0 {
+		return fmt.Errorf("%d local unpinned installs", len(local))
+	}
+	return nil
 }
 
 func (f *Flags) listModules() ([]string, error) {

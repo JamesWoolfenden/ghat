@@ -77,6 +77,8 @@ func (myFlags *Flags) UpdateGitlab() error {
 		return &gitlabProjectEmptyError{file: projectFile}
 	}
 
+	warnRunInstalls(projectFile, project)
+
 	fileInfo, err := os.Stat(projectFile)
 	if err != nil {
 		return &gitlabProjectError{directory: myFlags.Directory}
