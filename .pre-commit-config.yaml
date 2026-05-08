@@ -41,11 +41,11 @@ repos:
         - id: terraform-fmt
           language_version: python3.11
       repo: https://github.com/jameswoolfenden/pre-commit
-      rev: c8e6311b03b81f878d57c49f3f76327514a76352 # v0.1.56
+      rev: 4997cf8b63896568143d5c6e820741214bc9f314 # v0.1.61
     - hooks:
         - id: golangci-lint
       repo: https://github.com/golangci/golangci-lint
-      rev: 9aa24e94ceb7d1a8ccbde81e7424629467299a7e # v2.12.1
+      rev: c0d3ddc9cf3faa61a4e378e879ece580256d76e5 # v2.12.2
     - hooks:
         - id: checkov
           language_version: python3.11
@@ -53,7 +53,7 @@ repos:
             - -d
             - .
       repo: https://github.com/bridgecrewio/checkov
-      rev: e52a901a3829d818d20c9b75e544845c8b756968 # 3.2.526
+      rev: e77b5f7422ad23034c1a3c0a1902cd7e9eb60caf # 3.2.527
     - hooks:
         - id: ghat-go
           name: ghat

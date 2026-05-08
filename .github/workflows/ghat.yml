@@ -5,16 +5,17 @@ on:
     - cron: 17 4 * * 1
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: read-all
 
 jobs:
   pin:
+    permissions:
+      contents: write
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: JamesWoolfenden/ghat@c037c5f7bbc8670607523ea6a7aefd978fc0bd7d # v0.1.27
+      - uses: JamesWoolfenden/ghat@e60f56cec93d64866fa82cf6511ce7c0cd92bb20 # v0.1.29
         with:
           directory: .
       - uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
