@@ -11,6 +11,7 @@
 [![checkov](https://img.shields.io/badge/checkov-verified-brightgreen)](https://www.checkov.io/)
 [![Github All Releases](https://img.shields.io/github/downloads/jameswoolfenden/ghat/total.svg)](https://github.com/JamesWoolfenden/ghat/releases)
 [![codecov](https://codecov.io/gh/JamesWoolfenden/ghat/graph/badge.svg?token=P9V791WMRE)](https://codecov.io/gh/JamesWoolfenden/ghat)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/JamesWoolfenden/ghat/badge)](https://securityscorecards.dev/viewer/?uri=github.com/JamesWoolfenden/ghat)
 
 Ghat is a tool (GHAT) for updating dependencies in GitHub Actions, GitLab CI/CD, Kubernetes manifests, **managing Terraform module and provider versions**, and pre-commit configs. It replaces insecure mutable tags with immutable commit hashes and container image digests, and updates provider versions to their latest stable releases:
 
