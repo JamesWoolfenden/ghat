@@ -108,6 +108,8 @@ module "ip" {
 
 ```
 
+> **New to ghat?** Start with the [hands-on tutorial](TUTORIAL.md) — it walks you from first pin to org-wide rollout.
+
 ## Table of Contents
 
 <!--toc:start-->
