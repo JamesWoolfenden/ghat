@@ -55,7 +55,11 @@ docs:
 vet:
 	go vet ./...
 
-bump:
+release-check:
+	goreleaser check
+	GITHUB_TOKEN= GITLAB_TOKEN= GITEA_TOKEN= goreleaser build --snapshot --clean
+
+bump: release-check
 	git push
 	$(eval VERSION=$(shell git describe --tags --abbrev=0 | awk -F. '{OFS="."; $$NF+=1; print $0}'))
 	git tag -a $(VERSION) -m "new release"
