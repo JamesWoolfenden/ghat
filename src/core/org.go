@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -233,6 +234,108 @@ func (o *OrgFlags) processRepo(host hostProvider, repo hostRepo) RepoResult {
 		}
 	}
 	return result
+}
+
+// CreateLocalPR checks for git changes in dir, then commits them to a branch and
+// opens a PR. Returns (prURL, changed, error). If no changes, changed is false.
+// If OpenPR is false, changed is still reported but no branch/PR is created.
+func (f *Flags) CreateLocalPR(dir string) (string, bool, error) {
+	out, _ := exec.Command("git", "-C", dir, "status", "--porcelain").Output()
+	if len(strings.TrimSpace(string(out))) == 0 {
+		return "", false, nil
+	}
+	if !f.OpenPR {
+		return "", true, nil
+	}
+
+	defaultBranch, _ := exec.Command("git", "-C", dir, "symbolic-ref", "--short", "HEAD").Output()
+	base := strings.TrimSpace(string(defaultBranch))
+
+	remoteOut, err := exec.Command("git", "-C", dir, "remote", "get-url", "origin").Output()
+	if err != nil {
+		return "", true, fmt.Errorf("get remote URL: %w", err)
+	}
+	provider, repoName, baseURL, err := parseRemoteURL(strings.TrimSpace(string(remoteOut)))
+	if err != nil {
+		return "", true, fmt.Errorf("parse remote URL: %w", err)
+	}
+
+	branch := f.Branch
+	if branch == "" {
+		branch = "ghat/pin-dependencies"
+	}
+
+	host, err := newHost(provider, "", f.PRToken, baseURL)
+	if err != nil {
+		return "", true, fmt.Errorf("create host: %w", err)
+	}
+	repo, err := host.RepoFromName(repoName)
+	if err != nil {
+		return "", true, fmt.Errorf("resolve repo: %w", err)
+	}
+
+	prAlreadyOpen, existingPRUrl, existingMergeID, _ := host.PRExists(repo, branch)
+
+	// -B creates the branch if it doesn't exist, or resets it to HEAD if it does.
+	if out, err := exec.Command("git", "-C", dir, "checkout", "-B", branch).CombinedOutput(); err != nil {
+		return "", true, fmt.Errorf("checkout: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	exec.Command("git", "-C", dir, "add", "-A").Run()                                                          //nolint:errcheck
+	exec.Command("git", "-C", dir, "commit", "-m", "chore: pin dependencies to immutable SHAs via ghat").Run() //nolint:errcheck
+
+	if out, err := exec.Command("git", "-C", dir, "push", "--force", "origin", branch).CombinedOutput(); err != nil {
+		return "", true, fmt.Errorf("push: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	if prAlreadyOpen {
+		if f.AutoMerge && existingMergeID != "" {
+			_ = host.EnableAutoMerge(existingMergeID)
+		}
+		return existingPRUrl, true, nil
+	}
+
+	prURL, mergeID, err := host.CreatePR(repo, branch, base)
+	if err != nil {
+		if open, u, mid, _ := host.PRExists(repo, branch); open {
+			if f.AutoMerge && mid != "" {
+				_ = host.EnableAutoMerge(mid)
+			}
+			return u, true, nil
+		}
+		return "", true, fmt.Errorf("create PR: %w", err)
+	}
+
+	if f.AutoMerge && mergeID != "" {
+		_ = host.EnableAutoMerge(mergeID)
+	}
+	return prURL, true, nil
+}
+
+// parseRemoteURL extracts the provider, owner/repo name, and base URL from a
+// git remote (HTTPS or SSH format).
+func parseRemoteURL(remoteURL string) (provider, repoName, baseURL string, err error) {
+	if strings.HasPrefix(remoteURL, "git@") {
+		rest := strings.TrimPrefix(remoteURL, "git@")
+		host, path, ok := strings.Cut(rest, ":")
+		if !ok {
+			return "", "", "", fmt.Errorf("cannot parse SSH remote: %s", remoteURL)
+		}
+		repo := strings.TrimSuffix(path, ".git")
+		if strings.Contains(host, "github") {
+			return "github", repo, "", nil
+		}
+		return "gitlab", repo, "https://" + host, nil
+	}
+
+	u, err := url.Parse(remoteURL)
+	if err != nil {
+		return "", "", "", fmt.Errorf("cannot parse remote URL: %w", err)
+	}
+	repo := strings.TrimSuffix(strings.TrimPrefix(u.Path, "/"), ".git")
+	if strings.Contains(u.Hostname(), "github") {
+		return "github", repo, "", nil
+	}
+	return "gitlab", repo, u.Scheme + "://" + u.Host, nil
 }
 
 func scanGaps(dir string) []string {

@@ -244,6 +244,24 @@ var swotCmd = &cli.Command{
 			Name:  "pin-only",
 			Usage: "pin current tag to SHA without checking for upgrades",
 		},
+		&cli.BoolFlag{
+			Name:  "pr",
+			Usage: "commit changes to a branch and open a pull request; exits non-zero if changes were needed",
+		},
+		&cli.BoolFlag{
+			Name:  "auto-merge",
+			Usage: "enable auto-merge on the created PR (requires repo setting to be on)",
+		},
+		&cli.StringFlag{
+			Name:  "branch",
+			Usage: "branch name for the pinning PR",
+			Value: "ghat/pin-dependencies",
+		},
+		&cli.StringFlag{
+			Name:     "pr-token",
+			Usage:    "PAT for creating PRs (defaults to $GITHUB_TOKEN)",
+			Category: "authentication",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		myFlags := core.NewFlags()
@@ -281,7 +299,37 @@ var swotCmd = &cli.Command{
 			}
 		}()
 
-		return myFlags.Action("swot")
+		if err := myFlags.Action("swot"); err != nil {
+			return err
+		}
+
+		if !c.Bool("pr") {
+			return nil
+		}
+
+		myFlags.OpenPR = true
+		myFlags.AutoMerge = c.Bool("auto-merge")
+		myFlags.Branch = c.String("branch")
+		myFlags.PRToken = c.String("pr-token")
+		if myFlags.PRToken == "" {
+			myFlags.PRToken = myFlags.GitHubToken
+		}
+
+		dir := myFlags.Directory
+		if dir == "" {
+			dir = "."
+		}
+		prURL, changed, err := myFlags.CreateLocalPR(dir)
+		if err != nil {
+			return fmt.Errorf("PR creation failed: %w", err)
+		}
+		if changed {
+			if prURL != "" {
+				return fmt.Errorf("changes pinned — PR: %s", prURL)
+			}
+			return fmt.Errorf("changes required — re-run with --pr to open a fix PR")
+		}
+		return nil
 	},
 }
 
@@ -575,6 +623,24 @@ var sweepCmd = &cli.Command{
 			Name:  "pin-only",
 			Usage: "pin current tag to SHA without checking for upgrades",
 		},
+		&cli.BoolFlag{
+			Name:  "pr",
+			Usage: "commit changes to a branch and open a pull request; exits non-zero if changes were needed",
+		},
+		&cli.BoolFlag{
+			Name:  "auto-merge",
+			Usage: "enable auto-merge on the created PR (requires repo setting to be on)",
+		},
+		&cli.StringFlag{
+			Name:  "branch",
+			Usage: "branch name for the pinning PR",
+			Value: "ghat/pin-dependencies",
+		},
+		&cli.StringFlag{
+			Name:     "pr-token",
+			Usage:    "PAT for creating PRs (defaults to $GITHUB_TOKEN)",
+			Category: "authentication",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		myFlags := core.NewFlags()
@@ -595,7 +661,37 @@ var sweepCmd = &cli.Command{
 			return fmt.Errorf("failed to initialize cache: %w", err)
 		}
 
-		return myFlags.Action(core.ActionSweep)
+		if err := myFlags.Action(core.ActionSweep); err != nil {
+			return err
+		}
+
+		if !c.Bool("pr") {
+			return nil
+		}
+
+		myFlags.OpenPR = true
+		myFlags.AutoMerge = c.Bool("auto-merge")
+		myFlags.Branch = c.String("branch")
+		myFlags.PRToken = c.String("pr-token")
+		if myFlags.PRToken == "" {
+			myFlags.PRToken = myFlags.GitHubToken
+		}
+
+		dir := myFlags.Directory
+		if dir == "" {
+			dir = "."
+		}
+		prURL, changed, err := myFlags.CreateLocalPR(dir)
+		if err != nil {
+			return fmt.Errorf("PR creation failed: %w", err)
+		}
+		if changed {
+			if prURL != "" {
+				return fmt.Errorf("changes pinned — PR: %s", prURL)
+			}
+			return fmt.Errorf("changes required — re-run with --pr to open a fix PR")
+		}
+		return nil
 	},
 }
 

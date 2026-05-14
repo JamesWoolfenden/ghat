@@ -112,6 +112,13 @@ func GetReleases(action string, gitHubToken string, days *uint) (map[string]inte
 			return nil, fmt.Errorf("invalid release format in response")
 		}
 
+		if prerelease, _ := release["prerelease"].(bool); prerelease {
+			continue
+		}
+		if draft, _ := release["draft"].(bool); draft {
+			continue
+		}
+
 		temp, ok := release["published_at"].(string)
 		if !ok {
 			return nil, &castToStringError{"published_at"}
