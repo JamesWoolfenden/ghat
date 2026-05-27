@@ -16,7 +16,7 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-func (myFlags *Flags) UpdateModule(file string) error {
+func (f *Flags) UpdateModule(file string) error {
 	var version string
 	var newValue string
 
@@ -39,12 +39,12 @@ func (myFlags *Flags) UpdateModule(file string) error {
 
 			source := GetStringValue(block, "source")
 
-			myType, err := myFlags.GetType(source)
+			myType, err := f.GetType(source)
 
 			if err != nil {
 				log.Info().Msgf("source type failure %s", source)
 			} else {
-				newValue, version, err = myFlags.UpdateSource(source, myType, version)
+				newValue, version, err = f.UpdateSource(source, myType, version)
 				if err != nil {
 					log.Warn().Err(err).Str("source", source).Msg("failed to update module source, leaving unchanged")
 				} else {
@@ -83,9 +83,9 @@ func (myFlags *Flags) UpdateModule(file string) error {
 		differ = true
 	}
 
-	myFlags.printDiff(file, string(src), temp)
+	f.printDiff(file, string(src), temp)
 
-	if differ && !myFlags.DryRun {
+	if differ && !f.DryRun {
 		err := os.WriteFile(file, []byte(temp), 0666)
 		if err != nil {
 			log.Info().Msgf("failed to write %s", file)
@@ -128,9 +128,9 @@ func GetStringValue(block *hclwrite.Block, attribute string) string {
 	return Value
 }
 
-func (myFlags *Flags) UpdateModules() error {
+func (f *Flags) UpdateModules() error {
 
-	terraform, err := myFlags.GetTF()
+	terraform, err := f.GetTF()
 
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ func (myFlags *Flags) UpdateModules() error {
 
 	// contains a module?
 	for _, file := range terraform {
-		err = myFlags.UpdateModule(file)
+		err = f.UpdateModule(file)
 		if err != nil {
 			return err
 		}
@@ -147,10 +147,10 @@ func (myFlags *Flags) UpdateModules() error {
 	return nil
 }
 
-func (myFlags *Flags) GetTF() ([]string, error) {
+func (f *Flags) GetTF() ([]string, error) {
 	var terraform []string
 
-	for _, match := range myFlags.Entries {
+	for _, match := range f.Entries {
 		//for each file that is a terraform file
 		if path.Ext(match) == ".tf" {
 			terraform = append(terraform, match)
@@ -160,7 +160,7 @@ func (myFlags *Flags) GetTF() ([]string, error) {
 	return terraform, nil
 }
 
-func (myFlags *Flags) GetType(module string) (string, error) {
+func (f *Flags) GetType(module string) (string, error) {
 	var moduleType string
 
 	// handle local path
@@ -212,7 +212,7 @@ func (myFlags *Flags) GetType(module string) (string, error) {
 
 	if strings.Contains(module, "//") {
 		temp := strings.Split(module, "//")[0]
-		return myFlags.GetType(temp)
+		return f.GetType(temp)
 	}
 
 	if _, err := os.Stat(module); os.IsNotExist(err) {
@@ -222,7 +222,7 @@ func (myFlags *Flags) GetType(module string) (string, error) {
 	return moduleType, err
 }
 
-func (myFlags *Flags) UpdateSource(module string, moduleType string, version string) (string, string, error) {
+func (f *Flags) UpdateSource(module string, moduleType string, version string) (string, string, error) {
 
 	var newModule string
 
@@ -251,15 +251,8 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 				}
 			}
 
-			if myFlags.Update {
-				if strings.Contains(newModule, "github.com") {
-					hash, version, err := myFlags.GetGithubLatestHash(newModule)
-					if err != nil {
-						return "", "", err
-					}
-
-					return "git::" + root + "?ref=" + hash, version, nil
-				} else {
+			if f.Update {
+				if !strings.Contains(newModule, "github.com") {
 					repo, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 						URL: strings.TrimRight(module, ".git"),
 					})
@@ -273,6 +266,13 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 						return "", "", err
 					}
 					log.Print(ref)
+				} else {
+					hash, version, err := f.GetGithubLatestHash(newModule)
+					if err != nil {
+						return "", "", err
+					}
+
+					return "git::" + root + "?ref=" + hash, version, nil
 				}
 
 				// get latest hash for root
@@ -280,7 +280,7 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 			} else {
 				if strings.Contains(newModule, "github.com") {
 					if version != "" {
-						hash, err = myFlags.GetGithubHash(
+						hash, err = f.GetGithubHash(
 							strings.TrimPrefix(newModule, "https://"),
 							version,
 						)
@@ -288,15 +288,15 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 							return "", "", err
 						}
 					} else {
-						hash, version, err = myFlags.GetGithubLatestHash(newModule)
+						hash, version, err = f.GetGithubLatestHash(newModule)
 						if err != nil {
 							return "", "", err
 						}
 					}
 					return "git::" + root + "?ref=" + hash, version, nil
-				} else {
-					log.Info().Msgf("git != github")
 				}
+
+				log.Info().Msgf("git != github")
 			}
 		}
 
@@ -321,10 +321,11 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 			newModule := "github.com" + "/" + splits[0] + "/" + "terraform" + "-" + splits[2] + "-" + splits[1] + ".git"
 
 			if subDir == "" {
-				return myFlags.UpdateGithubSource(version, newModule)
-			} else {
-				return myFlags.WithSubDir(version, newModule, subDir)
+				return f.UpdateGithubSource(version, newModule)
 			}
+
+			return f.WithSubDir(version, newModule, subDir)
+
 		}
 
 	case "github":
@@ -337,11 +338,11 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 				// e.g. jameswoolfenden/terraform-http-ip
 				newModule := root + ".git"
 
-				return myFlags.WithSubDir(version, newModule, subDir)
+				return f.WithSubDir(version, newModule, subDir)
 			}
 
 			newModule = module + ".git"
-			return myFlags.UpdateGithubSource(version, newModule)
+			return f.UpdateGithubSource(version, newModule)
 		}
 
 	case "local", "shallow", "archive", "s3", "gcs", "mercurial":
@@ -359,8 +360,8 @@ func (myFlags *Flags) UpdateSource(module string, moduleType string, version str
 	return newModule, version, nil
 }
 
-func (myFlags *Flags) WithSubDir(version string, newModule string, subdir string) (string, string, error) {
-	url, version, err := myFlags.UpdateGithubSource(version, newModule)
+func (f *Flags) WithSubDir(version string, newModule string, subdir string) (string, string, error) {
+	url, version, err := f.UpdateGithubSource(version, newModule)
 
 	urlsplit := strings.Split(url, ".git")
 	newUrl := urlsplit[0] + ".git" + "//" + subdir + urlsplit[1]
@@ -368,29 +369,29 @@ func (myFlags *Flags) WithSubDir(version string, newModule string, subdir string
 	return newUrl, version, err
 }
 
-func (myFlags *Flags) UpdateGithubSource(version string, newModule string) (string, string, error) {
+func (f *Flags) UpdateGithubSource(version string, newModule string) (string, string, error) {
 	var hash string
 
 	var err error
 
-	if myFlags.Update {
-		hash, version, err = myFlags.GetGithubLatestHash(newModule)
+	if f.Update {
+		hash, version, err = f.GetGithubLatestHash(newModule)
 		if err != nil {
 			return "", "", err
 		}
 	} else {
 		if version != "" {
-			hash, err = myFlags.GetGithubHash(newModule, version)
+			hash, err = f.GetGithubHash(newModule, version)
 			if err != nil {
 				// Tag not found — upgrade to latest available version.
 				log.Warn().Str("module", newModule).Str("version", version).Msg("version tag not found, upgrading to latest")
-				hash, version, err = myFlags.GetGithubLatestHash(newModule)
+				hash, version, err = f.GetGithubLatestHash(newModule)
 				if err != nil {
 					return "", "", err
 				}
 			}
 		} else {
-			hash, version, err = myFlags.GetGithubLatestHash(newModule)
+			hash, version, err = f.GetGithubLatestHash(newModule)
 			if err != nil {
 				return "", "", err
 			}
@@ -400,7 +401,7 @@ func (myFlags *Flags) UpdateGithubSource(version string, newModule string) (stri
 	return "git::https://" + newModule + "?ref=" + hash, version, nil
 }
 
-func (myFlags *Flags) GetGithubLatestHash(newModule string) (string, string, error) {
+func (f *Flags) GetGithubLatestHash(newModule string) (string, string, error) {
 	name := strings.Split(newModule, "github.com/")
 
 	if len(name) < 2 {
@@ -412,7 +413,7 @@ func (myFlags *Flags) GetGithubLatestHash(newModule string) (string, string, err
 		return "", "", fmt.Errorf("modules string doesnt end in .git")
 	}
 
-	payload, err := GetLatestTag(action[0], myFlags.GitHubToken)
+	payload, err := GetLatestTag(action[0], f.GitHubToken)
 
 	if err != nil {
 		return "", "", err
@@ -437,7 +438,7 @@ func (myFlags *Flags) GetGithubLatestHash(newModule string) (string, string, err
 	return hash, version, nil
 }
 
-func (myFlags *Flags) GetGithubHash(newModule string, tag string) (string, error) {
+func (f *Flags) GetGithubHash(newModule string, tag string) (string, error) {
 	var hash string
 	var url string
 	var payload interface{}
@@ -455,10 +456,10 @@ func (myFlags *Flags) GetGithubHash(newModule string, tag string) (string, error
 
 		// Use cached version if cache is available
 		var err error
-		if myFlags.Cache != nil {
-			payload, err = GetGithubBodyWithCache(myFlags.GitHubToken, url, myFlags.Cache)
+		if f.Cache != nil {
+			payload, err = GetGithubBodyWithCache(f.GitHubToken, url, f.Cache)
 		} else {
-			payload, err = GetGithubBody(myFlags.GitHubToken, url)
+			payload, err = GetGithubBody(f.GitHubToken, url)
 		}
 
 		if err != nil {
@@ -467,10 +468,10 @@ func (myFlags *Flags) GetGithubHash(newModule string, tag string) (string, error
 				tag = tag + ".0"
 				url = "https://api.github.com/repos/" + action[0] + "/git/ref/tags/" + tag
 
-				if myFlags.Cache != nil {
-					payload, err = GetGithubBodyWithCache(myFlags.GitHubToken, url, myFlags.Cache)
+				if f.Cache != nil {
+					payload, err = GetGithubBodyWithCache(f.GitHubToken, url, f.Cache)
 				} else {
-					payload, err = GetGithubBody(myFlags.GitHubToken, url)
+					payload, err = GetGithubBody(f.GitHubToken, url)
 				}
 
 				if err != nil {
@@ -522,7 +523,7 @@ func (myFlags *Flags) GetGithubHash(newModule string, tag string) (string, error
 			// Fetch the tag object to get the actual commit SHA
 			tagUrl, _ := object["url"].(string)
 			if tagUrl != "" {
-				tagPayload, err := GetGithubBody(myFlags.GitHubToken, tagUrl)
+				tagPayload, err := GetGithubBody(f.GitHubToken, tagUrl)
 				if err == nil && tagPayload != nil {
 					if tagMap, ok := tagPayload.(map[string]interface{}); ok {
 						if tagObject, ok := tagMap["object"].(map[string]interface{}); ok {

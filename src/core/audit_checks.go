@@ -37,7 +37,9 @@ var (
 	prTargetRe   = regexp.MustCompile(`(?m)^\s*pull_request_target\s*:`)
 	checkoutPRRe = regexp.MustCompile(`actions/checkout@.*\n(?:.*\n){0,6}?.*ref:\s*\$\{\{\s*github\.event\.pull_request`)
 	// ${{ github.event.* }} interpolated into a run: shell block.
-	runInjectRe = regexp.MustCompile(`(?m)^\s*run:\s*.*\$\{\{\s*github\.event\.`)
+	// Matches both the compact form ("- run: cmd") and the expanded form
+	// ("run:\n  cmd") by making the list-item dash optional.
+	runInjectRe = regexp.MustCompile(`(?m)^\s*(?:-\s+)?run:\s*.*\$\{\{\s*github\.event\.`)
 )
 
 func runChecks(d dep, workflows map[string][]byte, rs refScan, token string) []checkResult {

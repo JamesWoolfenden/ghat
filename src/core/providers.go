@@ -42,16 +42,16 @@ type ProviderInfo struct {
 }
 
 // UpdateProviders updates all Terraform providers in the directory
-func (myFlags *Flags) UpdateProviders() error {
-	terraform, err := myFlags.GetTF()
+func (f *Flags) UpdateProviders() error {
+	terraform, err := f.GetTF()
 	if err != nil {
 		return err
 	}
 
 	for _, file := range terraform {
-		err = myFlags.UpdateProvider(file)
+		err = f.UpdateProvider(file)
 		if err != nil {
-			if myFlags.ContinueOnError {
+			if f.ContinueOnError {
 				log.Warn().Err(err).Str("file", file).Msg("Failed to update providers, continuing")
 				continue
 			}
@@ -63,7 +63,7 @@ func (myFlags *Flags) UpdateProviders() error {
 }
 
 // UpdateProvider updates providers in a single Terraform file
-func (myFlags *Flags) UpdateProvider(file string) error {
+func (f *Flags) UpdateProvider(file string) error {
 	src, err := os.ReadFile(file)
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", file, err)
@@ -136,10 +136,10 @@ func (myFlags *Flags) UpdateProvider(file string) error {
 	}
 
 	newContent := string(inFile.Bytes())
-	myFlags.printDiff(file, string(src), newContent)
+	f.printDiff(file, string(src), newContent)
 
 	// Write file if not dry-run
-	if !myFlags.DryRun {
+	if !f.DryRun {
 		err = os.WriteFile(file, []byte(newContent), 0644)
 		if err != nil {
 			return fmt.Errorf("failed to write file: %w", err)
@@ -361,8 +361,8 @@ func updateProviderVersion(body *hclwrite.Body, providerName string, provider *P
 }
 
 // GetProviderFiles finds Terraform files that likely contain provider definitions
-func (myFlags *Flags) GetProviderFiles() ([]string, error) {
-	allTerraformFiles, err := myFlags.GetTF()
+func (f *Flags) GetProviderFiles() ([]string, error) {
+	allTerraformFiles, err := f.GetTF()
 	if err != nil {
 		return nil, err
 	}
@@ -384,10 +384,10 @@ func (myFlags *Flags) GetProviderFiles() ([]string, error) {
 }
 
 // ListProvidersInDirectory lists all providers found in Terraform files
-func (myFlags *Flags) ListProvidersInDirectory() ([]ProviderInfo, error) {
+func (f *Flags) ListProvidersInDirectory() ([]ProviderInfo, error) {
 	var allProviders []ProviderInfo
 
-	files, err := myFlags.GetProviderFiles()
+	files, err := f.GetProviderFiles()
 	if err != nil {
 		return nil, err
 	}

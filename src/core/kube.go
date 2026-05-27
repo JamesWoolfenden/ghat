@@ -23,20 +23,20 @@ var k8sKinds = map[string]bool{
 }
 
 // UpdateKubes pins all Kubernetes manifests and Docker Compose files found in the scanned entries.
-func (myFlags *Flags) UpdateKubes() error {
-	for _, f := range myFlags.GetKubeFiles() {
-		if err := myFlags.UpdateKube(f); err != nil {
-			if myFlags.ContinueOnError {
-				log.Warn().Err(err).Str("file", f).Msg("skipping file")
+func (f *Flags) UpdateKubes() error {
+	for _, file := range f.GetKubeFiles() {
+		if err := f.UpdateKube(file); err != nil {
+			if f.ContinueOnError {
+				log.Warn().Err(err).Str("file", file).Msg("skipping file")
 				continue
 			}
 			return err
 		}
 	}
-	for _, f := range myFlags.GetComposeFiles() {
-		if err := myFlags.UpdateCompose(f); err != nil {
-			if myFlags.ContinueOnError {
-				log.Warn().Err(err).Str("file", f).Msg("skipping file")
+	for _, file := range f.GetComposeFiles() {
+		if err := f.UpdateCompose(file); err != nil {
+			if f.ContinueOnError {
+				log.Warn().Err(err).Str("file", file).Msg("skipping file")
 				continue
 			}
 			return err
@@ -46,7 +46,7 @@ func (myFlags *Flags) UpdateKubes() error {
 }
 
 // UpdateKube pins container image references in a single Kubernetes manifest file.
-func (myFlags *Flags) UpdateKube(file string) error {
+func (f *Flags) UpdateKube(file string) error {
 	content, err := os.ReadFile(file)
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", file, err)
@@ -67,7 +67,7 @@ func (myFlags *Flags) UpdateKube(file string) error {
 			continue
 		}
 		imgRef := parseImageReference(imageStr)
-		digest, err := myFlags.getImageDigest(&imgRef)
+		digest, err := f.getImageDigest(&imgRef)
 		if err != nil {
 			log.Warn().Err(err).Str("image", imageStr).Msg("failed to get digest, skipping")
 			continue
@@ -89,9 +89,9 @@ func (myFlags *Flags) UpdateKube(file string) error {
 		}
 	}
 
-	myFlags.printDiff(file, string(content), replacement)
+	f.printDiff(file, string(content), replacement)
 
-	if !myFlags.DryRun && string(content) != replacement {
+	if !f.DryRun && string(content) != replacement {
 		if err := os.WriteFile(file, []byte(replacement), 0644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", file, err)
 		}
@@ -101,9 +101,9 @@ func (myFlags *Flags) UpdateKube(file string) error {
 }
 
 // GetKubeFiles returns all Kubernetes manifest files from the scanned entries.
-func (myFlags *Flags) GetKubeFiles() []string {
+func (f *Flags) GetKubeFiles() []string {
 	var files []string
-	for _, entry := range myFlags.Entries {
+	for _, entry := range f.Entries {
 		if isKubeManifest(entry) {
 			files = append(files, entry)
 		}
@@ -206,9 +206,9 @@ var composeFileNames = map[string]bool{
 }
 
 // GetComposeFiles returns all Docker Compose files from the scanned entries.
-func (myFlags *Flags) GetComposeFiles() []string {
+func (f *Flags) GetComposeFiles() []string {
 	var files []string
-	for _, entry := range myFlags.Entries {
+	for _, entry := range f.Entries {
 		if isComposeFile(entry) {
 			files = append(files, entry)
 		}
@@ -222,7 +222,7 @@ func isComposeFile(file string) bool {
 }
 
 // UpdateCompose pins image references in a Docker Compose file to SHA digests.
-func (myFlags *Flags) UpdateCompose(file string) error {
+func (f *Flags) UpdateCompose(file string) error {
 	content, err := os.ReadFile(file)
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", file, err)
@@ -234,16 +234,16 @@ func (myFlags *Flags) UpdateCompose(file string) error {
 		return fmt.Errorf("failed to extract images from %s: %w", file, err)
 	}
 
-	pinnedImgs := parsePinnedImages(string(content))
+	pinnedImages := parsePinnedImages(string(content))
 	replacement := string(content)
 	for _, imageStr := range images {
 		imgRef := parseImageReference(imageStr)
-		digest, err := myFlags.getImageDigest(&imgRef)
+		digest, err := f.getImageDigest(&imgRef)
 		if err != nil {
 			log.Warn().Err(err).Str("image", imageStr).Msg("failed to get digest, skipping")
 			continue
 		}
-		if cur, ok := pinnedImgs[imgRef.Tag]; ok && isTagMutation(cur, imgRef.Tag, digest, imgRef.Tag) {
+		if cur, ok := pinnedImages[imgRef.Tag]; ok && isTagMutation(cur, imgRef.Tag, digest, imgRef.Tag) {
 			log.Warn().Msgf("SUSPICIOUS: %s — digest changed from %s to %s with the same tag. "+
 				"Verify before accepting.", imageStr, cur, digest)
 		}
@@ -255,9 +255,9 @@ func (myFlags *Flags) UpdateCompose(file string) error {
 		}
 	}
 
-	myFlags.printDiff(file, string(content), replacement)
+	f.printDiff(file, string(content), replacement)
 
-	if !myFlags.DryRun && string(content) != replacement {
+	if !f.DryRun && string(content) != replacement {
 		if err := os.WriteFile(file, []byte(replacement), 0644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", file, err)
 		}

@@ -8,7 +8,7 @@ import (
 func TestParseGitmodules(t *testing.T) {
 	t.Parallel()
 
-	got, err := parseGitmodules("testdata/submodules/.gitmodules")
+	got, err := parseGitModules("testdata/submodules/.gitmodules")
 	if err != nil {
 		t.Fatalf("parseGitmodules() error = %v", err)
 	}
@@ -30,7 +30,7 @@ func TestParseGitmodules(t *testing.T) {
 func TestParseGitmodules_Missing(t *testing.T) {
 	t.Parallel()
 
-	if _, err := parseGitmodules("testdata/submodules/nope"); err == nil {
+	if _, err := parseGitModules("testdata/submodules/nope"); err == nil {
 		t.Error("parseGitmodules() expected error for missing file")
 	}
 }

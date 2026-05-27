@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -112,15 +113,15 @@ func rewritePreCommitRevs(data string, pins map[string]revPin) (string, map[stri
 	return strings.Join(lines, "\n"), seen
 }
 
-func (myFlags *Flags) UpdateHooks() error {
+func (f *Flags) UpdateHooks() error {
 	var config *string
 	var err error
 
-	if config, err = myFlags.GetHook(); err != nil {
+	if config, err = f.GetHook(); err != nil {
 		return &getHookError{err: err}
 	}
 	if config == nil {
-		log.Info().Msgf("no %s found in %s, skipping", PreCommitConfigFile, myFlags.Directory)
+		log.Info().Msgf("no %s found in %s, skipping", PreCommitConfigFile, f.Directory)
 		return nil
 	}
 
@@ -152,7 +153,7 @@ func (myFlags *Flags) UpdateHooks() error {
 
 		repoURL := item.Repo
 		newURL := ""
-		if sub, changed := myFlags.applyRepoSubstitution(repoURL); changed {
+		if sub, changed := f.applyRepoSubstitution(repoURL); changed {
 			log.Warn().Str("from", repoURL).Str("to", sub).Msg("substituting pre-commit repo")
 			newURL = sub
 			repoURL = sub
@@ -162,7 +163,7 @@ func (myFlags *Flags) UpdateHooks() error {
 			// pre-commit accepts `https://github.com/org/repo.git` but the
 			// REST API does not — /repos/org/repo.git/tags is a 404.
 			action := strings.TrimSuffix(strings.TrimPrefix(repoURL, GitHubPrefix), ".git")
-			tag, err := GetLatestTag(action, myFlags.GitHubToken)
+			tag, err := GetLatestTag(action, f.GitHubToken)
 
 			if err != nil {
 				log.Info().Msgf("failed to find %s", item.Repo)
@@ -194,9 +195,9 @@ func (myFlags *Flags) UpdateHooks() error {
 		}
 	}
 
-	myFlags.printDiff(*config, string(data), replacement)
+	f.printDiff(*config, string(data), replacement)
 
-	if !myFlags.DryRun {
+	if !f.DryRun {
 		err = os.WriteFile(*config, []byte(replacement), FilePermissions)
 		if err != nil {
 			log.Info().Msgf("failed to write %s", *config)
@@ -219,7 +220,8 @@ func getLatestTagViaGit(repoURL string) (sha, tag string, err error) {
 	cmd := exec.Command("git", "ls-remote", "--tags", "--sort=-version:refname", repoURL)
 	out, err := cmd.Output()
 	if err != nil {
-		if ee, ok := err.(*exec.ExitError); ok {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
 			return "", "", fmt.Errorf("git ls-remote %s: %w: %s", repoURL, err, strings.TrimSpace(string(ee.Stderr)))
 		}
 		return "", "", fmt.Errorf("git ls-remote %s: %w", repoURL, err)
@@ -266,24 +268,24 @@ func parseLsRemoteTags(out string) (sha, tag string, err error) {
 	return direct[tag], tag, nil
 }
 
-func (myFlags *Flags) GetHook() (*string, error) {
+func (f *Flags) GetHook() (*string, error) {
 	var err error
-	myFlags.Directory, err = filepath.Abs(myFlags.Directory)
+	f.Directory, err = filepath.Abs(f.Directory)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to make sense of directory %s", myFlags.Directory)
+		return nil, fmt.Errorf("failed to make sense of directory %s", f.Directory)
 	}
 
-	fileInfo, err := os.Stat(myFlags.Directory)
+	fileInfo, err := os.Stat(f.Directory)
 	if err != nil {
-		return nil, fmt.Errorf("please specify a valid directory: %s", myFlags.Directory)
+		return nil, fmt.Errorf("please specify a valid directory: %s", f.Directory)
 	}
 
 	if !fileInfo.IsDir() {
 		return nil, fmt.Errorf("please specify a directory")
 	}
 
-	config := filepath.Join(myFlags.Directory, PreCommitConfigFile)
+	config := filepath.Join(f.Directory, PreCommitConfigFile)
 	if _, err = os.Stat(config); err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil

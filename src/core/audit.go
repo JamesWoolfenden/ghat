@@ -206,6 +206,7 @@ func resolveRepo(modulePath string) (owner, repo string, err error) {
 	if err != nil {
 		return "", "", fmt.Errorf("vanity lookup failed: %w", err)
 	}
+
 	defer resp.Body.Close() //nolint:errcheck
 	body, _ := io.ReadAll(resp.Body)
 

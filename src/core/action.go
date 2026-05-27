@@ -28,32 +28,32 @@ const (
 	ActionAudit = "audit"
 )
 
-func (myFlags *Flags) Action(action string) error {
+func (f *Flags) Action(action string) error {
 	var err error
 
 	if action == "" {
 		return &actionIsEmptyError{}
 	}
 
-	if myFlags.File != "" {
-		if _, err := os.Stat(myFlags.File); err != nil {
+	if f.File != "" {
+		if _, err := os.Stat(f.File); err != nil {
 			pwd, err := os.Getwd()
 			if err != nil {
 				return &workingDirectoryError{pwd}
 			}
-			myFlags.File = filepath.Join(pwd, myFlags.File)
+			f.File = filepath.Join(pwd, f.File)
 		}
 
-		myFlags.Entries = append(myFlags.Entries, myFlags.File)
+		f.Entries = append(f.Entries, f.File)
 	} else {
-		myFlags.Entries, err = GetFiles(myFlags.Directory)
+		f.Entries, err = GetFiles(f.Directory)
 
 		if err != nil {
-			return &directoryReadError{myFlags.Directory}
+			return &directoryReadError{f.Directory}
 		}
 	}
 
-	err = executeAction(action, myFlags)
+	err = executeAction(action, f)
 	if err != nil {
 		return &executeActionError{action: action, err: err}
 	}
@@ -61,67 +61,67 @@ func (myFlags *Flags) Action(action string) error {
 	return nil
 }
 
-func executeAction(action string, myFlags *Flags) error {
-	if myFlags == nil {
+func executeAction(action string, f *Flags) error {
+	if f == nil {
 		return &actionIsEmptyError{}
 	}
 
-	if myFlags.File == "" && myFlags.Directory == "" {
+	if f.File == "" && f.Directory == "" {
 		return &dirAndFileEmptyError{}
 	}
 
 	switch action {
 	case ActionSwipe:
-		if myFlags.File != "" {
-			return myFlags.UpdateModule(myFlags.File)
-		} else {
-			return myFlags.UpdateModules()
+		if f.File != "" {
+			return f.UpdateModule(f.File)
 		}
+
+		return f.UpdateModules()
 	case ActionSwot:
 		{
-			if myFlags.File != "" {
-				return myFlags.UpdateGHA(myFlags.File)
-			} else {
-				return myFlags.UpdateGHAS()
+			if f.File != "" {
+				return f.UpdateGHA(f.File)
 			}
+
+			return f.UpdateGHAS()
 		}
 	case ActionSift:
 		{
-			return myFlags.UpdateHooks()
+			return f.UpdateHooks()
 		}
 	case ActionStun:
 		{
-			return myFlags.UpdateGitlab()
+			return f.UpdateGitlab()
 		}
 	case ActionShake:
 		{
-			return myFlags.UpdateProviders()
+			return f.UpdateProviders()
 		}
 	case ActionKube:
-		if myFlags.File != "" {
-			return myFlags.UpdateKube(myFlags.File)
+		if f.File != "" {
+			return f.UpdateKube(f.File)
 		}
-		return myFlags.UpdateKubes()
+		return f.UpdateKubes()
 	case ActionDock:
-		if myFlags.File != "" {
-			return myFlags.UpdateDockerfile(myFlags.File)
+		if f.File != "" {
+			return f.UpdateDockerfile(f.File)
 		}
-		return myFlags.UpdateDockerfiles()
+		return f.UpdateDockerfiles()
 	case ActionSub:
-		return myFlags.UpdateSubmodules()
+		return f.UpdateSubmodules()
 	case ActionAudit:
-		return myFlags.Audit()
+		return f.Audit()
 	case ActionSweep:
 		return errors.Join(
-			label(ActionSwot, myFlags.UpdateGHAS()),
-			label(ActionStun, myFlags.UpdateGitlab()),
-			label(ActionSift, myFlags.UpdateHooks()),
-			label(ActionSwipe, myFlags.UpdateModules()),
-			label(ActionShake, myFlags.UpdateProviders()),
-			label(ActionKube, myFlags.UpdateKubes()),
-			label(ActionDock, myFlags.UpdateDockerfiles()),
-			label(ActionSub, myFlags.UpdateSubmodules()),
-			label("cpan", myFlags.UpdateCpanfile()),
+			label(ActionSwot, f.UpdateGHAS()),
+			label(ActionStun, f.UpdateGitlab()),
+			label(ActionSift, f.UpdateHooks()),
+			label(ActionSwipe, f.UpdateModules()),
+			label(ActionShake, f.UpdateProviders()),
+			label(ActionKube, f.UpdateKubes()),
+			label(ActionDock, f.UpdateDockerfiles()),
+			label(ActionSub, f.UpdateSubmodules()),
+			label("cpan", f.UpdateCpanfile()),
 		)
 	}
 
