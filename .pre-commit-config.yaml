@@ -34,7 +34,7 @@ repos:
       rev: 745eface02aef23e168a8afb6b5737818efbea95 # v0.11.0.1
     - hooks:
         - id: markdownlint
-          exclude: src/testdata|testdata
+          exclude: src/testdata|testdata|CLAUDE.md
       repo: https://github.com/igorshubovych/markdownlint-cli
       rev: e72a3ca1632f0b11a07d171449fe447a7ff6795e # v0.48.0
     - hooks:

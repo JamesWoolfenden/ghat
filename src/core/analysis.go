@@ -60,6 +60,11 @@ type JobAnalysis struct {
 	// HasTimeout is true when timeout-minutes: is declared on the job.
 	HasTimeout     bool
 	TimeoutMinutes int
+	// IsReusable is true when the job delegates entirely to a reusable
+	// workflow via a job-level `uses:` key.  GitHub does not support
+	// timeout-minutes on such jobs; the timeout lives inside the called
+	// workflow.
+	IsReusable bool
 }
 
 var shaOnlyRe = regexp.MustCompile(`^[0-9a-f]{40}`)
@@ -174,7 +179,8 @@ type workflowJobsOnly struct {
 }
 
 type workflowJobTimeout struct {
-	TimeoutMinutes *int `yaml:"timeout-minutes"`
+	TimeoutMinutes *int   `yaml:"timeout-minutes"`
+	Uses           string `yaml:"uses"`
 }
 
 // analyzeJobs parses the workflow YAML and returns per-job metadata sorted by
@@ -187,7 +193,7 @@ func analyzeJobs(content []byte) []JobAnalysis {
 
 	jobs := make([]JobAnalysis, 0, len(wf.Jobs))
 	for name, job := range wf.Jobs {
-		j := JobAnalysis{Name: name}
+		j := JobAnalysis{Name: name, IsReusable: job.Uses != ""}
 		if job.TimeoutMinutes != nil {
 			j.HasTimeout = true
 			j.TimeoutMinutes = *job.TimeoutMinutes

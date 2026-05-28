@@ -397,6 +397,49 @@ jobs:
 	}
 }
 
+func TestAnalyzeWorkflow_Jobs_Reusable(t *testing.T) {
+	content := []byte(`
+on: [push]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  call-workflow:
+    uses: JamesWoolfenden/.github/.github/workflows/terraform-verify-gcp.yml@main
+    with:
+      service_account: sa@project.iam.gserviceaccount.com
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+`)
+	a := AnalyzeWorkflow("test.yml", content)
+	if len(a.Jobs) != 2 {
+		t.Fatalf("expected 2 jobs, got %d", len(a.Jobs))
+	}
+
+	// Jobs are sorted: "build" < "call-workflow"
+	build := a.Jobs[0]
+	if build.Name != "build" {
+		t.Errorf("jobs[0].Name = %q, want build", build.Name)
+	}
+	if build.IsReusable {
+		t.Error("build job should have IsReusable = false")
+	}
+
+	call := a.Jobs[1]
+	if call.Name != "call-workflow" {
+		t.Errorf("jobs[1].Name = %q, want call-workflow", call.Name)
+	}
+	if !call.IsReusable {
+		t.Error("call-workflow job should have IsReusable = true")
+	}
+	if call.HasTimeout {
+		t.Error("reusable workflow call job should have HasTimeout = false (timeout-minutes not supported)")
+	}
+}
+
 func TestAnalyzeWorkflow_Jobs_Sorted(t *testing.T) {
 	content := []byte(`
 on: [push]
