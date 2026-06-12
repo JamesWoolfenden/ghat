@@ -2,6 +2,7 @@ package core
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,7 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const GitmodulesFile = ".gitmodules"
+const GitModulesFile = ".gitmodules"
 
 type Submodule struct {
 	Name           string
@@ -21,10 +22,10 @@ type Submodule struct {
 	SuppressReason string
 }
 
-// parseGitmodules reads a .gitmodules file. The format is git-config INI but
+// parseGitModules reads a .gitmodules file. The format is git-config INI but
 // only `path` and `url` matter here, so a tiny scanner is enough and keeps
 // the read side exec-free (and unit-testable without a git binary).
-func parseGitmodules(file string) ([]Submodule, error) {
+func parseGitModules(file string) ([]Submodule, error) {
 	f, err := os.Open(file) // #nosec G304 -- path is <directory>/.gitmodules, directory is user-supplied like every other command
 	if err != nil {
 		return nil, err
@@ -104,7 +105,8 @@ func setGitlinkSHA(repoDir, path, sha string) error {
 }
 
 func gitErr(op string, err error) error {
-	if ee, ok := err.(*exec.ExitError); ok {
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
 		return fmt.Errorf("git %s: %w: %s", op, err, strings.TrimSpace(string(ee.Stderr)))
 	}
 	return fmt.Errorf("git %s: %w", op, err)
@@ -113,10 +115,10 @@ func gitErr(op string, err error) error {
 // latestSubmoduleSHA resolves the newest tag for a submodule URL and returns
 // the commit it points at. GitHub goes via the REST API (so --token and the
 // cache apply); everything else falls back to `git ls-remote` like sift does.
-func (myFlags *Flags) latestSubmoduleSHA(url string) (sha, tag string, err error) {
+func (f *Flags) latestSubmoduleSHA(url string) (sha, tag string, err error) {
 	if action, ok := strings.CutPrefix(url, GitHubPrefix); ok {
 		action = strings.TrimSuffix(action, ".git")
-		t, err := GetLatestTag(action, myFlags.GitHubToken)
+		t, err := GetLatestTag(action, f.GitHubToken)
 		if err != nil {
 			return "", "", err
 		}
@@ -130,17 +132,17 @@ func (myFlags *Flags) latestSubmoduleSHA(url string) (sha, tag string, err error
 	return getLatestTagViaGit(url)
 }
 
-func (myFlags *Flags) UpdateSubmodules() error {
-	dir, err := filepath.Abs(myFlags.Directory)
+func (f *Flags) UpdateSubmodules() error {
+	dir, err := filepath.Abs(f.Directory)
 	if err != nil {
-		return &absolutePathError{directory: myFlags.Directory, err: err}
+		return &absolutePathError{directory: f.Directory, err: err}
 	}
 
-	config := filepath.Join(dir, GitmodulesFile)
-	subs, err := parseGitmodules(config)
+	config := filepath.Join(dir, GitModulesFile)
+	subs, err := parseGitModules(config)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Info().Msgf("no %s found in %s, skipping", GitmodulesFile, dir)
+			log.Info().Msgf("no %s found in %s, skipping", GitModulesFile, dir)
 			return nil
 		}
 		return &readConfigError{config: &config, err: err}
@@ -163,7 +165,7 @@ func (myFlags *Flags) UpdateSubmodules() error {
 			continue
 		}
 
-		latest, tag, err := myFlags.latestSubmoduleSHA(s.URL)
+		latest, tag, err := f.latestSubmoduleSHA(s.URL)
 		if err != nil {
 			log.Info().Err(err).Msgf("failed to resolve %s", s.URL)
 			continue
@@ -177,11 +179,11 @@ func (myFlags *Flags) UpdateSubmodules() error {
 		fmt.Printf("~ %-30s %s -> %s (%s)\n", s.Path, current[:12], latest[:12], tag)
 		changed++
 
-		if myFlags.DryRun {
+		if f.DryRun {
 			continue
 		}
 		if err := setGitlinkSHA(dir, s.Path, latest); err != nil {
-			if myFlags.ContinueOnError {
+			if f.ContinueOnError {
 				log.Warn().Err(err).Msgf("failed to pin %s", s.Path)
 				continue
 			}
@@ -189,7 +191,7 @@ func (myFlags *Flags) UpdateSubmodules() error {
 		}
 	}
 
-	if myFlags.DryRun && changed > 0 {
+	if f.DryRun && changed > 0 {
 		fmt.Printf("\ndry-run: %d submodule(s) would be re-pinned\n", changed)
 	}
 	return nil

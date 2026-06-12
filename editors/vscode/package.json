@@ -1,0 +1,59 @@
+{
+  "activationEvents": [
+    "workspaceContains:**/.github/workflows/*",
+    "workspaceContains:**/.gitlab-ci.yml",
+    "workspaceContains:**/.pre-commit-config.yaml",
+    "onLanguage:dockerfile"
+  ],
+  "categories": [
+    "Linters"
+  ],
+  "contributes": {
+    "configuration": {
+      "properties": {
+        "ghat.githubToken": {
+          "default": "",
+          "markdownDescription": "GitHub PAT for the *Pin to SHA* / *Pin to digest (ghcr.io)* code actions. Falls back to `$GITHUB_TOKEN`.",
+          "type": "string"
+        },
+        "ghat.path": {
+          "default": "ghat",
+          "description": "Path to the ghat binary. Defaults to 'ghat' on PATH.",
+          "type": "string"
+        }
+      },
+      "title": "ghat"
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "description": "Pin GitHub Actions, GitLab CI images, pre-commit revs and Dockerfile FROMs to immutable SHAs/digests via the ghat LSP",
+  "devDependencies": {
+    "@vscode/vsce": "^3.0.0"
+  },
+  "displayName": "ghat \u2014 CI Supply-Chain Linter",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "keywords": [
+    "github actions",
+    "gitlab ci",
+    "pre-commit",
+    "dockerfile",
+    "supply chain",
+    "pinning"
+  ],
+  "license": "Apache-2.0",
+  "main": "./extension.js",
+  "name": "ghat",
+  "publisher": "jameswoolfenden",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JamesWoolfenden/ghat"
+  },
+  "scripts": {
+    "package": "vsce package --allow-missing-repository"
+  },
+  "version": "0.1.0"
+}

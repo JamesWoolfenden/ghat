@@ -80,9 +80,9 @@ func GetFiles(dir string) ([]string, error) {
 	return ParsedEntries, nil
 }
 
-func (myFlags *Flags) UpdateGHAS() error {
-	for _, gha := range myFlags.GetGHA() {
-		if err := myFlags.UpdateGHA(gha); err != nil {
+func (f *Flags) UpdateGHAS() error {
+	for _, gha := range f.GetGHA() {
+		if err := f.UpdateGHA(gha); err != nil {
 			return &ghaUpdateError{gha: gha, err: err}
 		}
 	}
@@ -91,10 +91,10 @@ func (myFlags *Flags) UpdateGHAS() error {
 }
 
 // GetGHA gets all the actions in a directory
-func (myFlags *Flags) GetGHA() []string {
+func (f *Flags) GetGHA() []string {
 	var ghat []string
 
-	for _, match := range myFlags.Entries {
+	for _, match := range f.Entries {
 		match, _ = filepath.Abs(match)
 		entry, _ := os.Stat(match)
 		if entry == nil || entry.IsDir() {
@@ -114,7 +114,7 @@ func (myFlags *Flags) GetGHA() []string {
 }
 
 // UpdateGHA updates am action with latest dependencies
-func (myFlags *Flags) UpdateGHA(file string) error {
+func (f *Flags) UpdateGHA(file string) error {
 	buffer, err := os.ReadFile(file)
 	if err != nil {
 		return &ghaFileError{file}
@@ -170,7 +170,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		if len(action) > 1 {
 			originalRef = action[1]
 		}
-		if sub, changed := myFlags.applySubstitution(action[0]); changed {
+		if sub, changed := f.applySubstitution(action[0]); changed {
 			log.Warn().Str("from", action[0]).Str("to", sub).Msg("substituting action")
 			action[0] = sub
 			// Clear existing pin — must re-resolve against the new target.
@@ -192,7 +192,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		}
 
 		// --pin-only: resolve the SHA for the current tag without upgrading.
-		if myFlags.PinOnly {
+		if f.PinOnly {
 			currentRef := action[1]
 			if currentTag != "" {
 				currentRef = currentTag
@@ -204,7 +204,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			if currentRef == "" {
 				continue
 			}
-			sha, err := resolveTagSHA(action[0], currentRef, myFlags.GitHubToken)
+			sha, err := resolveTagSHA(action[0], currentRef, f.GitHubToken)
 			if err != nil {
 				log.Warn().Msgf("failed to retrieve commit hash for %s@%s: %s", action[0], currentRef, err)
 				continue
@@ -218,12 +218,12 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			continue
 		}
 
-		body, err := getPayload(action[0], myFlags.GitHubToken, myFlags.Days)
+		body, err := getPayload(action[0], f.GitHubToken, f.Days)
 
 		if err != nil {
-			body, err = getPayload(ownerRepo(action[0]), myFlags.GitHubToken, myFlags.Days)
+			body, err = getPayload(ownerRepo(action[0]), f.GitHubToken, f.Days)
 			if err != nil {
-				if myFlags.ContinueOnError {
+				if f.ContinueOnError {
 					log.Info().Err(err).Msgf("skipping action %s", action[0])
 					continue
 				}
@@ -240,7 +240,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		if msg["tag_name"] != nil {
 			tag := msg["tag_name"].(string)
 
-			sha, err := resolveTagSHA(action[0], tag, myFlags.GitHubToken)
+			sha, err := resolveTagSHA(action[0], tag, f.GitHubToken)
 			if err != nil {
 				log.Warn().Msgf("failed to retrieve commit hash for %s@%s: %s", action[0], tag, err)
 				continue
@@ -249,7 +249,7 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 			if isTagMutation(currentSHA, currentTag, sha, tag) {
 				log.Warn().Msgf("SUSPICIOUS: %s@%s — SHA changed from %s to %s with the same tag%s. "+
 					"The tag may have been moved to a different commit. Verify this is intentional before accepting.",
-					action[0], tag, currentSHA, sha, commitVerification(ownerRepo(action[0]), sha, myFlags.GitHubToken))
+					action[0], tag, currentSHA, sha, commitVerification(ownerRepo(action[0]), sha, f.GitHubToken))
 			}
 
 			// Don't downgrade: if the current pin is semver-higher than what the
@@ -277,29 +277,33 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 		}
 	}
 
-	if upgraded, upgradeErr := myFlags.applyInputUpgrades(replacement); upgradeErr == nil {
+	if upgraded, upgradeErr := f.applyInputUpgrades(replacement); upgradeErr == nil {
 		replacement = upgraded
 	} else {
 		log.Warn().Err(upgradeErr).Msg("input upgrades failed, skipping")
 	}
 
 	// Pin images in container: and services: blocks.
-	pinnedImgs := parsePinnedImages(string(buffer))
+	pinnedImages := parsePinnedImages(string(buffer))
 	containerImages, err := extractGHAContainerImages(string(buffer))
+
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to extract container/service images from workflow")
 	}
+
 	for _, imageStr := range containerImages {
 		imgRef := parseImageReference(imageStr)
-		digest, err := myFlags.getImageDigest(&imgRef)
+		digest, err := f.getImageDigest(&imgRef)
 		if err != nil {
 			log.Warn().Err(err).Str("image", imageStr).Msg("failed to get digest for container image, skipping")
 			continue
 		}
-		if cur, ok := pinnedImgs[imgRef.Tag]; ok && isTagMutation(cur, imgRef.Tag, digest, imgRef.Tag) {
+
+		if cur, ok := pinnedImages[imgRef.Tag]; ok && isTagMutation(cur, imgRef.Tag, digest, imgRef.Tag) {
 			log.Warn().Msgf("SUSPICIOUS: %s — digest changed from %s to %s with the same tag. "+
 				"The image tag may have been repointed. Verify before accepting.", imageStr, cur, digest)
 		}
+
 		if at := strings.Index(imageStr, "@sha256:"); at >= 0 {
 			replacement = strings.ReplaceAll(replacement, imageStr, imageStr[:at]+"@"+digest)
 		} else {
@@ -309,9 +313,9 @@ func (myFlags *Flags) UpdateGHA(file string) error {
 
 	replacement = ensurePermissions(file, replacement)
 
-	myFlags.printDiff(file, string(buffer), replacement)
+	f.printDiff(file, string(buffer), replacement)
 
-	if !myFlags.DryRun {
+	if !f.DryRun {
 		newBuffer := []byte(replacement)
 
 		err = os.WriteFile(file, newBuffer, 0644)
@@ -408,8 +412,8 @@ func extractGHAContainerImages(content string) ([]string, error) {
 // applyInputUpgrades scans workflow content for action `with:` inputs that need
 // upgrading when the action's major version changes (e.g. golangci-lint-action v7+
 // requires golangci-lint v2+). Rules are loaded from substitutions.yml / ~/.ghat.yml.
-func (myFlags *Flags) applyInputUpgrades(content string) (string, error) {
-	if len(myFlags.InputUpgrades) == 0 {
+func (f *Flags) applyInputUpgrades(content string) (string, error) {
+	if len(f.InputUpgrades) == 0 {
 		return content, nil
 	}
 
@@ -421,7 +425,7 @@ func (myFlags *Flags) applyInputUpgrades(content string) (string, error) {
 		to      string
 	}
 	var rules []resolvedRule
-	for _, u := range myFlags.InputUpgrades {
+	for _, u := range f.InputUpgrades {
 		pat, err := regexp.Compile(u.FromPattern)
 		if err != nil {
 			log.Warn().Err(err).Str("pattern", u.FromPattern).Msg("invalid input_upgrade from_pattern, skipping")
@@ -430,7 +434,7 @@ func (myFlags *Flags) applyInputUpgrades(content string) (string, error) {
 		to := u.To
 		if strings.HasPrefix(to, "latest:") {
 			repo := strings.TrimPrefix(to, "latest:")
-			body, err := GetLatestRelease(repo, myFlags.GitHubToken)
+			body, err := GetLatestRelease(repo, f.GitHubToken)
 			if err != nil {
 				log.Warn().Err(err).Str("repo", repo).Msg("failed to fetch latest release for input upgrade, skipping")
 				continue
@@ -746,11 +750,13 @@ func GetGithubBody(token, url string) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close() //nolint:errcheck
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body) //nolint:errcheck
 
 	// If the token is invalid, retry without it rather than failing hard.
 	if resp.StatusCode == 401 && token != "" {
-		resp.Body.Close() //nolint:errcheck
+		_ = resp.Body.Close() //nolint:errcheck
 		return GetGithubBody("", url)
 	}
 
@@ -797,7 +803,9 @@ func getPagedGithubBody(token, url string) (interface{}, string, error) {
 	if err != nil {
 		return nil, "", fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close() //nolint:errcheck
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body) //nolint:errcheck
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -852,7 +860,9 @@ func sendGithubBody(token, method, url string, payload []byte) (interface{}, err
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close() //nolint:errcheck
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body) //nolint:errcheck
 
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {

@@ -21,11 +21,11 @@ var pinnedFromRe = regexp.MustCompile(`\S+:(\S+?)@(sha256:[0-9a-f]+)`)
 var argDefaultRe = regexp.MustCompile(`(?i)^ARG\s+(\w+)=(\S+)`)
 
 // UpdateDockerfiles pins FROM image references in all Dockerfiles found in the entries.
-func (myFlags *Flags) UpdateDockerfiles() error {
-	for _, f := range myFlags.GetDockerfiles() {
-		if err := myFlags.UpdateDockerfile(f); err != nil {
-			if myFlags.ContinueOnError {
-				log.Warn().Err(err).Str("file", f).Msg("skipping file")
+func (f *Flags) UpdateDockerfiles() error {
+	for _, file := range f.GetDockerfiles() {
+		if err := f.UpdateDockerfile(file); err != nil {
+			if f.ContinueOnError {
+				log.Warn().Err(err).Str("file", file).Msg("skipping file")
 				continue
 			}
 			return err
@@ -36,7 +36,7 @@ func (myFlags *Flags) UpdateDockerfiles() error {
 
 // UpdateDockerfile pins FROM image references in a single Dockerfile to SHA digests.
 // Output format: FROM image:tag@sha256:digest  (valid Docker syntax, tag preserved inline).
-func (myFlags *Flags) UpdateDockerfile(file string) error {
+func (f *Flags) UpdateDockerfile(file string) error {
 	content, err := os.ReadFile(file)
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", file, err)
@@ -90,7 +90,7 @@ func (myFlags *Flags) UpdateDockerfile(file string) error {
 		}
 
 		imgRef := parseImageReference(bareResolved)
-		digest, err := myFlags.getImageDigest(&imgRef)
+		digest, err := f.getImageDigest(&imgRef)
 		if err != nil {
 			log.Warn().Err(err).Str("image", bareResolved).Msg("failed to get digest, skipping")
 			continue
@@ -114,9 +114,9 @@ func (myFlags *Flags) UpdateDockerfile(file string) error {
 
 	replacement := strings.Join(lines, "\n")
 
-	myFlags.printDiff(file, string(content), replacement)
+	f.printDiff(file, string(content), replacement)
 
-	if !myFlags.DryRun && string(content) != replacement {
+	if !f.DryRun && string(content) != replacement {
 		if err := os.WriteFile(file, []byte(replacement), 0644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", file, err)
 		}
@@ -125,9 +125,9 @@ func (myFlags *Flags) UpdateDockerfile(file string) error {
 }
 
 // GetDockerfiles returns all Dockerfile paths from the scanned entries.
-func (myFlags *Flags) GetDockerfiles() []string {
+func (f *Flags) GetDockerfiles() []string {
 	var files []string
-	for _, entry := range myFlags.Entries {
+	for _, entry := range f.Entries {
 		if isDockerfile(entry) {
 			files = append(files, entry)
 		}

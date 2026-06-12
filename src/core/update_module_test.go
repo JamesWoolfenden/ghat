@@ -196,7 +196,7 @@ func TestUpdateModule_UpdatesModuleSource(t *testing.T) {
 }
 
 func TestUpdateModule_PreservesIndentation(t *testing.T) {
-	// This test doesn't need real GitHub API calls - test the HCL behavior directly
+	// This test doesn't need real GitHub API calls - test the HCL behaviour directly
 	input := `module "example" {
   source  = "old-source"
   version = "1.0.0"
@@ -371,7 +371,7 @@ func abs(n int) int {
 // that doesn't require all the dependencies to be working
 // THIS IS THE MAIN TEST - Run this one!
 func TestUpdateModule_PreservesCommentsAndWhitespace_Minimal(t *testing.T) {
-	// This test directly tests the hclwrite behavior without calling UpdateModule
+	// This test directly tests the hclwrite behaviour without calling UpdateModule
 	// It verifies that our fix (not creating a new empty file) works correctly
 
 	input := `# This is a comment at the top

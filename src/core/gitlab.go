@@ -57,20 +57,20 @@ type ImageReference struct {
 	TagImplicit bool // true when no tag was written in the source (defaulted to latest)
 }
 
-func (myFlags *Flags) UpdateGitlab() error {
-	if myFlags.Directory == "" {
-		return &directoryReadError{directory: myFlags.Directory}
+func (f *Flags) UpdateGitlab() error {
+	if f.Directory == "" {
+		return &directoryReadError{directory: f.Directory}
 	}
 
-	projectFile := path.Join(myFlags.Directory, gitlab)
+	projectFile := path.Join(f.Directory, gitlab)
 
 	project, err := os.ReadFile(projectFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Info().Msgf("no %s found in %s, skipping", gitlab, myFlags.Directory)
+			log.Info().Msgf("no %s found in %s, skipping", gitlab, f.Directory)
 			return nil
 		}
-		return &gitlabProjectError{directory: myFlags.Directory}
+		return &gitlabProjectError{directory: f.Directory}
 	}
 
 	if len(project) == 0 {
@@ -81,7 +81,7 @@ func (myFlags *Flags) UpdateGitlab() error {
 
 	fileInfo, err := os.Stat(projectFile)
 	if err != nil {
-		return &gitlabProjectError{directory: myFlags.Directory}
+		return &gitlabProjectError{directory: f.Directory}
 	}
 
 	if fileInfo.Size() == 0 {
@@ -121,7 +121,7 @@ func (myFlags *Flags) UpdateGitlab() error {
 		log.Info().Str("image", imageStr).Msg("Processing image")
 
 		// Get the digest for the image
-		digest, err := myFlags.getImageDigest(&imgRef)
+		digest, err := f.getImageDigest(&imgRef)
 		if err != nil {
 			log.Warn().Err(err).Str("image", imageStr).Msg("Failed to get digest, skipping")
 			continue
@@ -147,10 +147,10 @@ func (myFlags *Flags) UpdateGitlab() error {
 		}
 	}
 
-	myFlags.printDiff(projectFile, string(project), replacement)
+	f.printDiff(projectFile, string(project), replacement)
 
 	// Write file if not dry-run
-	if !myFlags.DryRun && string(project) != replacement {
+	if !f.DryRun && string(project) != replacement {
 		err = os.WriteFile(projectFile, []byte(replacement), 0644)
 		if err != nil {
 			return fmt.Errorf("failed to write GitLab CI file: %w", err)
@@ -195,8 +195,8 @@ func findImages(data interface{}, images *[]string) {
 					}
 				case map[string]interface{}:
 					// Object format: image: { name: "nginx:latest" }
-					if name, ok := img["name"].(string); ok && name != "" && !strings.HasPrefix(name, "$") {
-						*images = append(*images, name)
+					if named, ok := img["name"].(string); ok && named != "" && !strings.HasPrefix(named, "$") {
+						*images = append(*images, named)
 					}
 				}
 			} else {
@@ -270,7 +270,7 @@ func parseImageReference(image string) ImageReference {
 // bestSemanticTag queries the registry for all tags on an image and returns
 // the highest stable semver tag. Falls back to "latest" if none are found.
 // Only used when the source image had no explicit tag (e.g. FROM alpine).
-func (myFlags *Flags) bestSemanticTag(ref ImageReference) string {
+func (f *Flags) bestSemanticTag(ref ImageReference) string {
 	repoStr := ref.Registry + "/" + ref.Repository
 	repo, err := name.NewRepository(repoStr)
 	if err != nil {
@@ -307,9 +307,9 @@ func (myFlags *Flags) bestSemanticTag(ref ImageReference) string {
 // `docker login` against (notably internal Artifactory). It also sends the
 // full Accept header set (manifest list / OCI index), so multi-arch images
 // resolve to the index digest rather than a single-arch manifest.
-func (myFlags *Flags) getImageDigest(ref *ImageReference) (string, error) {
+func (f *Flags) getImageDigest(ref *ImageReference) (string, error) {
 	if ref.TagImplicit {
-		ref.Tag = myFlags.bestSemanticTag(*ref)
+		ref.Tag = f.bestSemanticTag(*ref)
 		log.Info().Str("image", ref.Repository).Str("tag", ref.Tag).Msg("resolved implicit tag to best semantic version")
 	}
 
@@ -325,8 +325,8 @@ func (myFlags *Flags) getImageDigest(ref *ImageReference) (string, error) {
 	opts := []remote.Option{remote.WithAuthFromKeychain(authn.DefaultKeychain)}
 	// Preserve the existing --github-token flag for ghcr.io so callers without
 	// a local docker login keep working.
-	if myFlags.GitHubToken != "" && parsed.Context().RegistryStr() == "ghcr.io" {
-		opts = []remote.Option{remote.WithAuth(&authn.Bearer{Token: myFlags.GitHubToken})}
+	if f.GitHubToken != "" && parsed.Context().RegistryStr() == "ghcr.io" {
+		opts = []remote.Option{remote.WithAuth(&authn.Bearer{Token: f.GitHubToken})}
 	}
 
 	desc, err := remote.Head(parsed, opts...)
@@ -376,11 +376,11 @@ func parsePinnedImages(content string) map[string]string {
 }
 
 // GetGitlabFiles finds GitLab CI files in the entries
-func (myFlags *Flags) GetGitlabFiles() []string {
+func (f *Flags) GetGitlabFiles() []string {
 	var gitlabFiles []string
 
 	// Check if there's a .gitlab-ci.yml in the directory
-	gitlabFile := path.Join(myFlags.Directory, gitlab)
+	gitlabFile := path.Join(f.Directory, gitlab)
 	if _, err := os.Stat(gitlabFile); err == nil {
 		gitlabFiles = append(gitlabFiles, gitlabFile)
 		return gitlabFiles
@@ -388,7 +388,7 @@ func (myFlags *Flags) GetGitlabFiles() []string {
 
 	// Also check in entries
 	pattern := regexp.MustCompile(`\.gitlab-ci\.ya?ml$`)
-	for _, entry := range myFlags.Entries {
+	for _, entry := range f.Entries {
 		if pattern.MatchString(entry) {
 			gitlabFiles = append(gitlabFiles, entry)
 		}

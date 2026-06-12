@@ -4,7 +4,7 @@ ghat.exe
 terraform.tfstate
 .terraform.lock.hcl
 .vscode/
-ghat
+/ghat
 .pytest_cache/
 *.backup
 __debug_bin.exe
@@ -22,4 +22,7 @@ tf.plan
 tf.json
 ghat-test
 dist/
+bin/
+editors/vscode/node_modules/
+editors/vscode/*.vsix
 .claude/

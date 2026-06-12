@@ -85,6 +85,7 @@ func getMetaCPANVersion(module string) (string, error) {
 	if err != nil {
 		return "", &httpGetError{err: err}
 	}
+
 	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
@@ -104,10 +105,10 @@ func getMetaCPANVersion(module string) (string, error) {
 	return payload.Version.String(), nil
 }
 
-func (myFlags *Flags) UpdateCpanfile() error {
-	dir, err := filepath.Abs(myFlags.Directory)
+func (f *Flags) UpdateCpanfile() error {
+	dir, err := filepath.Abs(f.Directory)
 	if err != nil {
-		return &absolutePathError{directory: myFlags.Directory, err: err}
+		return &absolutePathError{directory: f.Directory, err: err}
 	}
 
 	config := filepath.Join(dir, CpanfileName)
@@ -133,7 +134,7 @@ func (myFlags *Flags) UpdateCpanfile() error {
 		}
 		ver, err := getMetaCPANVersion(d.module)
 		if err != nil {
-			if myFlags.ContinueOnError {
+			if f.ContinueOnError {
 				log.Warn().Err(err).Msgf("failed to resolve %s", d.module)
 				continue
 			}
@@ -145,9 +146,9 @@ func (myFlags *Flags) UpdateCpanfile() error {
 
 	replacement := rewriteCpanfile(string(data), pins)
 
-	myFlags.printDiff(config, string(data), replacement)
+	f.printDiff(config, string(data), replacement)
 
-	if !myFlags.DryRun {
+	if !f.DryRun {
 		if err := os.WriteFile(config, []byte(replacement), FilePermissions); err != nil {
 			return fmt.Errorf("failed to write %s: %w", config, err)
 		}

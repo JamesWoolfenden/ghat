@@ -28,6 +28,11 @@ type Flags struct {
 	PinOnly       bool // pin current tag to SHA without checking for upgrades
 	Substitutions []Substitution
 	InputUpgrades []InputUpgrade
+
+	OpenPR    bool
+	AutoMerge bool
+	Branch    string
+	PRToken   string
 }
 
 // NewFlags creates a new Flags instance with default cache settings

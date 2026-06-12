@@ -1,0 +1,3 @@
+node_modules/@vscode/vsce/**
+node_modules/.bin/**
+*.vsix

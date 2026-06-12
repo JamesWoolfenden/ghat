@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jameswoolfenden/ghat/src/core"
+	"github.com/jameswoolfenden/ghat/src/lsp"
 	"github.com/jameswoolfenden/ghat/src/version"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -31,12 +32,14 @@ func main() {
 			},
 		},
 		Before: func(c *cli.Context) error {
-			if !c.Bool("quiet") {
-				fmt.Println(banner.Inline("ghat"))
-				fmt.Println("version:", version.Version)
-			} else {
+			// The lsp subcommand speaks JSON-RPC over stdout; any banner
+			// or log output there would corrupt the stream.
+			if c.Bool("quiet") || c.Args().First() == "lsp" {
 				log.Logger = zerolog.Nop()
+				return nil
 			}
+			fmt.Println(banner.Inline("ghat"))
+			fmt.Println("version:", version.Version)
 			return nil
 		},
 		Commands: []*cli.Command{
@@ -180,6 +183,7 @@ func main() {
 			sweepCmd,
 			auditCmd,
 			orgCmd,
+			lspCmd,
 		},
 		Name:     "ghat",
 		Usage:    "Update GHA dependencies",
@@ -244,6 +248,24 @@ var swotCmd = &cli.Command{
 			Name:  "pin-only",
 			Usage: "pin current tag to SHA without checking for upgrades",
 		},
+		&cli.BoolFlag{
+			Name:  "pr",
+			Usage: "commit changes to a branch and open a pull request; exits non-zero if changes were needed",
+		},
+		&cli.BoolFlag{
+			Name:  "auto-merge",
+			Usage: "enable auto-merge on the created PR (requires repo setting to be on)",
+		},
+		&cli.StringFlag{
+			Name:  "branch",
+			Usage: "branch name for the pinning PR",
+			Value: "ghat/pin-dependencies",
+		},
+		&cli.StringFlag{
+			Name:     "pr-token",
+			Usage:    "PAT for creating PRs (defaults to $GITHUB_TOKEN)",
+			Category: "authentication",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		myFlags := core.NewFlags()
@@ -281,7 +303,37 @@ var swotCmd = &cli.Command{
 			}
 		}()
 
-		return myFlags.Action("swot")
+		if err := myFlags.Action("swot"); err != nil {
+			return err
+		}
+
+		if !c.Bool("pr") {
+			return nil
+		}
+
+		myFlags.OpenPR = true
+		myFlags.AutoMerge = c.Bool("auto-merge")
+		myFlags.Branch = c.String("branch")
+		myFlags.PRToken = c.String("pr-token")
+		if myFlags.PRToken == "" {
+			myFlags.PRToken = myFlags.GitHubToken
+		}
+
+		dir := myFlags.Directory
+		if dir == "" {
+			dir = "."
+		}
+		prURL, changed, err := myFlags.CreateLocalPR(dir)
+		if err != nil {
+			return fmt.Errorf("PR creation failed: %w", err)
+		}
+		if changed {
+			if prURL != "" {
+				return fmt.Errorf("changes pinned — PR: %s", prURL)
+			}
+			return fmt.Errorf("changes required — re-run with --pr to open a fix PR")
+		}
+		return nil
 	},
 }
 
@@ -575,6 +627,24 @@ var sweepCmd = &cli.Command{
 			Name:  "pin-only",
 			Usage: "pin current tag to SHA without checking for upgrades",
 		},
+		&cli.BoolFlag{
+			Name:  "pr",
+			Usage: "commit changes to a branch and open a pull request; exits non-zero if changes were needed",
+		},
+		&cli.BoolFlag{
+			Name:  "auto-merge",
+			Usage: "enable auto-merge on the created PR (requires repo setting to be on)",
+		},
+		&cli.StringFlag{
+			Name:  "branch",
+			Usage: "branch name for the pinning PR",
+			Value: "ghat/pin-dependencies",
+		},
+		&cli.StringFlag{
+			Name:     "pr-token",
+			Usage:    "PAT for creating PRs (defaults to $GITHUB_TOKEN)",
+			Category: "authentication",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		myFlags := core.NewFlags()
@@ -595,7 +665,37 @@ var sweepCmd = &cli.Command{
 			return fmt.Errorf("failed to initialize cache: %w", err)
 		}
 
-		return myFlags.Action(core.ActionSweep)
+		if err := myFlags.Action(core.ActionSweep); err != nil {
+			return err
+		}
+
+		if !c.Bool("pr") {
+			return nil
+		}
+
+		myFlags.OpenPR = true
+		myFlags.AutoMerge = c.Bool("auto-merge")
+		myFlags.Branch = c.String("branch")
+		myFlags.PRToken = c.String("pr-token")
+		if myFlags.PRToken == "" {
+			myFlags.PRToken = myFlags.GitHubToken
+		}
+
+		dir := myFlags.Directory
+		if dir == "" {
+			dir = "."
+		}
+		prURL, changed, err := myFlags.CreateLocalPR(dir)
+		if err != nil {
+			return fmt.Errorf("PR creation failed: %w", err)
+		}
+		if changed {
+			if prURL != "" {
+				return fmt.Errorf("changes pinned — PR: %s", prURL)
+			}
+			return fmt.Errorf("changes required — re-run with --pr to open a fix PR")
+		}
+		return nil
 	},
 }
 
@@ -776,6 +876,24 @@ var orgCmd = &cli.Command{
 		fmt.Printf("\n%d pinned, %d already clean, %d PR already open, %d errors\n",
 			pinned, already, prOpen, errors)
 		return nil
+	},
+}
+
+var lspCmd = &cli.Command{
+	Name:      "lsp",
+	Usage:     "start ghat as a Language Server (stdio) for GHA, GitLab CI, pre-commit and Dockerfiles",
+	UsageText: "ghat lsp",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "token",
+			Aliases:  []string{"t"},
+			Usage:    "GitHub PAT for the pin-to-SHA code action",
+			Category: "authentication",
+			EnvVars:  []string{"GITHUB_TOKEN", "GITHUB_API"},
+		},
+	},
+	Action: func(c *cli.Context) error {
+		return lsp.New(c.String("token")).Run()
 	},
 }
 

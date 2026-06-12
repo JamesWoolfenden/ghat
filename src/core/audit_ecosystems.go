@@ -204,12 +204,12 @@ func pyprojectDeps(body string) []string {
 	}
 	body = body[j:]
 	open := strings.Index(body, "[")
-	close := strings.Index(body, "]")
-	if open < 0 || close < open {
+	closer := strings.Index(body, "]")
+	if open < 0 || closer < open {
 		return nil
 	}
 	var out []string
-	for _, m := range tomlArrayRe.FindAllStringSubmatch(body[open:close], -1) {
+	for _, m := range tomlArrayRe.FindAllStringSubmatch(body[open:closer], -1) {
 		out = append(out, m[1])
 	}
 	return out
