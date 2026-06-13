@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jameswoolfenden/ghat/src/core"
+	"github.com/jameswoolfenden/ghat/src/lsp"
 	"github.com/jameswoolfenden/ghat/src/version"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -180,6 +181,7 @@ func main() {
 			sweepCmd,
 			auditCmd,
 			orgCmd,
+			lspCmd,
 		},
 		Name:     "ghat",
 		Usage:    "Update GHA dependencies",
@@ -881,6 +883,42 @@ func githubToken() string {
 		return t
 	}
 	return os.Getenv("GITHUB_API")
+}
+
+var lspCmd = &cli.Command{
+	Name:      "lsp",
+	Usage:     "start the ghat Language Server Protocol server (stdio)",
+	UsageText: "ghat lsp [--token TOKEN]",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "token",
+			Aliases:  []string{"t"},
+			Usage:    "GitHub PAT token for audit API calls",
+			Category: "authentication",
+			EnvVars:  []string{"GITHUB_TOKEN", "GITHUB_API"},
+		},
+		&cli.BoolFlag{
+			Name:  "no-cache",
+			Usage: "disable caching of API responses",
+		},
+		&cli.DurationFlag{
+			Name:  "cache-ttl",
+			Usage: "cache time-to-live (e.g., 24h, 1h30m)",
+			Value: 24 * time.Hour,
+		},
+	},
+	Action: func(c *cli.Context) error {
+		token := c.String("token")
+		if token == "" {
+			token = githubToken()
+		}
+		cache, err := core.NewCache(c.Duration("cache-ttl"), !c.Bool("no-cache"))
+		if err != nil {
+			log.Warn().Err(err).Msg("cache init failed, running without cache")
+			cache, _ = core.NewCache(0, false)
+		}
+		return lsp.New(token, cache).Run()
+	},
 }
 
 func formatBytes(bytes int64) string {
