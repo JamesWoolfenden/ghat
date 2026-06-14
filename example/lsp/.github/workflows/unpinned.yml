@@ -1,0 +1,20 @@
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions: write-all
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        env:
+          TOKEN: ${{ secrets.SOME_TOKEN }}
+      - run: echo "${{ github.event.pull_request.title }}"
+      - uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
+  call:
+    uses: owner/repo/.github/workflows/reusable.yml@main

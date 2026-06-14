@@ -488,6 +488,50 @@ func TestAnalyzeWorkflow_Empty(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// AnalyzeWorkflow — line numbers
+// ---------------------------------------------------------------------------
+
+func TestAnalyzeWorkflow_LineNumbers(t *testing.T) {
+	content := []byte(`on: [push]
+permissions: write-all
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v5
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: echo hi
+`)
+	a := AnalyzeWorkflow("ci.yml", content)
+	if a.PermissionsLine != 2 {
+		t.Errorf("PermissionsLine = %d, want 2", a.PermissionsLine)
+	}
+	if a.WriteAllLine != 2 {
+		t.Errorf("WriteAllLine = %d, want 2", a.WriteAllLine)
+	}
+	if a.JobsLine != 3 {
+		t.Errorf("JobsLine = %d, want 3", a.JobsLine)
+	}
+	if len(a.Steps) != 2 || a.Steps[0].Line != 7 || a.Steps[1].Line != 8 {
+		t.Errorf("step lines = %v, want [7 8]", []int{a.Steps[0].Line, a.Steps[1].Line})
+	}
+	if len(a.Jobs) != 2 {
+		t.Fatalf("expected 2 jobs, got %d", len(a.Jobs))
+	}
+	// sorted: build < deploy
+	if a.Jobs[0].Name != "build" || a.Jobs[0].Line != 4 {
+		t.Errorf("jobs[0] = %s@%d, want build@4", a.Jobs[0].Name, a.Jobs[0].Line)
+	}
+	if a.Jobs[1].Name != "deploy" || a.Jobs[1].Line != 9 {
+		t.Errorf("jobs[1] = %s@%d, want deploy@9", a.Jobs[1].Name, a.Jobs[1].Line)
+	}
+}
+
 func TestAnalyzeWorkflow_InvalidYAML(t *testing.T) {
 	// Bad YAML — step extraction via regex still works; job YAML parse returns nil
 	content := []byte(`{{{ not yaml`)

@@ -57,7 +57,11 @@ docs:
 vet:
 	go vet ./...
 
-bump:
+release-check:
+	goreleaser check
+	GITHUB_TOKEN= GITLAB_TOKEN= GITEA_TOKEN= goreleaser build --snapshot --clean
+
+bump: release-check
 	git push
 	$(eval VERSION=$(shell git describe --tags --abbrev=0 | awk -F. '{OFS="."; $$NF+=1; print $0}'))
 	git tag -a $(VERSION) -m "new release"
@@ -94,3 +98,23 @@ install-ext: vsix
 
 publish-ext:
 	cd vscode-extension && $(NPM) install && $(NPM) run publish -- --pat $(VSCE_PAT)
+
+VSCODE_DIR    = editors/vscode
+JETBRAINS_DIR = editors/jetbrains
+GRADLE       ?= ./gradlew
+
+vscode-ext: $(VSCODE_DIR)/node_modules
+	@mkdir -p bin
+	cd $(VSCODE_DIR) && npm run package
+	mv $(VSCODE_DIR)/ghat-*.vsix bin/ghat.vsix
+
+$(VSCODE_DIR)/node_modules: $(VSCODE_DIR)/package.json
+	cd $(VSCODE_DIR) && npm install
+
+jetbrains-ext:
+	@mkdir -p bin
+	cd $(JETBRAINS_DIR) && $(GRADLE) buildPlugin
+	cp $(JETBRAINS_DIR)/build/distributions/ghat-jetbrains-*.zip bin/ghat-jetbrains.zip
+
+clean-ext:
+	rm -rf $(VSCODE_DIR)/node_modules $(VSCODE_DIR)/*.vsix $(JETBRAINS_DIR)/build $(JETBRAINS_DIR)/.gradle

@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // GitlabCIAnalysis is the result of static-only analysis of a .gitlab-ci.yml
@@ -26,6 +26,8 @@ type GitlabJobAnalysis struct {
 	AllowFailure bool
 	// Images is the list of container images declared for this job.
 	Images []GitlabImageAnalysis
+	// Line is the 1-indexed source line of the job key. 0 when unknown.
+	Line int
 }
 
 // GitlabImageAnalysis describes a container image used in a GitLab CI job.
@@ -39,6 +41,8 @@ type GitlabImageAnalysis struct {
 	// IsSuppressed is true when the image line carries a # ghat:suppress
 	// annotation in the source file.
 	IsSuppressed bool
+	// Line is the 1-indexed source line of the image: declaration. 0 when unknown.
+	Line int
 }
 
 // gitlabNonJobKeys are top-level .gitlab-ci.yml keys that are configuration
@@ -73,33 +77,33 @@ type gitlabJobYAML struct {
 func AnalyzeGitlabCI(content []byte) GitlabCIAnalysis {
 	var a GitlabCIAnalysis
 
-	var raw map[string]interface{}
-	if err := yaml.Unmarshal(content, &raw); err != nil {
+	var root yaml.Node
+	if err := yaml.Unmarshal(content, &root); err != nil {
+		return a
+	}
+	doc := &root
+	if doc.Kind == yaml.DocumentNode && len(doc.Content) > 0 {
+		doc = doc.Content[0]
+	}
+	if doc.Kind != yaml.MappingNode {
 		return a
 	}
 
 	rawStr := string(content)
 
-	// Collect job names, excluding known non-job top-level keys.
-	jobNames := make([]string, 0, len(raw))
-	for k := range raw {
-		if !gitlabNonJobKeys[k] {
-			jobNames = append(jobNames, k)
+	for i := 0; i+1 < len(doc.Content); i += 2 {
+		key, val := doc.Content[i], doc.Content[i+1]
+		name := key.Value
+		if gitlabNonJobKeys[name] {
+			continue
 		}
-	}
-	sort.Strings(jobNames)
 
-	for _, name := range jobNames {
-		val := raw[name]
-
-		// Re-marshal and unmarshal the job value to get typed fields.
 		var job gitlabJobYAML
-		if jobBytes, err := yaml.Marshal(val); err == nil {
-			_ = yaml.Unmarshal(jobBytes, &job)
-		}
+		_ = val.Decode(&job)
 
 		ja := GitlabJobAnalysis{
 			Name:         name,
+			Line:         key.Line,
 			HasTimeout:   job.Timeout != nil,
 			AllowFailure: gitlabAllowFailureValue(job.AllowFailure),
 		}
@@ -113,6 +117,7 @@ func AnalyzeGitlabCI(content []byte) GitlabCIAnalysis {
 					Name:           imgName,
 					IsDigestPinned: strings.Contains(imgName, "@sha256:"),
 					IsSuppressed:   suppressed,
+					Line:           findImageLine(val, key.Line),
 				})
 			}
 		}
@@ -120,7 +125,21 @@ func AnalyzeGitlabCI(content []byte) GitlabCIAnalysis {
 		a.Jobs = append(a.Jobs, ja)
 	}
 
+	sort.Slice(a.Jobs, func(i, k int) bool { return a.Jobs[i].Name < a.Jobs[k].Name })
 	return a
+}
+
+// findImageLine returns the line of the `image:` key inside a job mapping
+// node, falling back to the job line.
+func findImageLine(jobVal *yaml.Node, fallback int) int {
+	if jobVal.Kind == yaml.MappingNode {
+		for i := 0; i+1 < len(jobVal.Content); i += 2 {
+			if jobVal.Content[i].Value == "image" {
+				return jobVal.Content[i].Line
+			}
+		}
+	}
+	return fallback
 }
 
 // gitlabImageNameStr extracts the image name string from either the short

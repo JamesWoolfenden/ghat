@@ -1,0 +1,13 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+  - repo: https://github.com/psf/black
+    rev: 24.1.0
+    hooks:
+      - id: black
+  - repo: https://github.com/JamesWoolfenden/ghat
+    rev: 3c1d5aaf3e8a8703264a2f4a69428a0aa4dcb512 # v0.1.32
+    hooks:
+      - id: ghat-go

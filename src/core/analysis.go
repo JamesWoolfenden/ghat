@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"regexp"
 	"sort"
 	"strings"
@@ -27,6 +28,13 @@ type WorkflowAnalysis struct {
 	// HasConcurrency is true when the workflow declares a top-level
 	// concurrency: block, preventing parallel runs from corrupting state.
 	HasConcurrency bool
+	// Line numbers (1-indexed) for the constructs above. 0 when absent.
+	PermissionsLine      int
+	WriteAllLine         int
+	DangerousTriggerLine int
+	// JobsLine is the line of the top-level `jobs:` key, used by editors
+	// as an insert anchor for a permissions: block.
+	JobsLine int
 	// Steps is the ordered list of external uses: action references found in
 	// the workflow. Local paths, docker:// refs, and reusable workflow calls
 	// are excluded.
@@ -58,6 +66,8 @@ type StepAnalysis struct {
 	// ${{ secrets.* }} expression, leaking secret values into the process
 	// environment where they are visible to child processes and debug logs.
 	ExposesSecretInEnv bool
+	// Line is the 1-indexed source line of the `uses:` key. 0 when unknown.
+	Line int
 }
 
 // JobAnalysis describes a single job in the workflow.
@@ -82,12 +92,63 @@ type JobAnalysis struct {
 	// (e.g. "contents" → "read").  When permissions: write-all is set the
 	// map has a single "_all" key with value "write-all".
 	Permissions map[string]string
+	// Line is the 1-indexed source line of the job key. 0 when unknown.
+	Line int
 }
 
 var (
 	shaOnlyRe     = regexp.MustCompile(`^[0-9a-f]{40}`)
 	concurrencyRe = regexp.MustCompile(`(?m)^concurrency:`)
 )
+
+// offsetToLine returns the 1-indexed line number containing byte offset off.
+func offsetToLine(content []byte, off int) int {
+	if off > len(content) {
+		off = len(content)
+	}
+	return bytes.Count(content[:off], []byte{'\n'}) + 1
+}
+
+// matchLine returns the 1-indexed line of the first match of re in content,
+// or 0 if there is no match. Leading newlines inside the match (from a `\s*`
+// prefix) are skipped so the reported line is where the matched text sits.
+func matchLine(re *regexp.Regexp, content []byte) int {
+	loc := re.FindIndex(content)
+	if loc == nil {
+		return 0
+	}
+	off := loc[0]
+	for off < loc[1] && (content[off] == '\n' || content[off] == '\r') {
+		off++
+	}
+	return offsetToLine(content, off)
+}
+
+// ResolveActionSHA resolves action@tag to its commit SHA via the GitHub API,
+// dereferencing annotated tag objects. action is "owner/repo" (or
+// "owner/repo/subdir" — the subdir is stripped). Exported for the LSP server's
+// pin-to-SHA code action.
+func ResolveActionSHA(action, tag, token string) (string, error) {
+	return resolveTagSHA(action, tag, token)
+}
+
+// ResolveImageDigest resolves a container image reference to a pinned form by
+// performing a registry HEAD via go-containerregistry (keychain auth, with a
+// ghcr.io override when githubToken is set). When dockerfileStyle is true the
+// result is `image:tag@sha256:…` (valid FROM syntax); otherwise it is
+// `image@sha256:… # tag` (YAML comment form used by GitLab CI / Kubernetes).
+func ResolveImageDigest(image string, dockerfileStyle bool, githubToken string) (string, error) {
+	ref := parseImageReference(image)
+	f := &Flags{GitHubToken: githubToken}
+	digest, err := f.getImageDigest(&ref)
+	if err != nil {
+		return "", err
+	}
+	if dockerfileStyle {
+		return formatDockerImage(ref, digest), nil
+	}
+	return formatImageWithDigest(ref, digest), nil
+}
 
 // IsSHAPinnedRef reports whether a raw ref value is pinned to an immutable
 // commit SHA. It accepts both a bare 40-char hex SHA and the "sha # tag"
@@ -112,21 +173,31 @@ func AnalyzeWorkflow(filename string, content []byte) WorkflowAnalysis {
 
 	// Permissions checks — regex on raw bytes avoids YAML parse overhead and
 	// is identical to what ensurePermissions / checkPermissions already do.
-	a.HasPermissions = permsRe.Match(content)
-	a.IsWriteAll = writeAllRe.Match(content)
+	a.PermissionsLine = matchLine(permsRe, content)
+	a.HasPermissions = a.PermissionsLine > 0
+	a.WriteAllLine = matchLine(writeAllRe, content)
+	a.IsWriteAll = a.WriteAllLine > 0
 
 	// Concurrency check — top-level concurrency: block prevents parallel runs.
 	a.HasConcurrency = concurrencyRe.Match(content)
 
 	// Dangerous trigger detection — same logic as checkDangerousTrigger.
-	if prTargetRe.Match(content) && checkoutPRRe.Match(content) {
-		a.HasDangerousTrigger = true
-		a.DangerousTriggerDesc = filename + ": pull_request_target with PR head checkout"
-	} else if runInjectRe.Match(content) {
-		a.HasDangerousTrigger = true
-		a.DangerousTriggerDesc = filename + ": github.event.* interpolated into run:"
+	if prTargetRe.Match(content) {
+		if loc := checkoutPRRe.FindIndex(content); loc != nil {
+			a.HasDangerousTrigger = true
+			a.DangerousTriggerDesc = filename + ": pull_request_target with PR head checkout"
+			a.DangerousTriggerLine = offsetToLine(content, loc[0])
+		}
+	}
+	if !a.HasDangerousTrigger {
+		if loc := runInjectRe.FindIndex(content); loc != nil {
+			a.HasDangerousTrigger = true
+			a.DangerousTriggerDesc = filename + ": github.event.* interpolated into run:"
+			a.DangerousTriggerLine = offsetToLine(content, loc[0])
+		}
 	}
 
+	a.JobsLine = matchLine(jobsRe, content)
 	a.Steps = analyzeSteps(content)
 	a.Jobs = analyzeJobs(content)
 
@@ -143,9 +214,10 @@ func analyzeSteps(content []byte) []StepAnalysis {
 
 	var steps []StepAnalysis
 
-	for _, match := range usesExtractRe.FindAllSubmatch(content, -1) {
-		line := string(match[0])
-		rawValue := strings.TrimSpace(string(match[1]))
+	for _, idx := range usesExtractRe.FindAllSubmatchIndex(content, -1) {
+		line := string(content[idx[0]:idx[1]])
+		rawValue := strings.TrimSpace(string(content[idx[2]:idx[3]]))
+		lineNo := offsetToLine(content, idx[0])
 
 		suppressed, _ := parseSuppression(line)
 
@@ -175,6 +247,7 @@ func analyzeSteps(content []byte) []StepAnalysis {
 			Action:             action,
 			Suppressed:         suppressed,
 			ExposesSecretInEnv: secretEnvActions[action],
+			Line:               lineNo,
 		}
 
 		if len(parts) > 1 {
@@ -261,17 +334,27 @@ type workflowStepFull struct {
 }
 
 // analyzeJobs parses the workflow YAML and returns per-job metadata sorted by
-// job name for deterministic output.
+// job name for deterministic output. Each job carries the source line of its
+// key for editor diagnostics.
 func analyzeJobs(content []byte) []JobAnalysis {
-	var wf workflowFull
-	if err := yaml.Unmarshal(content, &wf); err != nil {
+	var root yaml.Node
+	if err := yaml.Unmarshal(content, &root); err != nil {
+		return nil
+	}
+	jobsNode := findMappingValue(&root, "jobs")
+	if jobsNode == nil || jobsNode.Kind != yaml.MappingNode {
 		return nil
 	}
 
-	jobs := make([]JobAnalysis, 0, len(wf.Jobs))
-	for name, job := range wf.Jobs {
+	jobs := make([]JobAnalysis, 0, len(jobsNode.Content)/2)
+	for i := 0; i+1 < len(jobsNode.Content); i += 2 {
+		key, val := jobsNode.Content[i], jobsNode.Content[i+1]
+		var job workflowJobFull
+		_ = val.Decode(&job)
+
 		j := JobAnalysis{
-			Name:       name,
+			Name:       key.Value,
+			Line:       key.Line,
 			IsReusable: job.Uses != "",
 			RunsOn:     normalizeRunsOn(job.RunsOn),
 		}
@@ -284,6 +367,26 @@ func analyzeJobs(content []byte) []JobAnalysis {
 	}
 	sort.Slice(jobs, func(i, k int) bool { return jobs[i].Name < jobs[k].Name })
 	return jobs
+}
+
+// findMappingValue returns the value node for key at the document's top-level
+// mapping, or nil. It tolerates a DocumentNode wrapper.
+func findMappingValue(n *yaml.Node, key string) *yaml.Node {
+	if n == nil {
+		return nil
+	}
+	if n.Kind == yaml.DocumentNode && len(n.Content) > 0 {
+		n = n.Content[0]
+	}
+	if n.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		if n.Content[i].Value == key {
+			return n.Content[i+1]
+		}
+	}
+	return nil
 }
 
 // normalizeRunsOn converts the runs-on YAML value (string or list) to a

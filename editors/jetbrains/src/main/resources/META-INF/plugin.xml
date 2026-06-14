@@ -1,0 +1,23 @@
+<idea-plugin>
+    <id>dev.ghat.jetbrains</id>
+    <name>ghat</name>
+    <vendor url="https://github.com/JamesWoolfenden/ghat">James Woolfenden</vendor>
+    <description><![CDATA[
+        CI supply-chain linting via the
+        <a href="https://github.com/JamesWoolfenden/ghat">ghat</a> LSP server:
+        flags unpinned <code>uses:</code> / <code>image:</code> / <code>rev:</code> /
+        <code>FROM</code> references, missing <code>permissions:</code> blocks and
+        dangerous trigger patterns, with quick-fixes to pin to an immutable SHA or
+        digest.
+        <br/><br/>
+        Requires the <code>ghat</code> binary on <code>PATH</code>
+        (<code>go install github.com/jameswoolfenden/ghat@latest</code>).
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.ultimate</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <platform.lsp.serverSupportProvider implementation="dev.ghat.jetbrains.GhatLspServerSupportProvider"/>
+    </extensions>
+</idea-plugin>

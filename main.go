@@ -32,12 +32,14 @@ func main() {
 			},
 		},
 		Before: func(c *cli.Context) error {
-			if !c.Bool("quiet") {
-				fmt.Println(banner.Inline("ghat"))
-				fmt.Println("version:", version.Version)
-			} else {
+			// The lsp subcommand speaks JSON-RPC over stdout; any banner
+			// or log output there would corrupt the stream.
+			if c.Bool("quiet") || c.Args().First() == "lsp" {
 				log.Logger = zerolog.Nop()
+				return nil
 			}
+			fmt.Println(banner.Inline("ghat"))
+			fmt.Println("version:", version.Version)
 			return nil
 		},
 		Commands: []*cli.Command{
