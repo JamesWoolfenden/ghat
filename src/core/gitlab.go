@@ -1,12 +1,17 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -395,4 +400,63 @@ func (f *Flags) GetGitlabFiles() []string {
 	}
 
 	return gitlabFiles
+}
+
+// ResolveGitLabComponentSHA resolves a GitLab CI component reference tag to its
+// underlying commit SHA via the GitLab project tags API.
+// name is the component path like "gitlab.com/components/opentofu/full-pipeline"
+// and version is the tag like "0.1.0".
+func ResolveGitLabComponentSHA(name, version, token string) (string, error) {
+	// Format: <fqdn>/<namespace>/<project>/<component-name>
+	// Strip the host, then everything except the last segment is the project path.
+	slash := strings.Index(name, "/")
+	if slash < 0 {
+		return "", fmt.Errorf("invalid component path %q: missing host", name)
+	}
+	host := name[:slash]
+	rest := name[slash+1:] // "components/opentofu/full-pipeline"
+
+	last := strings.LastIndex(rest, "/")
+	if last < 0 {
+		return "", fmt.Errorf("component path %q must have at least namespace/project/component", name)
+	}
+	projectPath := rest[:last] // "components/opentofu"
+
+	encodedProject := strings.ReplaceAll(url.QueryEscape(projectPath), "+", "%20")
+	apiURL := fmt.Sprintf("https://%s/api/v4/projects/%s/repository/tags/%s",
+		host, encodedProject, url.QueryEscape(version))
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "ghat")
+	if token != "" {
+		req.Header.Set("PRIVATE-TOKEN", token)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("GitLab API request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("GitLab API %s returned %s: %s", apiURL, resp.Status, string(body))
+	}
+
+	var tagResp struct {
+		Commit struct {
+			ID string `json:"id"`
+		} `json:"commit"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tagResp); err != nil {
+		return "", fmt.Errorf("decoding GitLab tag response: %w", err)
+	}
+	if tagResp.Commit.ID == "" {
+		return "", fmt.Errorf("no commit SHA in GitLab tag response for %s@%s", name, version)
+	}
+	return tagResp.Commit.ID, nil
 }

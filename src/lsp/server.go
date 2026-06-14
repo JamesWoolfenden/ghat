@@ -541,7 +541,7 @@ func (s *Server) handleCodeAction(w io.Writer, msg rpcMsg) error {
 			// Update to latest / Pin to digest — for ecosystems we can resolve server-side.
 			if canUpdate(ref.Ecosystem) && ref.Version != "" {
 				switch ref.Ecosystem {
-				case core.SourceGitLab, core.SourceKube, core.SourceCompose:
+				case core.SourceGitLab, core.SourceKube, core.SourceCompose, core.SourceDockerfile:
 					// Two actions for image refs: pin current tag, or fetch latest + pin.
 					pinTitle := "Pin " + ref.Name + ":" + ref.Version + " to digest"
 					actions = append(actions, codeAction{
@@ -563,6 +563,22 @@ func (s *Server) handleCodeAction(w io.Writer, msg rpcMsg) error {
 							Command: "ghat.update",
 							// 6th arg: fetchTag = "latest"
 							Arguments: []interface{}{p.TextDocument.URI, ref.Line, ref.Ecosystem, ref.Name, ref.Version, "latest"},
+						},
+					})
+				case core.SourceGitLabComponent:
+					// One action: resolve the tag to its commit SHA.
+					compName := ref.Name
+					if idx := strings.LastIndex(ref.Name, "/"); idx >= 0 {
+						compName = ref.Name[idx+1:]
+					}
+					pinTitle := "Pin " + compName + "@" + ref.Version + " to commit SHA"
+					actions = append(actions, codeAction{
+						Title: pinTitle,
+						Kind:  "source.ghat",
+						Command: &lspCommand{
+							Title:     pinTitle,
+							Command:   "ghat.update",
+							Arguments: []interface{}{p.TextDocument.URI, ref.Line, ref.Ecosystem, ref.Name, ref.Version},
 						},
 					})
 				default:
@@ -790,7 +806,8 @@ func (s *Server) execSuppress(w io.Writer, id json.RawMessage, args json.RawMess
 func canUpdate(eco string) bool {
 	switch eco {
 	case core.SourceGHA, core.SourcePreCommit, core.SourceTerraform,
-		core.SourceGitLab, core.SourceKube, core.SourceCompose:
+		core.SourceGitLab, core.SourceKube, core.SourceCompose,
+		core.SourceDockerfile, core.SourceGitLabComponent:
 		return true
 	}
 	return false
@@ -847,7 +864,7 @@ func (s *Server) execUpdate(w io.Writer, id json.RawMessage, args json.RawMessag
 			oldText = currentVersion
 			newText = latest
 
-		case core.SourceGitLab, core.SourceKube, core.SourceCompose:
+		case core.SourceGitLab, core.SourceKube, core.SourceCompose, core.SourceDockerfile:
 			// 6th arg (optional): the tag to fetch. Defaults to currentVersion (pin as-is).
 			fetchTag := currentVersion
 			if len(argv) >= 6 {
@@ -859,7 +876,8 @@ func (s *Server) execUpdate(w io.Writer, id json.RawMessage, args json.RawMessag
 			if fetchTag != "" {
 				imageRef = name + ":" + fetchTag
 			}
-			pinned, err := core.ResolveImageDigest(imageRef, false, s.token)
+			dockerfileStyle := eco == core.SourceDockerfile
+			pinned, err := core.ResolveImageDigest(imageRef, dockerfileStyle, s.token)
 			if err != nil {
 				return
 			}
@@ -869,6 +887,14 @@ func (s *Server) execUpdate(w io.Writer, id json.RawMessage, args json.RawMessag
 				oldText = name + ":" + currentVersion
 			}
 			newText = pinned
+
+		case core.SourceGitLabComponent:
+			sha, err := core.ResolveGitLabComponentSHA(name, currentVersion, "")
+			if err != nil {
+				return
+			}
+			oldText = name + "@" + currentVersion
+			newText = name + "@" + sha + " # " + currentVersion
 
 		default:
 			return

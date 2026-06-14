@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - uses: JamesWoolfenden/ghat@80e912bce2045e765e73fe1ccbc7172665048946 # v0.1.39
+      - uses: JamesWoolfenden/ghat@55437743784a54e2ff74d3fdc4f4875fd840401f # v0.1.40
         with:
           directory: .
       - uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
