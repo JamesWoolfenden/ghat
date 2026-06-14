@@ -289,6 +289,7 @@ func cpanfileLine(content []byte, module string) int {
 
 const SourceDockerfile = "dockerfile"
 const SourceGitLab = "gitlab"
+const SourceGitLabComponent = "gitlab-component"
 const SourceKube = "kube"
 const SourceCompose = "compose"
 
@@ -333,22 +334,37 @@ func parseGitLabManifest(content []byte) []DepRef {
 			Ref       string `yaml:"ref"`
 		} `yaml:"include"`
 	}
-	if err := yaml.Unmarshal(content, &out); err != nil {
-		return nil
-	}
 	var refs []DepRef
-	for _, inc := range out.Include {
-		switch {
-		case inc.Component != "":
-			// component: host/group/name@version
-			name, ver := inc.Component, ""
-			if idx := strings.LastIndex(inc.Component, "@"); idx >= 0 {
-				name, ver = inc.Component[:idx], inc.Component[idx+1:]
+	if err := yaml.Unmarshal(content, &out); err == nil {
+		for _, inc := range out.Include {
+			switch {
+			case inc.Component != "":
+				// component: host/group/name@version — GitLab CI catalog component, not a container image.
+				name, ver := inc.Component, ""
+				if idx := strings.LastIndex(inc.Component, "@"); idx >= 0 {
+					name, ver = inc.Component[:idx], inc.Component[idx+1:]
+				}
+				refs = append(refs, DepRef{Ecosystem: SourceGitLabComponent, Name: name, Version: ver, Line: lineIdx(inc.Component)})
+			case inc.Project != "" && inc.Ref != "":
+				refs = append(refs, DepRef{Ecosystem: SourceGitLabComponent, Name: inc.Project, Version: inc.Ref, Line: lineIdx(inc.Ref)})
 			}
-			refs = append(refs, DepRef{Ecosystem: SourceGitLab, Name: name, Version: ver, Line: lineIdx(inc.Component)})
-		case inc.Project != "" && inc.Ref != "":
-			refs = append(refs, DepRef{Ecosystem: SourceGitLab, Name: inc.Project, Version: inc.Ref, Line: lineIdx(inc.Ref)})
 		}
+	}
+	// Container images referenced via image: (top-level or per-job).
+	images, _ := extractImages(string(content))
+	seen := map[string]bool{}
+	for _, img := range images {
+		if seen[img] {
+			continue
+		}
+		seen[img] = true
+		name, version := img, ""
+		if idx := strings.Index(img, "@"); idx >= 0 {
+			name, version = img[:idx], img[idx+1:]
+		} else if idx := strings.LastIndex(img, ":"); idx >= 0 {
+			name, version = img[:idx], img[idx+1:]
+		}
+		refs = append(refs, DepRef{Ecosystem: SourceGitLab, Name: name, Version: version, Line: lineIdx(img)})
 	}
 	return refs
 }

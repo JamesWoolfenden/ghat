@@ -367,15 +367,29 @@ func dockerfileStaticDiags(refs []core.DepRef) []diagnostic {
 	return diags
 }
 
-// gitlabStaticDiags warns on include refs not pinned to a commit SHA.
+// gitlabStaticDiags warns on GitLab CI refs that are not immutably pinned.
+// Component/project include refs should be commit-SHA pinned; image refs should be digest-pinned.
 func gitlabStaticDiags(refs []core.DepRef) []diagnostic {
 	var diags []diagnostic
 	for _, ref := range refs {
-		if core.IsSHAPinnedRef(ref.Version) {
-			continue
+		switch ref.Ecosystem {
+		case core.SourceGitLabComponent:
+			if core.IsSHAPinnedRef(ref.Version) {
+				continue
+			}
+			diags = append(diags, lineDiag(ref.Line, 2,
+				ref.Name+"@"+ref.Version+" is not pinned to an immutable commit SHA"))
+		case core.SourceGitLab:
+			if strings.HasPrefix(ref.Version, "sha256:") {
+				continue
+			}
+			tag := ref.Version
+			if tag == "" {
+				tag = "latest"
+			}
+			diags = append(diags, lineDiag(ref.Line, 2,
+				ref.Name+":"+tag+" is not pinned to an immutable digest (@sha256:...)"))
 		}
-		diags = append(diags, lineDiag(ref.Line, 2,
-			ref.Name+"@"+ref.Version+" is not pinned to an immutable commit SHA"))
 	}
 	return diags
 }

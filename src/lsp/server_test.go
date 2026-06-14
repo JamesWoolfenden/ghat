@@ -129,8 +129,10 @@ func TestCanUpdate(t *testing.T) {
 			t.Errorf("%s should be updatable", eco)
 		}
 	}
-	if canUpdate(core.SourceGo) {
-		t.Error("go should not be updatable yet")
+	for _, eco := range []string{core.SourceGo, core.SourceGitLabComponent} {
+		if canUpdate(eco) {
+			t.Errorf("%s should not be updatable", eco)
+		}
 	}
 }
 

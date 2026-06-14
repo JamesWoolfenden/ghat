@@ -1,5 +1,5 @@
 include:
-  - component: gitlab.com/components/opentofu/full-pipeline@0.9.0
+  - component: gitlab.com/components/opentofu/full-pipeline@0.1.0
   - project: 'my-group/my-project'
     ref: main
     file: '/templates/.gitlab-ci-template.yml'
