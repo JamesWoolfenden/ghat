@@ -524,9 +524,15 @@ func (s *Server) handleCodeAction(w io.Writer, msg rpcMsg) error {
 				})
 			}
 
-			// Update to latest — for ecosystems where we can resolve server-side.
+			// Update to latest / Pin to digest — for ecosystems we can resolve server-side.
 			if canUpdate(ref.Ecosystem) && ref.Version != "" {
-				updateTitle := "Update " + ref.Name + " to latest"
+				var updateTitle string
+				switch ref.Ecosystem {
+				case core.SourceGitLab, core.SourceKube, core.SourceCompose:
+					updateTitle = "Pin " + ref.Name + ":" + ref.Version + " to digest"
+				default:
+					updateTitle = "Update " + ref.Name + " to latest"
+				}
 				actions = append(actions, codeAction{
 					Title: updateTitle,
 					Kind:  "source.ghat",
@@ -775,14 +781,15 @@ func (s *Server) execUpdate(w io.Writer, id json.RawMessage, args json.RawMessag
 
 	bw := w.(*bufio.Writer)
 	go func() {
-		var newVersion string
+		var oldText, newText string
 		switch eco {
 		case core.SourceGHA:
 			sha, tag, err := core.ResolveLatestSHA(name, s.token)
 			if err != nil {
 				return
 			}
-			newVersion = sha + " # " + tag
+			oldText = currentVersion
+			newText = sha + " # " + tag
 
 		case core.SourcePreCommit:
 			ownerRepo := strings.TrimPrefix(name, "https://github.com/")
@@ -790,7 +797,8 @@ func (s *Server) execUpdate(w io.Writer, id json.RawMessage, args json.RawMessag
 			if err != nil {
 				return
 			}
-			newVersion = sha + "  # " + tag
+			oldText = currentVersion
+			newText = sha + "  # " + tag
 
 		case core.SourceTerraform:
 			parts := strings.SplitN(name, "/", 3)
@@ -801,19 +809,22 @@ func (s *Server) execUpdate(w io.Writer, id json.RawMessage, args json.RawMessag
 			if err != nil {
 				return
 			}
-			newVersion = latest
+			oldText = currentVersion
+			newText = latest
 
 		case core.SourceGitLab, core.SourceKube, core.SourceCompose:
-			// image:tag → image@sha256:digest # tag  (YAML comment form)
-			ref := name
+			// newVersion is the full "image@sha256:digest # tag" reference —
+			// replace "name:tag" so we don't end up with "name:name@sha256:...".
+			imageRef := name
 			if currentVersion != "" {
-				ref = name + ":" + currentVersion
+				imageRef = name + ":" + currentVersion
 			}
-			pinned, err := core.ResolveImageDigest(ref, false, s.token)
+			pinned, err := core.ResolveImageDigest(imageRef, false, s.token)
 			if err != nil {
 				return
 			}
-			newVersion = pinned
+			oldText = imageRef
+			newText = pinned
 
 		default:
 			return
@@ -826,11 +837,11 @@ func (s *Server) execUpdate(w io.Writer, id json.RawMessage, args json.RawMessag
 			return
 		}
 		lines := strings.Split(string(content), "\n")
-		zeroLine := findVersionLine(lines, refLine-1, currentVersion)
+		zeroLine := findVersionLine(lines, refLine-1, oldText)
 		if zeroLine < 0 {
 			return
 		}
-		newLine := strings.Replace(lines[zeroLine], currentVersion, newVersion, 1)
+		newLine := strings.Replace(lines[zeroLine], oldText, newText, 1)
 		if newLine == lines[zeroLine] {
 			return
 		}
