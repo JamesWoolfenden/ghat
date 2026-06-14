@@ -251,3 +251,76 @@ func (f *Flags) collectGemDeps() []dep {
 	}
 	return registryDeps(SourceGem, names)
 }
+
+// GetLatestPackageVersion fetches the newest published version of pkg from its
+// ecosystem's public registry. Returns the raw version string as the registry
+// reports it (e.g. "4.18.2" for npm, "v0.22.0" for Go modules).
+func GetLatestPackageVersion(eco, pkg string) (string, error) {
+	switch eco {
+	case SourceNpm:
+		var p struct {
+			Version string `json:"version"`
+		}
+		if err := getJSON("https://registry.npmjs.org/"+url.PathEscape(pkg)+"/latest", &p); err != nil {
+			return "", err
+		}
+		if p.Version == "" {
+			return "", fmt.Errorf("no version in npm registry response for %s", pkg)
+		}
+		return p.Version, nil
+
+	case SourcePypi:
+		var p struct {
+			Info struct {
+				Version string `json:"version"`
+			} `json:"info"`
+		}
+		if err := getJSON("https://pypi.org/pypi/"+url.PathEscape(pkg)+"/json", &p); err != nil {
+			return "", err
+		}
+		if p.Info.Version == "" {
+			return "", fmt.Errorf("no version in PyPI response for %s", pkg)
+		}
+		return p.Info.Version, nil
+
+	case SourceCargo:
+		var p struct {
+			Crate struct {
+				NewestVersion string `json:"newest_version"`
+			} `json:"crate"`
+		}
+		if err := getJSON("https://crates.io/api/v1/crates/"+url.PathEscape(pkg), &p); err != nil {
+			return "", err
+		}
+		if p.Crate.NewestVersion == "" {
+			return "", fmt.Errorf("no newest_version in crates.io response for %s", pkg)
+		}
+		return p.Crate.NewestVersion, nil
+
+	case SourceGem:
+		var p struct {
+			Version string `json:"version"`
+		}
+		if err := getJSON("https://rubygems.org/api/v1/versions/"+url.PathEscape(pkg)+"/latest.json", &p); err != nil {
+			return "", err
+		}
+		if p.Version == "" {
+			return "", fmt.Errorf("no version in RubyGems response for %s", pkg)
+		}
+		return p.Version, nil
+
+	case SourceGo:
+		// Module paths contain slashes — don't escape them.
+		var p struct {
+			Version string `json:"Version"`
+		}
+		if err := getJSON("https://proxy.golang.org/"+pkg+"/@latest", &p); err != nil {
+			return "", err
+		}
+		if p.Version == "" {
+			return "", fmt.Errorf("no version in Go module proxy response for %s", pkg)
+		}
+		return p.Version, nil
+	}
+	return "", fmt.Errorf("unsupported ecosystem %q", eco)
+}

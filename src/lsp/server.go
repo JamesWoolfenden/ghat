@@ -817,7 +817,8 @@ func canUpdate(eco string) bool {
 	switch eco {
 	case core.SourceGHA, core.SourcePreCommit, core.SourceTerraform,
 		core.SourceGitLab, core.SourceKube, core.SourceCompose,
-		core.SourceDockerfile, core.SourceGitLabComponent:
+		core.SourceDockerfile, core.SourceGitLabComponent,
+		core.SourceNpm, core.SourcePypi, core.SourceCargo, core.SourceGem, core.SourceGo:
 		return true
 	}
 	return false
@@ -919,6 +920,23 @@ func (s *Server) execUpdate(w io.Writer, id json.RawMessage, args json.RawMessag
 			}
 			oldText = name + "@" + currentVersion
 			newText = name + "@" + sha + " # " + resolvedTag
+
+		case core.SourceNpm, core.SourceCargo, core.SourceGem, core.SourceGo:
+			latest, err := core.GetLatestPackageVersion(eco, name)
+			if err != nil {
+				return
+			}
+			oldText = currentVersion
+			newText = latest
+
+		case core.SourcePypi:
+			latest, err := core.GetLatestPackageVersion(eco, name)
+			if err != nil {
+				return
+			}
+			oldText = currentVersion
+			// Normalise to exact pin regardless of the current constraint operator.
+			newText = "==" + latest
 
 		default:
 			return
