@@ -526,22 +526,43 @@ func (s *Server) handleCodeAction(w io.Writer, msg rpcMsg) error {
 
 			// Update to latest / Pin to digest — for ecosystems we can resolve server-side.
 			if canUpdate(ref.Ecosystem) && ref.Version != "" {
-				var updateTitle string
 				switch ref.Ecosystem {
 				case core.SourceGitLab, core.SourceKube, core.SourceCompose:
-					updateTitle = "Pin " + ref.Name + ":" + ref.Version + " to digest"
+					// Two actions for image refs: pin current tag, or fetch latest + pin.
+					pinTitle := "Pin " + ref.Name + ":" + ref.Version + " to digest"
+					actions = append(actions, codeAction{
+						Title: pinTitle,
+						Kind:  "source.ghat",
+						Command: &lspCommand{
+							Title:   pinTitle,
+							Command: "ghat.update",
+							// 6th arg: fetchTag = currentVersion (pin as-is)
+							Arguments: []interface{}{p.TextDocument.URI, ref.Line, ref.Ecosystem, ref.Name, ref.Version, ref.Version},
+						},
+					})
+					latestTitle := "Update " + ref.Name + " to latest (pinned)"
+					actions = append(actions, codeAction{
+						Title: latestTitle,
+						Kind:  "source.ghat",
+						Command: &lspCommand{
+							Title:   latestTitle,
+							Command: "ghat.update",
+							// 6th arg: fetchTag = "latest"
+							Arguments: []interface{}{p.TextDocument.URI, ref.Line, ref.Ecosystem, ref.Name, ref.Version, "latest"},
+						},
+					})
 				default:
-					updateTitle = "Update " + ref.Name + " to latest"
+					updateTitle := "Update " + ref.Name + " to latest"
+					actions = append(actions, codeAction{
+						Title: updateTitle,
+						Kind:  "source.ghat",
+						Command: &lspCommand{
+							Title:     updateTitle,
+							Command:   "ghat.update",
+							Arguments: []interface{}{p.TextDocument.URI, ref.Line, ref.Ecosystem, ref.Name, ref.Version},
+						},
+					})
 				}
-				actions = append(actions, codeAction{
-					Title: updateTitle,
-					Kind:  "source.ghat",
-					Command: &lspCommand{
-						Title:     updateTitle,
-						Command:   "ghat.update",
-						Arguments: []interface{}{p.TextDocument.URI, ref.Line, ref.Ecosystem, ref.Name, ref.Version},
-					},
-				})
 			}
 
 			// View on registry.
@@ -813,17 +834,26 @@ func (s *Server) execUpdate(w io.Writer, id json.RawMessage, args json.RawMessag
 			newText = latest
 
 		case core.SourceGitLab, core.SourceKube, core.SourceCompose:
-			// newVersion is the full "image@sha256:digest # tag" reference —
-			// replace "name:tag" so we don't end up with "name:name@sha256:...".
+			// 6th arg (optional): the tag to fetch. Defaults to currentVersion (pin as-is).
+			fetchTag := currentVersion
+			if len(argv) >= 6 {
+				if t, ok := argv[5].(string); ok && t != "" {
+					fetchTag = t
+				}
+			}
 			imageRef := name
-			if currentVersion != "" {
-				imageRef = name + ":" + currentVersion
+			if fetchTag != "" {
+				imageRef = name + ":" + fetchTag
 			}
 			pinned, err := core.ResolveImageDigest(imageRef, false, s.token)
 			if err != nil {
 				return
 			}
-			oldText = imageRef
+			// Always replace the full "name:currentVersion" token in the file.
+			oldText = name
+			if currentVersion != "" {
+				oldText = name + ":" + currentVersion
+			}
 			newText = pinned
 
 		default:
