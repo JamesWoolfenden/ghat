@@ -265,12 +265,11 @@ const SourceCpanfile = "cpanfile"
 
 func parseCpanfileManifest(content []byte) []DepRef {
 	var refs []DepRef
-	for i, d := range parseCpanfile(string(content)) {
-		_ = i
+	for _, d := range parseCpanfile(string(content)) {
 		refs = append(refs, DepRef{
 			Ecosystem: SourceCpanfile,
 			Name:      d.module,
-			Version:   "",
+			Version:   ExtractCpanVersion(d.rest),
 			Line:      cpanfileLine(content, d.module),
 		})
 	}

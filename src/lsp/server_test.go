@@ -126,13 +126,11 @@ func TestCanUpdate(t *testing.T) {
 		core.SourceGitLab, core.SourceKube, core.SourceCompose,
 		core.SourceDockerfile, core.SourceGitLabComponent,
 		core.SourceNpm, core.SourcePypi, core.SourceCargo, core.SourceGem, core.SourceGo,
+		core.SourceCpanfile,
 	} {
 		if !canUpdate(eco) {
 			t.Errorf("%s should be updatable", eco)
 		}
-	}
-	if canUpdate(core.SourceCpanfile) {
-		t.Error("cpanfile should not be updatable")
 	}
 }
 

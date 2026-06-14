@@ -321,6 +321,9 @@ func GetLatestPackageVersion(eco, pkg string) (string, error) {
 			return "", fmt.Errorf("no version in Go module proxy response for %s", pkg)
 		}
 		return p.Version, nil
+
+	case SourceCpanfile:
+		return GetMetaCPANVersion(pkg)
 	}
 	return "", fmt.Errorf("unsupported ecosystem %q", eco)
 }

@@ -318,6 +318,8 @@ func (s *Server) analyze(w io.Writer, uri string, content []byte) error {
 		return s.publishDiags(w, uri, imageStaticDiags(refs))
 	case core.ManifestTerraform:
 		return s.publishDiags(w, uri, terraformStaticDiags(refs))
+	case core.ManifestCpanfile:
+		return s.publishDiags(w, uri, cpanfileStaticDiags(refs))
 	default:
 		return s.publishDiags(w, uri, nil)
 	}
@@ -450,6 +452,23 @@ func hasVersionConstraintOperator(v string) bool {
 		}
 	}
 	return false
+}
+
+// cpanfileStaticDiags warns on CPAN modules not pinned to an exact version with ==.
+func cpanfileStaticDiags(refs []core.DepRef) []diagnostic {
+	var diags []diagnostic
+	for _, ref := range refs {
+		if strings.Contains(ref.Version, "==") {
+			continue
+		}
+		desc := ref.Name
+		if ref.Version != "" {
+			desc += " (" + ref.Version + ")"
+		}
+		diags = append(diags, lineDiag(ref.Line, 2,
+			desc+" is not pinned to an exact version (use == <ver>)"))
+	}
+	return diags
 }
 
 func (s *Server) publishDiags(w io.Writer, uri string, staticDiags []diagnostic) error {
@@ -818,7 +837,8 @@ func canUpdate(eco string) bool {
 	case core.SourceGHA, core.SourcePreCommit, core.SourceTerraform,
 		core.SourceGitLab, core.SourceKube, core.SourceCompose,
 		core.SourceDockerfile, core.SourceGitLabComponent,
-		core.SourceNpm, core.SourcePypi, core.SourceCargo, core.SourceGem, core.SourceGo:
+		core.SourceNpm, core.SourcePypi, core.SourceCargo, core.SourceGem, core.SourceGo,
+		core.SourceCpanfile:
 		return true
 	}
 	return false
@@ -928,6 +948,15 @@ func (s *Server) execUpdate(w io.Writer, id json.RawMessage, args json.RawMessag
 			}
 			oldText = currentVersion
 			newText = latest
+
+		case core.SourceCpanfile:
+			latest, err := core.GetLatestPackageVersion(eco, name)
+			if err != nil {
+				return
+			}
+			oldText = currentVersion
+			// Always normalise to exact pin; replace any existing constraint in-place.
+			newText = "== " + latest
 
 		case core.SourcePypi:
 			latest, err := core.GetLatestPackageVersion(eco, name)

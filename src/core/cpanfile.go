@@ -35,6 +35,35 @@ type cpanDep struct {
 	tail   string
 }
 
+// ExtractCpanVersion parses the version string out of a cpanfile dep's trailing
+// argument (the rest capture group from cpanRequireRE).
+// ", '2.2015'" → "2.2015"; ", '>= 1.6'" → ">= 1.6"; "" → ""
+func ExtractCpanVersion(rest string) string {
+	rest = strings.TrimSpace(rest)
+	if rest == "" {
+		return ""
+	}
+	rest = strings.TrimPrefix(rest, ",")
+	rest = strings.TrimSpace(rest)
+	if len(rest) < 2 {
+		return ""
+	}
+	q := rest[0]
+	if q != '\'' && q != '"' {
+		return ""
+	}
+	rest = rest[1:]
+	if idx := strings.IndexByte(rest, q); idx >= 0 {
+		return strings.TrimSpace(rest[:idx])
+	}
+	return ""
+}
+
+// GetMetaCPANVersion returns the latest published version of a CPAN module.
+func GetMetaCPANVersion(module string) (string, error) {
+	return getMetaCPANVersion(module)
+}
+
 func parseCpanfile(data string) []cpanDep {
 	var deps []cpanDep
 	for _, line := range strings.Split(data, "\n") {
