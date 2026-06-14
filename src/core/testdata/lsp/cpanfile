@@ -1,0 +1,9 @@
+requires 'Moose', '>= 2.0';
+requires 'DBI', '>= 1.643';
+requires 'LWP::UserAgent', '>= 6.0';
+requires 'JSON', '>= 4.0';
+
+on 'test' => sub {
+    requires 'Test::More', '>= 1.3';
+    requires 'Test::Exception';
+};

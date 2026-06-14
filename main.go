@@ -906,6 +906,10 @@ var lspCmd = &cli.Command{
 			Usage: "cache time-to-live (e.g., 24h, 1h30m)",
 			Value: 24 * time.Hour,
 		},
+		&cli.BoolFlag{
+			Name:  "stdio",
+			Usage: "use stdio transport (default, added automatically by vscode-languageclient)",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		token := c.String("token")
@@ -917,7 +921,11 @@ var lspCmd = &cli.Command{
 			log.Warn().Err(err).Msg("cache init failed, running without cache")
 			cache, _ = core.NewCache(0, false)
 		}
-		return lsp.New(token, cache).Run()
+		if err := lsp.New(token, cache).Run(); err != nil {
+			// Write to stderr directly — log.Fatal calls os.Exit(1) even with Nop logger.
+			fmt.Fprintf(os.Stderr, "ghat-lsp: %v\n", err)
+		}
+		return nil
 	},
 }
 

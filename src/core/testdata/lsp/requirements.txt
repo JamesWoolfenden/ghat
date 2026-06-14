@@ -1,0 +1,4 @@
+requests==2.31.0
+click>=8.0
+Django>=4.2,<5
+boto3>=1.26.0

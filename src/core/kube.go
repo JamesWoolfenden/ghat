@@ -124,6 +124,10 @@ func isKubeManifest(file string) bool {
 	return hasKubeResource(string(content))
 }
 
+// HasKubeResource reports whether content contains at least one recognised
+// Kubernetes resource (apiVersion + known workload kind).
+func HasKubeResource(content []byte) bool { return hasKubeResource(string(content)) }
+
 // hasKubeResource reports whether the content contains at least one K8s resource.
 func hasKubeResource(content string) bool {
 	dec := yaml.NewDecoder(strings.NewReader(content))

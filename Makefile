@@ -6,6 +6,8 @@ VERSION_PLACEHOLDER=version.ProviderVersion
 NAMESPACE=dev
 BINARY=ghat
 EXE=$(if $(filter Windows_NT,$(OS)),.exe,)
+NPM=$(if $(filter Windows_NT,$(OS)),npm.cmd,npm)
+NPXCMD=$(if $(filter Windows_NT,$(OS)),npx.cmd,npx)
 OS_ARCH=darwin_amd64
 TERRAFORM=./terraform/
 TF_TEST=./terraform_test/
@@ -78,3 +80,17 @@ gci:
 
 fmt:
 	gofumpt -l -w .
+
+EXT_VERSION=$(shell node -p "require('./vscode-extension/package.json').version")
+
+vscode-extension/node_modules:
+	cd vscode-extension && $(NPM) install
+
+vsix: vscode-extension/node_modules
+	cd vscode-extension && $(NPM) run package
+
+install-ext: vsix
+	code --install-extension vscode-extension/ghat-lsp-$(EXT_VERSION).vsix
+
+publish-ext:
+	cd vscode-extension && $(NPM) install && $(NPM) run publish -- --pat $(VSCE_PAT)

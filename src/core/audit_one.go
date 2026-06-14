@@ -73,6 +73,33 @@ func AuditOne(eco, name, version, token string, c *Cache) (AuditScore, error) {
 	}, nil
 }
 
+// ResolveTagSHA resolves a GHA action owner/repo and tag to the commit SHA.
+// action is "owner/repo" (e.g. "actions/checkout"), tag is the ref (e.g. "v4").
+func ResolveTagSHA(action, tag, token string) (string, error) {
+	return resolveTagSHA(action, tag, token)
+}
+
+// ResolveLatestSHA returns the latest tag name and its commit SHA for a GitHub
+// repo identified by "owner/repo". Used by the LSP to implement update-to-latest
+// for GHA actions and pre-commit repos.
+func ResolveLatestSHA(ownerRepo, token string) (sha, tag string, err error) {
+	payload, err := GetLatestTag(ownerRepo, token)
+	if err != nil {
+		return "", "", err
+	}
+	m, ok := payload.(map[string]interface{})
+	if !ok {
+		return "", "", fmt.Errorf("unexpected tag payload for %s", ownerRepo)
+	}
+	tag, _ = m["name"].(string)
+	commit, _ := m["commit"].(map[string]interface{})
+	sha, _ = commit["sha"].(string)
+	if sha == "" || tag == "" {
+		return "", "", fmt.Errorf("missing sha or tag in response for %s", ownerRepo)
+	}
+	return sha, tag, nil
+}
+
 // resolveDep maps eco/name/version to an internal dep struct for API calls.
 func resolveDep(eco, name, version string) (dep, error) {
 	d := dep{source: eco, label: name}

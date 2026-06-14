@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclwrite"
 	"golang.org/x/mod/modfile"
 	"gopkg.in/yaml.v3"
 )
@@ -20,15 +22,21 @@ const (
 	ManifestGem
 	ManifestPreCommit
 	ManifestCpanfile
+	ManifestDockerfile
+	ManifestGitLab
+	ManifestKube
+	ManifestCompose
+	ManifestTerraform
 )
 
 // DepRef is a single dependency reference extracted from a manifest file,
 // with the 1-indexed line number of its declaration.
 type DepRef struct {
-	Ecosystem string // one of the Source* constants
-	Name      string // e.g. "actions/checkout", "lodash", "requests"
-	Version   string // e.g. "v4", "^1.0.0", "==2.31.0"
-	Line      int    // 1-indexed line number
+	Ecosystem   string // one of the Source* constants
+	Name        string // e.g. "actions/checkout", "lodash", "requests"
+	Version     string // e.g. "v4", "^1.0.0", "==2.31.0"
+	Line        int    // 1-indexed line of the name/source declaration
+	VersionLine int    // 1-indexed line of the version attribute when separate (0 = same as Line)
 }
 
 // ParseManifest parses a manifest file's raw bytes and returns the dependency
@@ -51,6 +59,16 @@ func ParseManifest(kind ManifestKind, content []byte) []DepRef {
 		return parsePreCommitManifest(content)
 	case ManifestCpanfile:
 		return parseCpanfileManifest(content)
+	case ManifestDockerfile:
+		return parseDockerfileManifest(content)
+	case ManifestGitLab:
+		return parseGitLabManifest(content)
+	case ManifestKube:
+		return parseKubeManifest(content)
+	case ManifestCompose:
+		return parseComposeManifest(content)
+	case ManifestTerraform:
+		return parseTerraformManifest(content)
 	default:
 		return nil
 	}
@@ -221,6 +239,7 @@ func parseGemManifest(content []byte) []DepRef {
 
 func parsePreCommitManifest(content []byte) []DepRef {
 	lineIdx := buildLineIndex(content)
+	lineIdxNear := buildLineIndexNear(content)
 	var cfg ConfigFile
 	if err := yaml.Unmarshal(content, &cfg); err != nil {
 		return nil
@@ -230,11 +249,13 @@ func parsePreCommitManifest(content []byte) []DepRef {
 		if !strings.Contains(r.Repo, "://") {
 			continue
 		}
+		repoLine := lineIdx(r.Repo)
 		refs = append(refs, DepRef{
-			Ecosystem: SourcePreCommit,
-			Name:      r.Repo,
-			Version:   r.Rev,
-			Line:      lineIdx(r.Repo),
+			Ecosystem:   SourcePreCommit,
+			Name:        r.Repo,
+			Version:     r.Rev,
+			Line:        repoLine,
+			VersionLine: lineIdxNear(repoLine, r.Rev),
 		})
 	}
 	return refs
@@ -266,6 +287,72 @@ func cpanfileLine(content []byte, module string) int {
 	return 0
 }
 
+const SourceDockerfile = "dockerfile"
+const SourceGitLab = "gitlab"
+const SourceKube = "kube"
+const SourceCompose = "compose"
+
+func parseDockerfileManifest(content []byte) []DepRef {
+	var refs []DepRef
+	lines := strings.Split(string(content), "\n")
+	for i, line := range lines {
+		t := strings.TrimSpace(line)
+		if !strings.HasPrefix(strings.ToUpper(t), "FROM ") {
+			continue
+		}
+		fields := strings.Fields(t)
+		imgIdx := 1
+		if len(fields) > 1 && strings.HasPrefix(fields[1], "--") {
+			imgIdx = 2
+		}
+		if imgIdx >= len(fields) {
+			continue
+		}
+		img := fields[imgIdx]
+		if img == "scratch" {
+			continue
+		}
+		// strip AS alias
+		name, version := img, ""
+		if idx := strings.Index(img, "@"); idx >= 0 {
+			name, version = img[:idx], img[idx+1:]
+		} else if idx := strings.Index(img, ":"); idx >= 0 {
+			name, version = img[:idx], img[idx+1:]
+		}
+		refs = append(refs, DepRef{Ecosystem: SourceDockerfile, Name: name, Version: version, Line: i + 1})
+	}
+	return refs
+}
+
+func parseGitLabManifest(content []byte) []DepRef {
+	lineIdx := buildLineIndex(content)
+	var out struct {
+		Include []struct {
+			Component string `yaml:"component"`
+			Project   string `yaml:"project"`
+			Ref       string `yaml:"ref"`
+		} `yaml:"include"`
+	}
+	if err := yaml.Unmarshal(content, &out); err != nil {
+		return nil
+	}
+	var refs []DepRef
+	for _, inc := range out.Include {
+		switch {
+		case inc.Component != "":
+			// component: host/group/name@version
+			name, ver := inc.Component, ""
+			if idx := strings.LastIndex(inc.Component, "@"); idx >= 0 {
+				name, ver = inc.Component[:idx], inc.Component[idx+1:]
+			}
+			refs = append(refs, DepRef{Ecosystem: SourceGitLab, Name: name, Version: ver, Line: lineIdx(inc.Component)})
+		case inc.Project != "" && inc.Ref != "":
+			refs = append(refs, DepRef{Ecosystem: SourceGitLab, Name: inc.Project, Version: inc.Ref, Line: lineIdx(inc.Ref)})
+		}
+	}
+	return refs
+}
+
 // buildLineIndex returns a function that, given a substring, returns the
 // 1-indexed line number of the first line that contains it.
 func buildLineIndex(content []byte) func(sub string) int {
@@ -278,4 +365,137 @@ func buildLineIndex(content []byte) func(sub string) int {
 		}
 		return 0
 	}
+}
+
+// buildLineIndexNear returns a function that searches for a substring starting
+// at a given 1-indexed line, scanning up to 10 lines forward before falling
+// back to a full-file search. Used to locate version attributes that follow
+// their source/repo declaration.
+func buildLineIndexNear(content []byte) func(startLine int, sub string) int {
+	lines := strings.Split(string(content), "\n")
+	return func(startLine int, sub string) int {
+		if sub == "" {
+			return 0
+		}
+		start := startLine - 1
+		if start < 0 {
+			start = 0
+		}
+		end := start + 10
+		if end > len(lines) {
+			end = len(lines)
+		}
+		for i := start; i < end; i++ {
+			if strings.Contains(lines[i], sub) {
+				return i + 1
+			}
+		}
+		for i, l := range lines {
+			if strings.Contains(l, sub) {
+				return i + 1
+			}
+		}
+		return 0
+	}
+}
+
+func parseKubeManifest(content []byte) []DepRef {
+	if !hasKubeResource(string(content)) {
+		return nil
+	}
+	images, err := extractKubeImages(string(content))
+	if err != nil {
+		return nil
+	}
+	lineIdx := buildLineIndex(content)
+	seen := map[string]bool{}
+	var refs []DepRef
+	for _, img := range images {
+		if seen[img] {
+			continue
+		}
+		seen[img] = true
+		name, version := img, ""
+		if idx := strings.Index(img, "@"); idx >= 0 {
+			name, version = img[:idx], img[idx+1:]
+		} else if idx := strings.LastIndex(img, ":"); idx >= 0 {
+			name, version = img[:idx], img[idx+1:]
+		}
+		refs = append(refs, DepRef{Ecosystem: SourceKube, Name: name, Version: version, Line: lineIdx(img)})
+	}
+	return refs
+}
+
+func parseComposeManifest(content []byte) []DepRef {
+	images, err := extractImages(string(content))
+	if err != nil {
+		return nil
+	}
+	lineIdx := buildLineIndex(content)
+	seen := map[string]bool{}
+	var refs []DepRef
+	for _, img := range images {
+		if seen[img] {
+			continue
+		}
+		seen[img] = true
+		name, version := img, ""
+		if idx := strings.Index(img, "@"); idx >= 0 {
+			name, version = img[:idx], img[idx+1:]
+		} else if idx := strings.LastIndex(img, ":"); idx >= 0 {
+			name, version = img[:idx], img[idx+1:]
+		}
+		refs = append(refs, DepRef{Ecosystem: SourceCompose, Name: name, Version: version, Line: lineIdx(img)})
+	}
+	return refs
+}
+
+func parseTerraformManifest(content []byte) []DepRef {
+	lineIdx := buildLineIndex(content)
+	lineIdxNear := buildLineIndexNear(content)
+	inFile, diags := hclwrite.ParseConfig(content, "", hcl.Pos{Line: 1, Column: 1})
+	if diags.HasErrors() {
+		return nil
+	}
+	var refs []DepRef
+	root := inFile.Body()
+	for _, block := range root.Blocks() {
+		switch block.Type() {
+		case "terraform":
+			for _, inner := range block.Body().Blocks() {
+				if inner.Type() != "required_providers" {
+					continue
+				}
+				for name, attr := range inner.Body().Attributes() {
+					provider, err := parseProviderBlock(name, attr)
+					if err != nil || provider.Source == "" {
+						continue
+					}
+					sourceLine := lineIdx(`"` + provider.Source + `"`)
+					refs = append(refs, DepRef{
+						Ecosystem:   SourceTerraform,
+						Name:        provider.Source,
+						Version:     provider.CurrentVersion,
+						Line:        sourceLine,
+						VersionLine: lineIdxNear(sourceLine, `"`+provider.CurrentVersion+`"`),
+					})
+				}
+			}
+		case "module":
+			source := GetStringValue(block, "source")
+			if source == "" {
+				continue
+			}
+			version := GetStringValue(block, "version")
+			sourceLine := lineIdx(`"` + source + `"`)
+			refs = append(refs, DepRef{
+				Ecosystem:   SourceTerraform,
+				Name:        source,
+				Version:     version,
+				Line:        sourceLine,
+				VersionLine: lineIdxNear(sourceLine, `"`+version+`"`),
+			})
+		}
+	}
+	return refs
 }

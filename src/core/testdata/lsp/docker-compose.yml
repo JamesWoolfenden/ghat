@@ -1,0 +1,7 @@
+services:
+  web:
+    image: nginx:1.25
+  db:
+    image: postgres:15
+  cache:
+    image: redis@sha256:e0558f6d4a8bde4e3dbc5cb20bdbd3e3f792f921f54ba5d04a25dd2898c9b849

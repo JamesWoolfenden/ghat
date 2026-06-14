@@ -76,6 +76,10 @@ func TestClassifyURI(t *testing.T) {
 		{"file:///repo/Gemfile", core.ManifestGem, true},
 		{"file:///repo/.pre-commit-config.yaml", core.ManifestPreCommit, true},
 		{"file:///repo/cpanfile", core.ManifestCpanfile, true},
+		{"file:///repo/docker-compose.yml", core.ManifestCompose, true},
+		{"file:///repo/compose.yaml", core.ManifestCompose, true},
+		{"file:///repo/main.tf", core.ManifestTerraform, true},
+		{"file:///repo/variables.tf", core.ManifestTerraform, true},
 		{"file:///repo/main.go", 0, false},
 	}
 	for _, tt := range tests {
@@ -99,6 +103,31 @@ func TestCodeActionNoDeps(t *testing.T) {
 	if !ok || len(result) != 0 {
 		// no deps cached → empty actions
 		t.Logf("result: %v (ok=%v)", resp["result"], ok)
+	}
+}
+
+func TestFindVersionLine(t *testing.T) {
+	lines := []string{
+		"- repo: https://github.com/pre-commit/pre-commit-hooks",
+		"  rev: v4.6.0",
+		"  hooks:",
+	}
+	if got := findVersionLine(lines, 0, "v4.6.0"); got != 1 {
+		t.Errorf("findVersionLine = %d, want 1", got)
+	}
+	if got := findVersionLine(lines, 0, "missing"); got != -1 {
+		t.Errorf("findVersionLine for missing = %d, want -1", got)
+	}
+}
+
+func TestCanUpdate(t *testing.T) {
+	for _, eco := range []string{core.SourceGHA, core.SourcePreCommit, core.SourceTerraform} {
+		if !canUpdate(eco) {
+			t.Errorf("%s should be updatable", eco)
+		}
+	}
+	if canUpdate(core.SourceGo) {
+		t.Error("go should not be updatable yet")
 	}
 }
 

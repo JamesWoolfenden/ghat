@@ -191,6 +191,104 @@ func TestParseManifestPreCommit(t *testing.T) {
 	}
 }
 
+func TestParseManifestKube(t *testing.T) {
+	content := []byte(`apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25
+        - name: pinned
+          image: alpine:3.18@sha256:c0d488a800e4127b334ad4d82bd32ad5c65f5d81ebae3c59b01d36e0b6d44bf7
+`)
+	refs := ParseManifest(ManifestKube, content)
+	if len(refs) != 2 {
+		t.Fatalf("got %d refs, want 2: %+v", len(refs), refs)
+	}
+	names := map[string]string{}
+	for _, r := range refs {
+		if r.Ecosystem != SourceKube {
+			t.Errorf("%s: ecosystem = %s, want %s", r.Name, r.Ecosystem, SourceKube)
+		}
+		names[r.Name] = r.Version
+	}
+	if names["nginx"] != "1.25" {
+		t.Errorf("nginx version = %q, want 1.25", names["nginx"])
+	}
+	// alpine:3.18@sha256:... → name="alpine:3.18", version="sha256:..."
+	if names["alpine:3.18"] != "sha256:c0d488a800e4127b334ad4d82bd32ad5c65f5d81ebae3c59b01d36e0b6d44bf7" {
+		t.Errorf("alpine:3.18 version = %q", names["alpine:3.18"])
+	}
+}
+
+func TestParseManifestKubeNonKube(t *testing.T) {
+	content := []byte(`key: value
+other: stuff
+`)
+	if refs := ParseManifest(ManifestKube, content); refs != nil {
+		t.Errorf("expected nil for non-k8s YAML, got %v", refs)
+	}
+}
+
+func TestParseManifestCompose(t *testing.T) {
+	content := []byte(`services:
+  web:
+    image: nginx:1.25
+  db:
+    image: postgres:15
+`)
+	refs := ParseManifest(ManifestCompose, content)
+	if len(refs) != 2 {
+		t.Fatalf("got %d refs, want 2: %+v", len(refs), refs)
+	}
+	for _, r := range refs {
+		if r.Ecosystem != SourceCompose {
+			t.Errorf("%s: ecosystem = %s, want %s", r.Name, r.Ecosystem, SourceCompose)
+		}
+		if r.Line == 0 {
+			t.Errorf("%s has line 0", r.Name)
+		}
+	}
+}
+
+func TestParseManifestTerraform(t *testing.T) {
+	content := []byte(`terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "5.1.2"
+}
+`)
+	refs := ParseManifest(ManifestTerraform, content)
+	if len(refs) != 2 {
+		t.Fatalf("got %d refs, want 2: %+v", len(refs), refs)
+	}
+	names := map[string]string{}
+	for _, r := range refs {
+		if r.Ecosystem != SourceTerraform {
+			t.Errorf("%s: ecosystem = %s, want %s", r.Name, r.Ecosystem, SourceTerraform)
+		}
+		names[r.Name] = r.Version
+	}
+	if names["hashicorp/aws"] != "~> 5.0" {
+		t.Errorf("hashicorp/aws version = %q, want ~> 5.0", names["hashicorp/aws"])
+	}
+	if names["terraform-aws-modules/vpc/aws"] != "5.1.2" {
+		t.Errorf("module version = %q, want 5.1.2", names["terraform-aws-modules/vpc/aws"])
+	}
+}
+
 func TestParseManifestUnknown(t *testing.T) {
 	if refs := ParseManifest(ManifestKind(99), []byte("anything")); refs != nil {
 		t.Errorf("expected nil for unknown kind, got %v", refs)

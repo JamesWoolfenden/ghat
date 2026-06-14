@@ -231,6 +231,13 @@ func extractPattern(content, pattern string) []string {
 	return nil
 }
 
+// GetLatestProviderVersion queries the Terraform Registry API for the latest
+// stable version of a provider. namespace is e.g. "hashicorp", providerType
+// is e.g. "aws".
+func GetLatestProviderVersion(namespace, providerType string) (string, error) {
+	return getLatestProviderVersion(namespace, providerType)
+}
+
 // getLatestProviderVersion queries the Terraform Registry API
 func getLatestProviderVersion(namespace, providerType string) (string, error) {
 	url := fmt.Sprintf("https://registry.terraform.io/v1/providers/%s/%s/versions", namespace, providerType)

@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.25
+        - name: sidecar
+          image: alpine:3.18@sha256:c0d488a800e4127b334ad4d82bd32ad5c65f5d81ebae3c59b01d36e0b6d44bf7
+      initContainers:
+        - name: init
+          image: busybox:1.36

@@ -1,0 +1,15 @@
+include:
+  - component: gitlab.com/components/opentofu/full-pipeline@0.9.0
+  - project: 'my-group/my-project'
+    ref: main
+    file: '/templates/.gitlab-ci-template.yml'
+
+stages:
+  - build
+  - test
+
+build-job:
+  stage: build
+  image: alpine:latest
+  script:
+    - echo "Building..."
