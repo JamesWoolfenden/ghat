@@ -1,7 +1,7 @@
 'use strict';
 
 const vscode = require('vscode');
-const { LanguageClient, TransportKind } = require('vscode-languageclient/node');
+const { LanguageClient } = require('vscode-languageclient/node');
 
 let client;
 
@@ -15,11 +15,7 @@ function activate(context) {
     args.push('--token', token);
   }
 
-  const serverOptions = {
-    command: binary,
-    args,
-    transport: TransportKind.stdio,
-  };
+  const serverOptions = { command: binary, args };
 
   const clientOptions = {
     documentSelector: [
