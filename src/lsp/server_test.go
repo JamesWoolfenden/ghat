@@ -121,7 +121,10 @@ func TestFindVersionLine(t *testing.T) {
 }
 
 func TestCanUpdate(t *testing.T) {
-	for _, eco := range []string{core.SourceGHA, core.SourcePreCommit, core.SourceTerraform} {
+	for _, eco := range []string{
+		core.SourceGHA, core.SourcePreCommit, core.SourceTerraform,
+		core.SourceGitLab, core.SourceKube, core.SourceCompose,
+	} {
 		if !canUpdate(eco) {
 			t.Errorf("%s should be updatable", eco)
 		}

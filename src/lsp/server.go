@@ -748,7 +748,8 @@ func (s *Server) execSuppress(w io.Writer, id json.RawMessage, args json.RawMess
 // canUpdate reports whether the LSP can resolve the latest version server-side.
 func canUpdate(eco string) bool {
 	switch eco {
-	case core.SourceGHA, core.SourcePreCommit, core.SourceTerraform:
+	case core.SourceGHA, core.SourcePreCommit, core.SourceTerraform,
+		core.SourceGitLab, core.SourceKube, core.SourceCompose:
 		return true
 	}
 	return false
@@ -801,6 +802,18 @@ func (s *Server) execUpdate(w io.Writer, id json.RawMessage, args json.RawMessag
 				return
 			}
 			newVersion = latest
+
+		case core.SourceGitLab, core.SourceKube, core.SourceCompose:
+			// image:tag → image@sha256:digest # tag  (YAML comment form)
+			ref := name
+			if currentVersion != "" {
+				ref = name + ":" + currentVersion
+			}
+			pinned, err := core.ResolveImageDigest(ref, false, s.token)
+			if err != nil {
+				return
+			}
+			newVersion = pinned
 
 		default:
 			return
