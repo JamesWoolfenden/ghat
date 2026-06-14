@@ -85,31 +85,24 @@ gci:
 fmt:
 	gofumpt -l -w .
 
-EXT_VERSION=$(shell node -p "require('./vscode-extension/package.json').version")
-
-vscode-extension/node_modules:
-	cd vscode-extension && $(NPM) install
-
-vsix: vscode-extension/node_modules
-	cd vscode-extension && $(NPM) run package
-
-install-ext: vsix
-	code --install-extension vscode-extension/ghat-lsp-$(EXT_VERSION).vsix
-
-publish-ext:
-	cd vscode-extension && $(NPM) install && $(NPM) run publish -- --pat $(VSCE_PAT)
-
 VSCODE_DIR    = editors/vscode
 JETBRAINS_DIR = editors/jetbrains
 GRADLE       ?= ./gradlew
-
-vscode-ext: $(VSCODE_DIR)/node_modules
-	@mkdir -p bin
-	cd $(VSCODE_DIR) && npm run package
-	mv $(VSCODE_DIR)/ghat-*.vsix bin/ghat.vsix
+EXT_VERSION   = $(shell node -p "require('./$(VSCODE_DIR)/package.json').version")
 
 $(VSCODE_DIR)/node_modules: $(VSCODE_DIR)/package.json
-	cd $(VSCODE_DIR) && npm install
+	cd $(VSCODE_DIR) && $(NPM) install
+
+vsix: $(VSCODE_DIR)/node_modules
+	@mkdir -p bin
+	cd $(VSCODE_DIR) && $(NPM) run package
+	mv $(VSCODE_DIR)/ghat-$(EXT_VERSION).vsix bin/ghat.vsix
+
+install-ext: vsix
+	code --install-extension bin/ghat.vsix
+
+publish-ext:
+	cd $(VSCODE_DIR) && $(NPM) install && $(NPM) run publish -- --pat $(VSCE_PAT)
 
 jetbrains-ext:
 	@mkdir -p bin

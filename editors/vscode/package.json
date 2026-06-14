@@ -3,6 +3,11 @@
     "workspaceContains:**/.github/workflows/*",
     "workspaceContains:**/.gitlab-ci.yml",
     "workspaceContains:**/.pre-commit-config.yaml",
+    "workspaceContains:**/*.tf",
+    "workspaceContains:**/docker-compose.yml",
+    "workspaceContains:**/docker-compose.yaml",
+    "workspaceContains:**/compose.yml",
+    "workspaceContains:**/compose.yaml",
     "onLanguage:dockerfile"
   ],
   "categories": [
@@ -13,7 +18,7 @@
       "properties": {
         "ghat.githubToken": {
           "default": "",
-          "markdownDescription": "GitHub PAT for the *Pin to SHA* / *Pin to digest (ghcr.io)* code actions. Falls back to `$GITHUB_TOKEN`.",
+          "markdownDescription": "GitHub PAT for the *Pin to SHA* / *Pin to digest* code actions. Falls back to `$GITHUB_TOKEN`.",
           "type": "string"
         },
         "ghat.path": {
@@ -28,7 +33,7 @@
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
   },
-  "description": "Pin GitHub Actions, GitLab CI images, pre-commit revs and Dockerfile FROMs to immutable SHAs/digests via the ghat LSP",
+  "description": "Pin GitHub Actions, GitLab CI images, pre-commit revs, Dockerfile FROMs, Terraform providers, Docker Compose images and package-manager deps to immutable SHAs/digests via the ghat LSP",
   "devDependencies": {
     "@vscode/vsce": "^3.0.0"
   },
@@ -41,8 +46,11 @@
     "gitlab ci",
     "pre-commit",
     "dockerfile",
+    "terraform",
+    "docker compose",
     "supply chain",
-    "pinning"
+    "pinning",
+    "security"
   ],
   "license": "Apache-2.0",
   "main": "./extension.js",
@@ -53,7 +61,8 @@
     "url": "https://github.com/JamesWoolfenden/ghat"
   },
   "scripts": {
-    "package": "vsce package --allow-missing-repository"
+    "package": "vsce package --allow-missing-repository",
+    "publish": "vsce publish"
   },
-  "version": "0.1.0"
+  "version": "0.1.2"
 }
