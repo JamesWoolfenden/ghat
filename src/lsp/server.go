@@ -566,7 +566,6 @@ func (s *Server) handleCodeAction(w io.Writer, msg rpcMsg) error {
 						},
 					})
 				case core.SourceGitLabComponent:
-					// One action: resolve the tag to its commit SHA.
 					compName := ref.Name
 					if idx := strings.LastIndex(ref.Name, "/"); idx >= 0 {
 						compName = ref.Name[idx+1:]
@@ -579,6 +578,17 @@ func (s *Server) handleCodeAction(w io.Writer, msg rpcMsg) error {
 							Title:     pinTitle,
 							Command:   "ghat.update",
 							Arguments: []interface{}{p.TextDocument.URI, ref.Line, ref.Ecosystem, ref.Name, ref.Version},
+						},
+					})
+					latestTitle := "Update " + compName + " to latest (pinned)"
+					actions = append(actions, codeAction{
+						Title: latestTitle,
+						Kind:  "source.ghat",
+						Command: &lspCommand{
+							Title:   latestTitle,
+							Command: "ghat.update",
+							// 6th arg "latest" → resolve newest tag then pin to its SHA
+							Arguments: []interface{}{p.TextDocument.URI, ref.Line, ref.Ecosystem, ref.Name, ref.Version, "latest"},
 						},
 					})
 				default:
@@ -889,12 +899,26 @@ func (s *Server) execUpdate(w io.Writer, id json.RawMessage, args json.RawMessag
 			newText = pinned
 
 		case core.SourceGitLabComponent:
-			sha, err := core.ResolveGitLabComponentSHA(name, currentVersion, "")
-			if err != nil {
-				return
+			var sha, resolvedTag string
+			if len(argv) >= 6 {
+				if t, ok := argv[5].(string); ok && t == "latest" {
+					var e error
+					sha, resolvedTag, e = core.ResolveGitLabComponentLatest(name, "")
+					if e != nil {
+						return
+					}
+				}
+			}
+			if sha == "" {
+				var e error
+				sha, e = core.ResolveGitLabComponentSHA(name, currentVersion, "")
+				if e != nil {
+					return
+				}
+				resolvedTag = currentVersion
 			}
 			oldText = name + "@" + currentVersion
-			newText = name + "@" + sha + " # " + currentVersion
+			newText = name + "@" + sha + " # " + resolvedTag
 
 		default:
 			return

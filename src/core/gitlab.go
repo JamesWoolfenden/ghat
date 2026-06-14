@@ -402,61 +402,111 @@ func (f *Flags) GetGitlabFiles() []string {
 	return gitlabFiles
 }
 
-// ResolveGitLabComponentSHA resolves a GitLab CI component reference tag to its
-// underlying commit SHA via the GitLab project tags API.
-// name is the component path like "gitlab.com/components/opentofu/full-pipeline"
-// and version is the tag like "0.1.0".
-func ResolveGitLabComponentSHA(name, version, token string) (string, error) {
-	// Format: <fqdn>/<namespace>/<project>/<component-name>
-	// Strip the host, then everything except the last segment is the project path.
+// gitlabComponentPath parses a component name like
+// "gitlab.com/components/opentofu/full-pipeline" into its host and project path
+// ("gitlab.com", "components/opentofu"). The last path segment is the component
+// name within the project and is not returned here.
+func gitlabComponentPath(name string) (host, projectPath string, err error) {
 	slash := strings.Index(name, "/")
 	if slash < 0 {
-		return "", fmt.Errorf("invalid component path %q: missing host", name)
+		return "", "", fmt.Errorf("invalid component path %q: missing host", name)
 	}
-	host := name[:slash]
-	rest := name[slash+1:] // "components/opentofu/full-pipeline"
-
+	host = name[:slash]
+	rest := name[slash+1:]
 	last := strings.LastIndex(rest, "/")
 	if last < 0 {
-		return "", fmt.Errorf("component path %q must have at least namespace/project/component", name)
+		return "", "", fmt.Errorf("component path %q must have at least namespace/project/component", name)
 	}
-	projectPath := rest[:last] // "components/opentofu"
+	return host, rest[:last], nil
+}
 
-	encodedProject := strings.ReplaceAll(url.QueryEscape(projectPath), "+", "%20")
-	apiURL := fmt.Sprintf("https://%s/api/v4/projects/%s/repository/tags/%s",
-		host, encodedProject, url.QueryEscape(version))
-
+// gitlabGet performs an authenticated GET against the GitLab API and returns the
+// decoded JSON body. The caller owns the response.
+func gitlabGet(apiURL, token string, out interface{}) error {
 	client := &http.Client{Timeout: 30 * time.Second}
 	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
-		return "", err
+		return err
 	}
 	req.Header.Set("User-Agent", "ghat")
 	if token != "" {
 		req.Header.Set("PRIVATE-TOKEN", token)
 	}
-
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("GitLab API request failed: %w", err)
+		return fmt.Errorf("GitLab API request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("GitLab API %s returned %s: %s", apiURL, resp.Status, string(body))
+		return fmt.Errorf("GitLab API %s returned %s: %s", apiURL, resp.Status, string(body))
 	}
+	return json.NewDecoder(resp.Body).Decode(out)
+}
+
+// ResolveGitLabComponentSHA resolves a GitLab CI component reference tag to its
+// underlying commit SHA via the GitLab project tags API.
+// name is the component path like "gitlab.com/components/opentofu/full-pipeline"
+// and version is the tag like "0.1.0".
+func ResolveGitLabComponentSHA(name, version, token string) (string, error) {
+	host, projectPath, err := gitlabComponentPath(name)
+	if err != nil {
+		return "", err
+	}
+	encodedProject := strings.ReplaceAll(url.QueryEscape(projectPath), "+", "%20")
+	apiURL := fmt.Sprintf("https://%s/api/v4/projects/%s/repository/tags/%s",
+		host, encodedProject, url.QueryEscape(version))
 
 	var tagResp struct {
 		Commit struct {
 			ID string `json:"id"`
 		} `json:"commit"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&tagResp); err != nil {
-		return "", fmt.Errorf("decoding GitLab tag response: %w", err)
+	if err := gitlabGet(apiURL, token, &tagResp); err != nil {
+		return "", err
 	}
 	if tagResp.Commit.ID == "" {
 		return "", fmt.Errorf("no commit SHA in GitLab tag response for %s@%s", name, version)
 	}
 	return tagResp.Commit.ID, nil
+}
+
+// ResolveGitLabComponentLatest resolves the latest release tag of a GitLab CI
+// component project and returns its commit SHA and tag name. It queries the
+// releases API first (which respects release ordering), then falls back to the
+// repository tags API.
+func ResolveGitLabComponentLatest(name, token string) (sha, tag string, err error) {
+	host, projectPath, err := gitlabComponentPath(name)
+	if err != nil {
+		return "", "", err
+	}
+	encodedProject := strings.ReplaceAll(url.QueryEscape(projectPath), "+", "%20")
+
+	// Try the releases API first — returns newest release first.
+	releasesURL := fmt.Sprintf("https://%s/api/v4/projects/%s/releases?per_page=1", host, encodedProject)
+	var releases []struct {
+		TagName string `json:"tag_name"`
+		Commit  struct {
+			ID string `json:"id"`
+		} `json:"commit"`
+	}
+	if e := gitlabGet(releasesURL, token, &releases); e == nil && len(releases) > 0 && releases[0].Commit.ID != "" {
+		return releases[0].Commit.ID, releases[0].TagName, nil
+	}
+
+	// Fall back to tags API.
+	tagsURL := fmt.Sprintf("https://%s/api/v4/projects/%s/repository/tags?per_page=1", host, encodedProject)
+	var tags []struct {
+		Name   string `json:"name"`
+		Commit struct {
+			ID string `json:"id"`
+		} `json:"commit"`
+	}
+	if err := gitlabGet(tagsURL, token, &tags); err != nil {
+		return "", "", err
+	}
+	if len(tags) == 0 || tags[0].Commit.ID == "" {
+		return "", "", fmt.Errorf("no tags found for component %s", name)
+	}
+	return tags[0].Commit.ID, tags[0].Name, nil
 }
