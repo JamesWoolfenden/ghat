@@ -35,7 +35,7 @@ can authenticate.
 
 ## VS Code
 
-Install the **ghat** extension (`make vscode-ext` builds `bin/ghat.vsix`;
+Install the **ghat** extension (`make vsix` builds `bin/ghat.vsix`;
 install via `Extensions → … → Install from VSIX`).
 
 Settings:
