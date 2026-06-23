@@ -25,6 +25,15 @@ func (m *workingDirectoryError) Error() string {
 	return fmt.Sprintf("failed to get working directory: %s", m.directory)
 }
 
+type invalidExcludePatternError struct {
+	pattern string
+	err     error
+}
+
+func (m *invalidExcludePatternError) Error() string {
+	return fmt.Sprintf("invalid --exclude pattern %q: %v", m.pattern, m.err)
+}
+
 type executeActionError struct {
 	action string
 	err    error

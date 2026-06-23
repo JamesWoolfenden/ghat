@@ -78,7 +78,7 @@ func rewritePreCommitRevs(data string, pins map[string]revPin) (string, map[stri
 		// pre-commit autoupdate emits `-   repo:` (4-col indent), not `- repo:`.
 		bare := strings.TrimLeft(strings.TrimPrefix(trimmed, "-"), " ")
 		if after, ok := strings.CutPrefix(bare, "repo:"); ok {
-			currentRepo = strings.TrimSpace(after)
+			currentRepo = strings.Trim(strings.TrimSpace(after), `"'`)
 			seen[currentRepo] = true
 			suppressCurrent, suppressCurrentReason = parseSuppression(line)
 			if p, ok := pins[currentRepo]; ok && p.newURL != "" {

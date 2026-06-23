@@ -161,3 +161,36 @@ jobs:
 		t.Error("expected an unpinned SHA diagnostic")
 	}
 }
+
+func TestTerraformStaticDiagsSHAPinnedModule(t *testing.T) {
+	refs := []core.DepRef{
+		{
+			Ecosystem: core.SourceTerraform,
+			Name:      "git::https://github.com/JamesWoolfenden/terraform-http-ip.git?ref=2f3cef24e667fb840a3d3481f5a1aaa5a1ac7d28",
+			Version:   "",
+			Line:      1,
+		},
+	}
+	diags := terraformStaticDiags(refs)
+	if len(diags) != 0 {
+		t.Errorf("expected no diagnostics for a SHA-pinned module, got %+v", diags)
+	}
+}
+
+func TestTerraformStaticDiagsUnpinnedModule(t *testing.T) {
+	refs := []core.DepRef{
+		{
+			Ecosystem: core.SourceTerraform,
+			Name:      "git::https://github.com/JamesWoolfenden/terraform-http-ip.git",
+			Version:   "",
+			Line:      1,
+		},
+	}
+	diags := terraformStaticDiags(refs)
+	if len(diags) != 1 {
+		t.Fatalf("expected 1 diagnostic for an unpinned module, got %d: %+v", len(diags), diags)
+	}
+	if !strings.Contains(diags[0].Message, "no version constraint") {
+		t.Errorf("expected 'no version constraint' message, got %q", diags[0].Message)
+	}
+}

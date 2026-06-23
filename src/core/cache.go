@@ -32,7 +32,11 @@ func NewCache(ttl time.Duration, enabled bool) (*Cache, error) {
 		return &Cache{enabled: false}, nil
 	}
 
-	cacheDir := filepath.Join(os.TempDir(), "ghat-cache")
+	base, err := os.UserCacheDir()
+	if err != nil {
+		base = os.TempDir()
+	}
+	cacheDir := filepath.Join(base, "ghat")
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		log.Warn().Err(err).Msg("Failed to create cache directory, caching disabled")
 		return &Cache{enabled: false}, nil
@@ -148,21 +152,12 @@ func (c *Cache) ClearExpired() error {
 		if entry.IsDir() {
 			continue
 		}
-
-		cachePath := filepath.Join(c.dir, entry.Name())
-		data, err := os.ReadFile(cachePath)
+		info, err := entry.Info()
 		if err != nil {
 			continue
 		}
-
-		var cacheEntry CacheEntry
-		if err := json.Unmarshal(data, &cacheEntry); err != nil {
-			_ = os.Remove(cachePath) // Remove corrupted file
-			continue
-		}
-
-		if now.After(cacheEntry.ExpiresAt) {
-			_ = os.Remove(cachePath)
+		if now.After(info.ModTime().Add(c.ttl)) {
+			_ = os.Remove(filepath.Join(c.dir, entry.Name()))
 			removed++
 		}
 	}

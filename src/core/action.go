@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 )
 
 // label tags a sweep sub-action error with its verb so errors.Join output is attributable.
@@ -53,12 +54,36 @@ func (f *Flags) Action(action string) error {
 		}
 	}
 
+	if f.Exclude != "" {
+		f.Entries, err = filterExcluded(f.Entries, f.Exclude)
+		if err != nil {
+			return &invalidExcludePatternError{pattern: f.Exclude, err: err}
+		}
+	}
+
 	err = executeAction(action, f)
 	if err != nil {
 		return &executeActionError{action: action, err: err}
 	}
 
 	return nil
+}
+
+// filterExcluded drops entries whose forward-slashed path matches pattern.
+func filterExcluded(entries []string, pattern string) ([]string, error) {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	filtered := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if !re.MatchString(filepath.ToSlash(entry)) {
+			filtered = append(filtered, entry)
+		}
+	}
+
+	return filtered, nil
 }
 
 func executeAction(action string, f *Flags) error {

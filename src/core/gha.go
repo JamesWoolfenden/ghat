@@ -9,12 +9,39 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/rs/zerolog/log"
 	"golang.org/x/mod/semver"
 	"gopkg.in/yaml.v3"
+)
+
+var _httpClient atomic.Pointer[http.Client]
+
+func init() {
+	_httpClient.Store(&http.Client{Timeout: 30 * time.Second})
+}
+
+// SetHTTPTimeout replaces the shared HTTP client with one using the given timeout.
+// Must be called before any API requests are made (i.e. at startup).
+func SetHTTPTimeout(d time.Duration) {
+	_httpClient.Store(&http.Client{Timeout: d})
+}
+
+var (
+	// usesLineRe matches a uses: line and captures everything after the colon.
+	usesLineRe = regexp.MustCompile(`uses:(.*)`)
+	// applyInputUsesRe extracts the action ref from a uses: line during input-upgrade scanning.
+	applyInputUsesRe = regexp.MustCompile(`uses:\s+(\S+?)@`)
+	// inputLineRe matches a YAML key-value input line inside a step's with: block.
+	inputLineRe = regexp.MustCompile(`^(\s+)(\w[\w-]*):\s+(\S+.*)$`)
+	// stepStartLineRe detects the first key of a new step.
+	stepStartLineRe = regexp.MustCompile(`-\s+(uses|name|run|with):\s`)
+	// pinnedRefRe parses a "sha # tag" already-pinned ref.
+	pinnedRefRe = regexp.MustCompile(`^([0-9a-f]{40})\s+#\s+(.+)$`)
 )
 
 const (
@@ -47,14 +74,15 @@ func GetFiles(dir string) ([]string, error) {
 		return nil, &readFilesError{err}
 	}
 
+	AbsDir, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, &absolutePathError{dir, err}
+	}
+	gitDir := filepath.Join(AbsDir, ".git")
+
 	var ParsedEntries []string
 
 	for _, entry := range Entries {
-		AbsDir, err := filepath.Abs(dir)
-		if err != nil {
-			return nil, &absolutePathError{dir, err}
-		}
-		gitDir := filepath.Join(AbsDir, ".git")
 
 		if entry.IsDir() {
 
@@ -124,8 +152,7 @@ func (f *Flags) UpdateGHA(file string) error {
 
 	replacement := string(buffer)
 
-	r := regexp.MustCompile(`uses:(.*)`)
-	matches := r.FindAllStringSubmatch(string(buffer), -1)
+	matches := usesLineRe.FindAllStringSubmatch(string(buffer), -1)
 	for _, match := range matches {
 		if ok, reason := parseSuppression(match[0]); ok {
 			log.Info().Str("ref", strings.TrimSpace(match[1])).Str("reason", reason).Msg("skipping suppressed uses: line")
@@ -249,7 +276,7 @@ func (f *Flags) UpdateGHA(file string) error {
 			if isTagMutation(currentSHA, currentTag, sha, tag) {
 				log.Warn().Msgf("SUSPICIOUS: %s@%s — SHA changed from %s to %s with the same tag%s. "+
 					"The tag may have been moved to a different commit. Verify this is intentional before accepting.",
-					action[0], tag, currentSHA, sha, commitVerification(ownerRepo(action[0]), sha, f.GitHubToken))
+					action[0], tag, currentSHA, sha, f.commitVerification(ownerRepo(action[0]), sha))
 			}
 
 			// Don't downgrade: if the current pin is semver-higher than what the
@@ -454,9 +481,9 @@ func (f *Flags) applyInputUpgrades(content string) (string, error) {
 	lines := strings.Split(content, "\n")
 	var activeRule *resolvedRule
 
-	usesRe := regexp.MustCompile(`uses:\s+(\S+?)@`)
-	inputRe := regexp.MustCompile(`^(\s+)(\w[\w-]*):\s+(\S+.*)$`)
-	stepStartRe := regexp.MustCompile(`-\s+(uses|name|run|with):\s`)
+	usesRe := applyInputUsesRe
+	inputRe := inputLineRe
+	stepStartRe := stepStartLineRe
 
 	for i, line := range lines {
 		// New step boundary — clear active rule.
@@ -506,8 +533,7 @@ func (f *Flags) applyInputUpgrades(content string) (string, error) {
 // parsePinnedRef extracts the SHA and tag from a ref already pinned in "sha # tag" format.
 // Returns empty strings if the ref is not in that format.
 func parsePinnedRef(ref string) (sha, tag string) {
-	re := regexp.MustCompile(`^([0-9a-f]{40})\s+#\s+(.+)$`)
-	if m := re.FindStringSubmatch(strings.TrimSpace(ref)); m != nil {
+	if m := pinnedRefRe.FindStringSubmatch(strings.TrimSpace(ref)); m != nil {
 		return m[1], strings.TrimSpace(m[2])
 	}
 	return "", ""
@@ -680,8 +706,9 @@ func resolveTagSHA(action, tag, token string) (string, error) {
 // commitVerification returns a short " (new commit: …)" suffix describing the
 // GPG/SSH signature status of sha, for triaging tag-repoint warnings. Returns
 // "" if the lookup fails so the warning still fires.
-func commitVerification(repo, sha, token string) string {
-	body, err := GetGithubBody(token, "https://api.github.com/repos/"+repo+"/commits/"+sha)
+func (f *Flags) commitVerification(repo, sha string) string {
+	url := "https://api.github.com/repos/" + repo + "/commits/" + sha
+	body, err := GetGithubBodyWithCache(f.GitHubToken, url, f.Cache)
 	if err != nil {
 		return ""
 	}
@@ -728,25 +755,18 @@ func GetGithubBodyWithCache(token, url string, cache *Cache) (interface{}, error
 
 // GetGithubBody fetches data from GitHub API (existing function, keep as-is for compatibility)
 func GetGithubBody(token, url string) (interface{}, error) {
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Add authentication if token provided
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
-
-	// Set user agent
 	req.Header.Set("User-Agent", "ghat")
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	resp, err := client.Do(req)
+	resp, err := _httpClient.Load().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -754,18 +774,18 @@ func GetGithubBody(token, url string) (interface{}, error) {
 		_ = Body.Close()
 	}(resp.Body) //nolint:errcheck
 
-	// If the token is invalid, retry without it rather than failing hard.
+	// Token was rejected — retry anonymously so public repos still work,
+	// but warn so the caller knows the token is being ignored.
 	if resp.StatusCode == 401 && token != "" {
+		log.Warn().Str("url", url).Msg("GitHub returned 401: token invalid or expired, retrying without auth")
 		_ = resp.Body.Close() //nolint:errcheck
 		return GetGithubBody("", url)
 	}
 
-	// Check rate limiting
-	if resp.StatusCode == 403 {
-		if resp.Header.Get("X-RateLimit-Remaining") == "0" {
-			resetTime := resp.Header.Get("X-RateLimit-Reset")
-			return nil, fmt.Errorf("GitHub API rate limit exceeded, resets at %s", resetTime)
-		}
+	// Return a typed error so callers can detect rate limiting with errors.As.
+	if resp.StatusCode == 429 || (resp.StatusCode == 403 && resp.Header.Get("X-RateLimit-Remaining") == "0") {
+		epoch, _ := strconv.ParseInt(resp.Header.Get("X-RateLimit-Reset"), 10, 64)
+		return nil, &RateLimitError{ResetTime: time.Unix(epoch, 0)}
 	}
 
 	if resp.StatusCode != 200 {
@@ -788,7 +808,6 @@ func GetGithubBody(token, url string) (interface{}, error) {
 
 // getPagedGithubBody fetches one page and returns the body plus the URL of the next page (empty if last).
 func getPagedGithubBody(token, url string) (interface{}, string, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create request: %w", err)
@@ -799,7 +818,7 @@ func getPagedGithubBody(token, url string) (interface{}, string, error) {
 	req.Header.Set("User-Agent", "ghat")
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	resp, err := client.Do(req)
+	resp, err := _httpClient.Load().Do(req)
 	if err != nil {
 		return nil, "", fmt.Errorf("request failed: %w", err)
 	}
@@ -844,7 +863,6 @@ func postGithubBody(token, url string, payload []byte) (interface{}, error) {
 }
 
 func sendGithubBody(token, method, url string, payload []byte) (interface{}, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
 	req, err := http.NewRequest(method, url, strings.NewReader(string(payload)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -856,7 +874,7 @@ func sendGithubBody(token, method, url string, payload []byte) (interface{}, err
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := _httpClient.Load().Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}

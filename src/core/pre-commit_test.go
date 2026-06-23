@@ -105,6 +105,24 @@ func TestRewritePreCommitRevs(t *testing.T) {
 				"  - repo: https://github.com/gitleaks/gitleaks\n" +
 				"    rev: 2ca41cc1372d1e939a6a879f18cdc19fc1cac1ce # v8.30.0\n",
 		},
+		{
+			name: "quoted repo url is unquoted before matching pins",
+			in: "repos:\n" +
+				"  - repo: 'https://github.com/gitleaks/gitleaks'\n" +
+				"    rev: v8.0.0\n",
+			want: "repos:\n" +
+				"  - repo: 'https://github.com/gitleaks/gitleaks'\n" +
+				"    rev: 2ca41cc1372d1e939a6a879f18cdc19fc1cac1ce # v8.30.0\n",
+		},
+		{
+			name: "double-quoted repo url is unquoted before matching pins",
+			in: "repos:\n" +
+				"  - repo: \"https://github.com/gitleaks/gitleaks\"\n" +
+				"    rev: v8.0.0\n",
+			want: "repos:\n" +
+				"  - repo: \"https://github.com/gitleaks/gitleaks\"\n" +
+				"    rev: 2ca41cc1372d1e939a6a879f18cdc19fc1cac1ce # v8.30.0\n",
+		},
 	}
 
 	for _, tt := range tests {

@@ -263,6 +263,16 @@ I got you covered:
 $ghat swot -d . --stable 14
 ```
 
+#### Excluding paths
+
+Use `--exclude` with a regex to skip scanned paths — useful in pre-commit hooks with `always_run: true`, where ghat would otherwise also process fixture files:
+
+```bash
+$ghat swot -d . --exclude '^tests/fixtures/'
+```
+
+`--exclude` is available on `swot`, `swipe`, `shake`, `sift`, `kube`, `dock`, `sub`, `all`, and `audit`.
+
 #### Tag mutation detection
 
 When `swot` processes a workflow file that already has a pinned action (`action@sha # vX.Y.Z`), it checks whether the SHA GitHub now resolves for that same tag matches what was previously pinned. If the tag name is unchanged but the SHA has changed, ghat emits a warning:

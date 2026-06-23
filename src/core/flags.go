@@ -18,6 +18,7 @@ type Flags struct {
 	ContinueOnError bool     // Continue on error flag
 	Deep            bool
 	Sources         []string
+	Exclude         string // regex pattern; matching scanned paths are skipped
 
 	// New cache fields
 	Cache        *Cache
@@ -29,23 +30,28 @@ type Flags struct {
 	Substitutions []Substitution
 	InputUpgrades []InputUpgrade
 
-	OpenPR    bool
-	AutoMerge bool
-	Branch    string
-	PRToken   string
+	OpenPR      bool
+	AutoMerge   bool
+	Branch      string
+	PRToken     string
+	HTTPTimeout time.Duration
 }
 
 // NewFlags creates a new Flags instance with default cache settings
 func NewFlags() *Flags {
 	return &Flags{
-		CacheEnabled: true,           // Cache enabled by default
-		CacheTTL:     24 * time.Hour, // 24 hour default TTL
-		Entries:      []string{},     // Initialize empty slice
+		CacheEnabled: true,
+		CacheTTL:     24 * time.Hour,
+		HTTPTimeout:  30 * time.Second,
+		Entries:      []string{},
 	}
 }
 
-// InitializeCache initializes the cache based on flags
+// InitializeCache initializes the cache and applies startup configuration.
 func (f *Flags) InitializeCache() error {
+	if f.HTTPTimeout > 0 {
+		SetHTTPTimeout(f.HTTPTimeout)
+	}
 	cache, err := NewCache(f.CacheTTL, f.CacheEnabled)
 	if err != nil {
 		return err

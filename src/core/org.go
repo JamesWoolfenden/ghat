@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -27,6 +28,7 @@ type OrgFlags struct {
 	OpenPR      bool
 	AutoMerge   bool
 	Threshold   int // pause when fewer than this many API requests remain
+	Parallelism int // number of repos to process concurrently (0/1 = sequential)
 }
 
 type RepoResult struct {
@@ -88,16 +90,44 @@ func (o *OrgFlags) RunBulk() ([]RepoResult, error) {
 
 	log.Info().Int("total", len(repos)).Msg("processing repos")
 
-	var results []RepoResult
-	for i, repo := range repos {
-		log.Info().Msgf("[%d/%d] %s", i+1, len(repos), repo.Name)
-		result := o.processRepo(host, repo)
-		results = append(results, result)
-		if result.Error != nil {
-			log.Warn().Err(result.Error).Str("repo", repo.Name).Msg("skipping")
+	results := make([]RepoResult, len(repos))
+	if o.Parallelism <= 1 {
+		for i, repo := range repos {
+			log.Info().Msgf("[%d/%d] %s", i+1, len(repos), repo.Name)
+			results[i] = o.processRepo(host, repo)
+			if results[i].Error != nil {
+				log.Warn().Err(results[i].Error).Str("repo", repo.Name).Msg("skipping")
+			}
+			host.WaitForRateLimit(o.Threshold)
 		}
-		host.WaitForRateLimit(o.Threshold)
+		return results, nil
 	}
+
+	// Parallel mode: bounded worker pool. Each goroutine works in its own temp
+	// dir, so clones/sweeps are fully independent. Rate-limit checks are
+	// serialized with a mutex to avoid a thundering-herd of /rate_limit calls.
+	p := o.Parallelism
+	sem := make(chan struct{}, p)
+	var wg sync.WaitGroup
+	var rlMu sync.Mutex
+
+	for i, repo := range repos {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(idx int, r hostRepo) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			log.Info().Msgf("[%d/%d] %s", idx+1, len(repos), r.Name)
+			results[idx] = o.processRepo(host, r)
+			if results[idx].Error != nil {
+				log.Warn().Err(results[idx].Error).Str("repo", r.Name).Msg("skipping")
+			}
+			rlMu.Lock()
+			host.WaitForRateLimit(o.Threshold)
+			rlMu.Unlock()
+		}(i, repo)
+	}
+	wg.Wait()
 	return results, nil
 }
 

@@ -13,12 +13,18 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/jameswoolfenden/ghat/src/core"
 )
+
+// moduleRefSHARe matches a git module source already pinned to an immutable
+// commit SHA via ?ref=<40-hex>, the format ghat itself writes (with the tag
+// recorded as a trailing "# vX.Y.Z" comment rather than a version attribute).
+var moduleRefSHARe = regexp.MustCompile(`\?ref=[0-9a-f]{40}(&|$)`)
 
 // Server is a stateful stdio LSP server.
 type Server struct {
@@ -433,6 +439,11 @@ func terraformStaticDiags(refs []core.DepRef) []diagnostic {
 	var diags []diagnostic
 	for _, ref := range refs {
 		if ref.Version == "" {
+			if moduleRefSHARe.MatchString(ref.Name) {
+				// Already pinned to an immutable SHA (ghat writes the tag as a
+				// trailing comment, not a version attribute) — nothing to flag.
+				continue
+			}
 			diags = append(diags, lineDiag(ref.Line, 2,
 				ref.Name+" has no version constraint — run ghat to pin"))
 			continue

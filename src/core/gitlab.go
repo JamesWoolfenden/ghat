@@ -21,7 +21,10 @@ import (
 )
 
 // pinnedImageRe matches an already-pinned image digest comment: @sha256:hex # tag
-var pinnedImageRe = regexp.MustCompile(`@(sha256:[0-9a-f]+)\s+#\s+(\S+)`)
+var (
+	pinnedImageRe  = regexp.MustCompile(`@(sha256:[0-9a-f]+)\s+#\s+(\S+)`)
+	gitlabCIFileRe = regexp.MustCompile(`\.gitlab-ci\.ya?ml$`)
+)
 
 // replaceWithComment replaces oldStr (and any trailing " # ..." comment on the
 // same line) with newStr. This prevents duplicate comments accumulating when
@@ -322,6 +325,17 @@ func (f *Flags) getImageDigest(ref *ImageReference) (string, error) {
 	if ref.Registry == "docker.io" {
 		imageStr = strings.TrimPrefix(ref.Repository, "library/") + ":" + ref.Tag
 	}
+
+	const digestKeyPrefix = "digest:"
+	cacheKey := digestKeyPrefix + imageStr
+	if f.Cache != nil {
+		if cached, ok := f.Cache.Get(cacheKey); ok {
+			if s, ok := cached.(string); ok {
+				return s, nil
+			}
+		}
+	}
+
 	parsed, err := name.ParseReference(imageStr)
 	if err != nil {
 		return "", fmt.Errorf("parse %q: %w", imageStr, err)
@@ -339,7 +353,11 @@ func (f *Flags) getImageDigest(ref *ImageReference) (string, error) {
 		return "", fmt.Errorf("resolve digest for %q: %w", ref.Original, err)
 	}
 
-	return desc.Digest.String(), nil
+	digest := desc.Digest.String()
+	if f.Cache != nil {
+		_ = f.Cache.Set(cacheKey, digest)
+	}
+	return digest, nil
 }
 
 // formatImageWithDigest creates the new image reference with digest
@@ -392,9 +410,8 @@ func (f *Flags) GetGitlabFiles() []string {
 	}
 
 	// Also check in entries
-	pattern := regexp.MustCompile(`\.gitlab-ci\.ya?ml$`)
 	for _, entry := range f.Entries {
-		if pattern.MatchString(entry) {
+		if gitlabCIFileRe.MatchString(entry) {
 			gitlabFiles = append(gitlabFiles, entry)
 		}
 	}

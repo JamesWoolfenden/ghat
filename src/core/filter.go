@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -152,12 +153,14 @@ func isRateLimitError(err error) bool {
 	if err == nil {
 		return false
 	}
-
-	errStr := err.Error()
-
-	// Check for various rate limit indicators
-	return strings.Contains(errStr, "rate limit") ||
-		strings.Contains(errStr, "status 403") ||
-		strings.Contains(errStr, "429") ||
-		strings.Contains(errStr, "API rate limit exceeded")
+	var rle *RateLimitError
+	if errors.As(err, &rle) {
+		return true
+	}
+	// Fallback for wrapped plain-string rate limit messages from other paths.
+	s := err.Error()
+	return strings.Contains(s, "rate limit") ||
+		strings.Contains(s, "status 403") ||
+		strings.Contains(s, "429") ||
+		strings.Contains(s, "API rate limit exceeded")
 }

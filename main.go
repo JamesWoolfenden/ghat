@@ -68,6 +68,8 @@ func main() {
 						myFlags.Days = &stable
 					}
 
+					myFlags.Exclude = c.String("exclude")
+
 					return myFlags.Action("stun")
 				},
 				Flags: []cli.Flag{
@@ -76,6 +78,11 @@ func main() {
 						Aliases:  []string{"d"},
 						Usage:    "repository Destination",
 						Value:    ".",
+						Category: "files",
+					},
+					&cli.StringFlag{
+						Name:     "exclude",
+						Usage:    "regex pattern; matching scanned paths are skipped",
 						Category: "files",
 					},
 					&cli.UintFlag{
@@ -118,6 +125,12 @@ func main() {
 						Destination: &myFlags.Directory,
 						Category:    "files",
 					},
+					&cli.StringFlag{
+						Name:        "exclude",
+						Usage:       "regex pattern; matching scanned paths are skipped",
+						Destination: &myFlags.Exclude,
+						Category:    "files",
+					},
 					&cli.BoolFlag{
 						Name:        "update",
 						Usage:       "update to latest module available",
@@ -155,6 +168,12 @@ func main() {
 						Aliases:     []string{"d"},
 						Usage:       "Destination to update modules",
 						Destination: &myFlags.Directory,
+						Category:    "files",
+					},
+					&cli.StringFlag{
+						Name:        "exclude",
+						Usage:       "regex pattern; matching scanned paths are skipped",
+						Destination: &myFlags.Exclude,
 						Category:    "files",
 					},
 					&cli.BoolFlag{
@@ -217,6 +236,10 @@ var swotCmd = &cli.Command{
 			Aliases: []string{"f"},
 			Usage:   "Specific workflow file to update",
 		},
+		&cli.StringFlag{
+			Name:  "exclude",
+			Usage: "regex pattern; matching scanned paths are skipped",
+		},
 		&cli.BoolFlag{
 			Name:    "dry-run",
 			Aliases: []string{"dryrun"},
@@ -266,15 +289,22 @@ var swotCmd = &cli.Command{
 			Usage:    "PAT for creating PRs (defaults to $GITHUB_TOKEN)",
 			Category: "authentication",
 		},
+		&cli.DurationFlag{
+			Name:  "timeout",
+			Usage: "HTTP timeout for GitHub API calls (e.g. 30s, 2m)",
+			Value: 30 * time.Second,
+		},
 	},
 	Action: func(c *cli.Context) error {
 		myFlags := core.NewFlags()
 		myFlags.Directory = c.String("directory")
 		myFlags.File = c.String("file")
+		myFlags.Exclude = c.String("exclude")
 		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
 		myFlags.PinOnly = c.Bool("pin-only")
 		myFlags.GitHubToken = githubToken()
+		myFlags.HTTPTimeout = c.Duration("timeout")
 
 		stable := c.Uint("stable")
 		myFlags.Days = &stable
@@ -354,6 +384,10 @@ var shakeCmd = &cli.Command{
 			Aliases: []string{"f"},
 			Usage:   "Specific Terraform file to update",
 		},
+		&cli.StringFlag{
+			Name:  "exclude",
+			Usage: "regex pattern; matching scanned paths are skipped",
+		},
 		&cli.BoolFlag{
 			Name:    "dry-run",
 			Aliases: []string{"dryrun"},
@@ -368,6 +402,7 @@ var shakeCmd = &cli.Command{
 		myFlags := core.NewFlags()
 		myFlags.Directory = c.String("directory")
 		myFlags.File = c.String("file")
+		myFlags.Exclude = c.String("exclude")
 		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
 
@@ -462,6 +497,10 @@ var kubeCmd = &cli.Command{
 			Aliases: []string{"f"},
 			Usage:   "specific manifest file to update",
 		},
+		&cli.StringFlag{
+			Name:  "exclude",
+			Usage: "regex pattern; matching scanned paths are skipped",
+		},
 		&cli.BoolFlag{
 			Name:    "dry-run",
 			Aliases: []string{"dryrun"},
@@ -476,6 +515,7 @@ var kubeCmd = &cli.Command{
 		myFlags := core.NewFlags()
 		myFlags.Directory = c.String("directory")
 		myFlags.File = c.String("file")
+		myFlags.Exclude = c.String("exclude")
 		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
 		myFlags.GitHubToken = githubToken()
@@ -508,6 +548,10 @@ var dockCmd = &cli.Command{
 			Aliases: []string{"f"},
 			Usage:   "specific Dockerfile to update",
 		},
+		&cli.StringFlag{
+			Name:  "exclude",
+			Usage: "regex pattern; matching scanned paths are skipped",
+		},
 		&cli.BoolFlag{
 			Name:    "dry-run",
 			Aliases: []string{"dryrun"},
@@ -522,6 +566,7 @@ var dockCmd = &cli.Command{
 		myFlags := core.NewFlags()
 		myFlags.Directory = c.String("directory")
 		myFlags.File = c.String("file")
+		myFlags.Exclude = c.String("exclude")
 		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
 		myFlags.GitHubToken = githubToken()
@@ -560,6 +605,10 @@ var subCmd = &cli.Command{
 			Usage: "continue processing submodules even if one fails",
 		},
 		&cli.StringFlag{
+			Name:  "exclude",
+			Usage: "regex pattern; matching scanned paths are skipped",
+		},
+		&cli.StringFlag{
 			Name:     "token",
 			Aliases:  []string{"t"},
 			Usage:    "GitHub PAT token",
@@ -572,6 +621,7 @@ var subCmd = &cli.Command{
 		myFlags.Directory = c.String("directory")
 		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
+		myFlags.Exclude = c.String("exclude")
 		myFlags.GitHubToken = c.String("token")
 
 		return myFlags.Action(core.ActionSub)
@@ -598,6 +648,10 @@ var sweepCmd = &cli.Command{
 		&cli.BoolFlag{
 			Name:  "continue-on-error",
 			Usage: "continue processing files even if errors occur",
+		},
+		&cli.StringFlag{
+			Name:  "exclude",
+			Usage: "regex pattern; matching scanned paths are skipped",
 		},
 		&cli.UintFlag{
 			Name:  "stable",
@@ -645,15 +699,22 @@ var sweepCmd = &cli.Command{
 			Usage:    "PAT for creating PRs (defaults to $GITHUB_TOKEN)",
 			Category: "authentication",
 		},
+		&cli.DurationFlag{
+			Name:  "timeout",
+			Usage: "HTTP timeout for GitHub API calls (e.g. 30s, 2m)",
+			Value: 30 * time.Second,
+		},
 	},
 	Action: func(c *cli.Context) error {
 		myFlags := core.NewFlags()
 		myFlags.Directory = c.String("directory")
 		myFlags.DryRun = c.Bool("dry-run")
 		myFlags.ContinueOnError = c.Bool("continue-on-error")
+		myFlags.Exclude = c.String("exclude")
 		myFlags.Update = c.Bool("update")
 		myFlags.PinOnly = c.Bool("pin-only")
 		myFlags.GitHubToken = c.String("token")
+		myFlags.HTTPTimeout = c.Duration("timeout")
 
 		stable := c.Uint("stable")
 		myFlags.Days = &stable
@@ -721,6 +782,10 @@ var auditCmd = &cli.Command{
 			Usage:   "dependency sources to audit (go, gha, pre-commit, terraform); repeat or comma-separate; default all",
 		},
 		&cli.StringFlag{
+			Name:  "exclude",
+			Usage: "regex pattern; matching scanned paths are skipped",
+		},
+		&cli.StringFlag{
 			Name:     "token",
 			Aliases:  []string{"t"},
 			Usage:    "GitHub PAT token",
@@ -736,15 +801,22 @@ var auditCmd = &cli.Command{
 			Usage: "cache time-to-live (e.g., 24h, 1h30m)",
 			Value: 24 * time.Hour,
 		},
+		&cli.DurationFlag{
+			Name:  "timeout",
+			Usage: "HTTP timeout for GitHub API calls (e.g. 30s, 2m)",
+			Value: 30 * time.Second,
+		},
 	},
 	Action: func(c *cli.Context) error {
 		myFlags := core.NewFlags()
 		myFlags.Directory = c.String("directory")
 		myFlags.Deep = c.Bool("deep")
 		myFlags.Sources = c.StringSlice("source")
+		myFlags.Exclude = c.String("exclude")
 		myFlags.GitHubToken = c.String("token")
 		myFlags.CacheEnabled = !c.Bool("no-cache")
 		myFlags.CacheTTL = c.Duration("cache-ttl")
+		myFlags.HTTPTimeout = c.Duration("timeout")
 
 		if err := myFlags.InitializeCache(); err != nil {
 			return fmt.Errorf("failed to initialize cache: %w", err)
@@ -817,21 +889,35 @@ var orgCmd = &cli.Command{
 			Usage: "pause when fewer than N API requests remain",
 			Value: 200,
 		},
+		&cli.IntFlag{
+			Name:  "parallelism",
+			Usage: "number of repos to process concurrently (default 1 = sequential)",
+			Value: 1,
+		},
+		&cli.DurationFlag{
+			Name:  "timeout",
+			Usage: "HTTP timeout for GitHub API calls (e.g. 30s, 2m)",
+			Value: 30 * time.Second,
+		},
 	},
 	Action: func(c *cli.Context) error {
+		if t := c.Duration("timeout"); t > 0 {
+			core.SetHTTPTimeout(t)
+		}
 		flags := &core.OrgFlags{
-			Provider:  c.String("provider"),
-			BaseURL:   c.String("base-url"),
-			Owner:     c.String("owner"),
-			Repos:     c.StringSlice("repo"),
-			Token:     c.String("token"),
-			Branch:    c.String("branch"),
-			Offset:    c.Int("offset"),
-			Limit:     c.Int("limit"),
-			DryRun:    c.Bool("dry-run"),
-			OpenPR:    c.Bool("pr"),
-			AutoMerge: c.Bool("auto-merge"),
-			Threshold: c.Int("rate-threshold"),
+			Provider:    c.String("provider"),
+			BaseURL:     c.String("base-url"),
+			Owner:       c.String("owner"),
+			Repos:       c.StringSlice("repo"),
+			Token:       c.String("token"),
+			Branch:      c.String("branch"),
+			Offset:      c.Int("offset"),
+			Limit:       c.Int("limit"),
+			DryRun:      c.Bool("dry-run"),
+			OpenPR:      c.Bool("pr"),
+			AutoMerge:   c.Bool("auto-merge"),
+			Threshold:   c.Int("rate-threshold"),
+			Parallelism: c.Int("parallelism"),
 		}
 		if flags.Token == "" {
 			if strings.EqualFold(flags.Provider, "gitlab") {
