@@ -475,6 +475,92 @@ jobs:
 }
 
 // ---------------------------------------------------------------------------
+// AnalyzeWorkflow — RunSteps
+// ---------------------------------------------------------------------------
+
+func TestAnalyzeWorkflow_RunSteps_Basic(t *testing.T) {
+	content := []byte(`
+on: [push]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir "$GITHUB_WORKSPACE/bin"
+          wget https://example.com/tool.tar.gz
+      - run: echo done
+`)
+	a := AnalyzeWorkflow("test.yml", content)
+	if len(a.RunSteps) != 2 {
+		t.Fatalf("expected 2 run steps, got %d", len(a.RunSteps))
+	}
+	if a.RunSteps[0].Job != "build" {
+		t.Errorf("RunSteps[0].Job = %q, want build", a.RunSteps[0].Job)
+	}
+	if !strings.Contains(a.RunSteps[0].Run, "wget") {
+		t.Errorf("RunSteps[0].Run = %q, want it to contain wget", a.RunSteps[0].Run)
+	}
+	if a.RunSteps[1].Run != "echo done" {
+		t.Errorf("RunSteps[1].Run = %q, want %q", a.RunSteps[1].Run, "echo done")
+	}
+	// The uses: step must not show up in RunSteps.
+	for _, rs := range a.RunSteps {
+		if strings.Contains(rs.Run, "checkout") {
+			t.Error("uses: step leaked into RunSteps")
+		}
+	}
+}
+
+func TestAnalyzeWorkflow_RunSteps_MultipleJobs(t *testing.T) {
+	content := []byte(`
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo building
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo deploying
+`)
+	a := AnalyzeWorkflow("test.yml", content)
+	if len(a.RunSteps) != 2 {
+		t.Fatalf("expected 2 run steps, got %d", len(a.RunSteps))
+	}
+	jobs := map[string]bool{}
+	for _, rs := range a.RunSteps {
+		jobs[rs.Job] = true
+	}
+	if !jobs["build"] || !jobs["deploy"] {
+		t.Errorf("expected run steps tagged with both build and deploy jobs, got %+v", a.RunSteps)
+	}
+}
+
+func TestAnalyzeWorkflow_RunSteps_ReusableJobHasNone(t *testing.T) {
+	content := []byte(`
+on: [push]
+jobs:
+  call-workflow:
+    uses: ./.github/workflows/reusable.yml
+`)
+	a := AnalyzeWorkflow("test.yml", content)
+	if len(a.RunSteps) != 0 {
+		t.Errorf("expected 0 run steps for a reusable-workflow job, got %d", len(a.RunSteps))
+	}
+}
+
+func TestAnalyzeWorkflow_RunSteps_Empty(t *testing.T) {
+	a := AnalyzeWorkflow("empty.yml", []byte{})
+	if len(a.RunSteps) != 0 {
+		t.Errorf("expected 0 run steps, got %d", len(a.RunSteps))
+	}
+}
+
+// ---------------------------------------------------------------------------
 // AnalyzeWorkflow — empty / invalid input
 // ---------------------------------------------------------------------------
 

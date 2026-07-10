@@ -41,6 +41,10 @@ type WorkflowAnalysis struct {
 	Steps []StepAnalysis
 	// Jobs is the per-job analysis, sorted by job name.
 	Jobs []JobAnalysis
+	// RunSteps is the ordered list of inline run: shell-script steps found in
+	// the workflow, one entry per step across all jobs. Steps with no run:
+	// key (uses: steps) are excluded — see StepAnalysis for those.
+	RunSteps []RunStepAnalysis
 }
 
 // StepAnalysis describes a single external uses: step.
@@ -67,6 +71,21 @@ type StepAnalysis struct {
 	// environment where they are visible to child processes and debug logs.
 	ExposesSecretInEnv bool
 	// Line is the 1-indexed source line of the `uses:` key. 0 when unknown.
+	Line int
+}
+
+// RunStepAnalysis describes a single inline run: shell-script step, as
+// opposed to an external uses: step (see StepAnalysis). Consumers can
+// pattern-match Run against known-risky shell constructs (e.g. an unverified
+// curl/wget download) and use Job to correlate steps within the same job
+// (e.g. "a download step with no nearby checksum-verification step").
+type RunStepAnalysis struct {
+	// Job is the job key this step belongs to, e.g. "build".
+	Job string
+	// Run is the raw script content of the step's run: block, exactly as
+	// written in the YAML (may be multi-line).
+	Run string
+	// Line is the 1-indexed source line of the `run:` key.
 	Line int
 }
 
@@ -200,6 +219,7 @@ func AnalyzeWorkflow(filename string, content []byte) WorkflowAnalysis {
 	a.JobsLine = matchLine(jobsRe, content)
 	a.Steps = analyzeSteps(content)
 	a.Jobs = analyzeJobs(content)
+	a.RunSteps = analyzeRunSteps(content)
 
 	return a
 }
@@ -367,6 +387,44 @@ func analyzeJobs(content []byte) []JobAnalysis {
 	}
 	sort.Slice(jobs, func(i, k int) bool { return jobs[i].Name < jobs[k].Name })
 	return jobs
+}
+
+// analyzeRunSteps parses the workflow YAML and returns every inline run:
+// step across all jobs, in document order within each job. Reusable-workflow
+// jobs (job-level uses:, no steps:) contribute nothing.
+func analyzeRunSteps(content []byte) []RunStepAnalysis {
+	var root yaml.Node
+	if err := yaml.Unmarshal(content, &root); err != nil {
+		return nil
+	}
+	jobsNode := findMappingValue(&root, "jobs")
+	if jobsNode == nil || jobsNode.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	var out []RunStepAnalysis
+	for i := 0; i+1 < len(jobsNode.Content); i += 2 {
+		jobName := jobsNode.Content[i].Value
+		stepsNode := findMappingValue(jobsNode.Content[i+1], "steps")
+		if stepsNode == nil || stepsNode.Kind != yaml.SequenceNode {
+			continue
+		}
+		for _, stepNode := range stepsNode.Content {
+			if stepNode.Kind != yaml.MappingNode {
+				continue
+			}
+			runNode := findMappingValue(stepNode, "run")
+			if runNode == nil || runNode.Value == "" {
+				continue
+			}
+			out = append(out, RunStepAnalysis{
+				Job:  jobName,
+				Run:  runNode.Value,
+				Line: runNode.Line,
+			})
+		}
+	}
+	return out
 }
 
 // findMappingValue returns the value node for key at the document's top-level
