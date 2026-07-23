@@ -29,6 +29,24 @@ jobs:
 	}
 }
 
+func TestParseTerraformManifestSkipsLocalModules(t *testing.T) {
+	content := []byte(`module "cloudarmour" {
+  source = "../../"
+}
+
+module "remote" {
+  source = "git::https://github.com/JamesWoolfenden/terraform-http-ip.git"
+}
+`)
+	refs := ParseManifest(ManifestTerraform, content)
+	if len(refs) != 1 {
+		t.Fatalf("got %d refs, want 1: %+v", len(refs), refs)
+	}
+	if refs[0].Name != "git::https://github.com/JamesWoolfenden/terraform-http-ip.git" {
+		t.Errorf("ref[0] = %+v", refs[0])
+	}
+}
+
 func TestParseManifestGoMod(t *testing.T) {
 	content := []byte(`module example.com/mymod
 

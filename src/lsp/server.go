@@ -24,7 +24,7 @@ import (
 // moduleRefSHARe matches a git module source already pinned to an immutable
 // commit SHA via ?ref=<40-hex>, the format ghat itself writes (with the tag
 // recorded as a trailing "# vX.Y.Z" comment rather than a version attribute).
-var moduleRefSHARe = regexp.MustCompile(`\?ref=[0-9a-f]{40}(&|$)`)
+var moduleRefSHARe = regexp.MustCompile(`\?ref=[0-9a-f]{40}\b`)
 
 // Server is a stateful stdio LSP server.
 type Server struct {

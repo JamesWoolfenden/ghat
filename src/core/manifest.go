@@ -465,6 +465,15 @@ func parseComposeManifest(content []byte) []DepRef {
 	return refs
 }
 
+// isLocalModuleSource reports whether a Terraform module source is a local
+// filesystem path. Terraform requires local paths to begin with "./" or
+// "../" (or their Windows equivalents) to distinguish them from registry or
+// VCS sources; local paths have no version to pin.
+func isLocalModuleSource(source string) bool {
+	return strings.HasPrefix(source, "./") || strings.HasPrefix(source, "../") ||
+		strings.HasPrefix(source, ".\\") || strings.HasPrefix(source, "..\\")
+}
+
 func parseTerraformManifest(content []byte) []DepRef {
 	lineIdx := buildLineIndex(content)
 	lineIdxNear := buildLineIndexNear(content)
@@ -498,7 +507,7 @@ func parseTerraformManifest(content []byte) []DepRef {
 			}
 		case "module":
 			source := GetStringValue(block, "source")
-			if source == "" {
+			if source == "" || isLocalModuleSource(source) {
 				continue
 			}
 			version := GetStringValue(block, "version")

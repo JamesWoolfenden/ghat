@@ -268,14 +268,14 @@ func TestFlags_UpdateGithubSource(t *testing.T) {
 		wantErr bool
 	}{
 		{"Pass update", fields{Update: true, GitHubToken: gitHubToken}, args{newModule: "github.com/jameswoolfenden/terraform-http-ip.git"},
-			"git::https://github.com/jameswoolfenden/terraform-http-ip.git?ref=2f3cef24e667fb840a3d3481f5a1aaa5a1ac7d28",
-			"v0.3.14", false},
+			"git::https://github.com/jameswoolfenden/terraform-http-ip.git?ref=e33037668bc4cf5c25f8962c7e8085df4b61623c",
+			"v0.4.0", false},
 		{"Not action", fields{Update: true}, args{newModule: "github.com/jameswoolfenden/ip.git"}, "", "", true},
 		{"Fail no .git", fields{Update: true}, args{newModule: "jameswoolfenden/ip"}, "", "", true},
 		{"Fail too short", fields{Update: true}, args{newModule: "jameswoolfenden/ip"}, "", "", true},
 		{"Pass", fields{Update: false, GitHubToken: gitHubToken}, args{newModule: "github.com/jameswoolfenden/terraform-http-ip.git"},
-			"git::https://github.com/jameswoolfenden/terraform-http-ip.git?ref=2f3cef24e667fb840a3d3481f5a1aaa5a1ac7d28",
-			"v0.3.14", false},
+			"git::https://github.com/jameswoolfenden/terraform-http-ip.git?ref=e33037668bc4cf5c25f8962c7e8085df4b61623c",
+			"v0.4.0", false},
 		{"Pass with version",
 			fields{Update: false, GitHubToken: gitHubToken}, args{version: "81a0a7c", newModule: "github.com/jameswoolfenden/terraform-http-ip.git"},
 			"git::https://github.com/jameswoolfenden/terraform-http-ip.git?ref=81a0a7c",

@@ -166,7 +166,7 @@ func TestTerraformStaticDiagsSHAPinnedModule(t *testing.T) {
 	refs := []core.DepRef{
 		{
 			Ecosystem: core.SourceTerraform,
-			Name:      "git::https://github.com/JamesWoolfenden/terraform-http-ip.git?ref=2f3cef24e667fb840a3d3481f5a1aaa5a1ac7d28",
+			Name:      "git::https://github.com/JamesWoolfenden/terraform-http-ip.git?ref=e33037668bc4cf5c25f8962c7e8085df4b61623c",
 			Version:   "",
 			Line:      1,
 		},
@@ -174,6 +174,21 @@ func TestTerraformStaticDiagsSHAPinnedModule(t *testing.T) {
 	diags := terraformStaticDiags(refs)
 	if len(diags) != 0 {
 		t.Errorf("expected no diagnostics for a SHA-pinned module, got %+v", diags)
+	}
+}
+
+func TestTerraformStaticDiagsSHAPinnedModuleWithSubdir(t *testing.T) {
+	refs := []core.DepRef{
+		{
+			Ecosystem: core.SourceTerraform,
+			Name:      "git::https://github.com/terraform-google-modules/terraform-google-dataflow.git?ref=a6b00ae67fd8eb3870458db8767ab92335caddb4//modules/legacy",
+			Version:   "",
+			Line:      1,
+		},
+	}
+	diags := terraformStaticDiags(refs)
+	if len(diags) != 0 {
+		t.Errorf("expected no diagnostics for a SHA-pinned module with a submodule subdir, got %+v", diags)
 	}
 }
 
