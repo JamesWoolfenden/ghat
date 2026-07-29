@@ -69,9 +69,9 @@ func (f *Flags) UpdateProvider(file string) error {
 		return fmt.Errorf("failed to read %s: %w", file, err)
 	}
 
-	inFile, diags := hclwrite.ParseConfig(src, "", hcl.Pos{Line: 1, Column: 1})
+	inFile, diags := hclwrite.ParseConfig(src, file, hcl.Pos{Line: 1, Column: 1})
 	if diags.HasErrors() {
-		return fmt.Errorf("failed to parse HCL: %s", diags.Error())
+		return fmt.Errorf("failed to parse HCL in %s: %s", file, diags.Error())
 	}
 
 	root := inFile.Body()
@@ -422,7 +422,7 @@ func extractProvidersFromFile(filename string) ([]ProviderInfo, error) {
 
 	inFile, diags := hclwrite.ParseConfig(src, filename, hcl.Pos{Line: 1, Column: 1})
 	if diags.HasErrors() {
-		return nil, fmt.Errorf("failed to parse HCL: %s", diags.Error())
+		return nil, fmt.Errorf("failed to parse HCL in %s: %s", filename, diags.Error())
 	}
 
 	root := inFile.Body()
