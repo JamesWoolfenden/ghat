@@ -117,12 +117,17 @@ func (f *Flags) UpdateHooks() error {
 	var config *string
 	var err error
 
-	if config, err = f.GetHook(); err != nil {
-		return &getHookError{err: err}
-	}
-	if config == nil {
-		log.Info().Msgf("no %s found in %s, skipping", PreCommitConfigFile, f.Directory)
-		return nil
+	// If a specific file is provided, use it directly
+	if f.File != "" {
+		config = &f.File
+	} else {
+		if config, err = f.GetHook(); err != nil {
+			return &getHookError{err: err}
+		}
+		if config == nil {
+			log.Info().Msgf("no %s found in %s, skipping", PreCommitConfigFile, f.Directory)
+			return nil
+		}
 	}
 
 	data, err := os.ReadFile(*config)

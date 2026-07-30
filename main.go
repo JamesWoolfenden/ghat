@@ -171,6 +171,13 @@ func main() {
 						Category:    "files",
 					},
 					&cli.StringFlag{
+						Name:        "file",
+						Aliases:     []string{"f"},
+						Usage:       "Specific pre-commit config file to update",
+						Destination: &myFlags.File,
+						Category:    "files",
+					},
+					&cli.StringFlag{
 						Name:        "exclude",
 						Usage:       "regex pattern; matching scanned paths are skipped",
 						Destination: &myFlags.Exclude,
