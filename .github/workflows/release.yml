@@ -81,13 +81,13 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm install
-        working-directory: vscode-extension
+        working-directory: editors/vscode
       - name: Set version from tag
         run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
-        working-directory: vscode-extension
+        working-directory: editors/vscode
       - name: Publish to VS Code Marketplace
         run: npm run publish -- --pat "${{ secrets.VSCE_PAT }}"
-        working-directory: vscode-extension
+        working-directory: editors/vscode
   update-scoop:
     permissions:
       contents: read  # dispatches via secrets.PAT, not GITHUB_TOKEN
