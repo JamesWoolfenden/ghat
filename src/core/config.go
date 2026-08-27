@@ -26,8 +26,9 @@ type InputUpgrade struct {
 }
 
 type GhatConfig struct {
-	Substitutions []Substitution `yaml:"substitutions"`
-	InputUpgrades []InputUpgrade `yaml:"input_upgrades"`
+	Substitutions     []Substitution `yaml:"substitutions"`
+	InputUpgrades     []InputUpgrade `yaml:"input_upgrades"`
+	TrustedRegistries []string       `yaml:"trusted_registries"`
 }
 
 //go:embed substitutions.yml
@@ -43,6 +44,7 @@ func LoadConfig(dir string) GhatConfig {
 		if cfg, err := loadConfigFile(path); err == nil {
 			merged.Substitutions = append(merged.Substitutions, cfg.Substitutions...)
 			merged.InputUpgrades = append(merged.InputUpgrades, cfg.InputUpgrades...)
+			merged.TrustedRegistries = append(merged.TrustedRegistries, cfg.TrustedRegistries...)
 		}
 	}
 	if home, err := os.UserHomeDir(); err == nil {
@@ -88,4 +90,25 @@ func (f *Flags) applyRepoSubstitution(repoURL string) (string, bool) {
 		return prefix + sub, true
 	}
 	return repoURL, false
+}
+
+// IsTrustedRegistry returns true if the image reference starts with any of
+// the configured trusted_registries prefixes.
+func (f *Flags) IsTrustedRegistry(image string) bool {
+	for _, prefix := range f.TrustedRegistries {
+		if strings.HasPrefix(image, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsTrustedRegistryFromList checks if image matches any trusted registry prefix.
+func IsTrustedRegistryFromList(image string, trusted []string) bool {
+	for _, prefix := range trusted {
+		if strings.HasPrefix(image, prefix) {
+			return true
+		}
+	}
+	return false
 }

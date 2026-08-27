@@ -294,6 +294,7 @@ const SourceCompose = "compose"
 
 func parseDockerfileManifest(content []byte) []DepRef {
 	var refs []DepRef
+	stageAliases := make(map[string]bool)
 	lines := strings.Split(string(content), "\n")
 	for i, line := range lines {
 		t := strings.TrimSpace(line)
@@ -309,10 +310,31 @@ func parseDockerfileManifest(content []byte) []DepRef {
 			continue
 		}
 		img := fields[imgIdx]
+
+		// Track stage aliases (FROM ... AS <alias>).
+		for j := imgIdx + 1; j < len(fields)-1; j++ {
+			if strings.EqualFold(fields[j], "AS") && j+1 < len(fields) {
+				stageAliases[strings.ToLower(fields[j+1])] = true
+				break
+			}
+		}
+
 		if img == "scratch" {
 			continue
 		}
-		// strip AS alias
+
+		// Skip references to earlier build stages (e.g., FROM base).
+		baseName := img
+		if idx := strings.Index(baseName, ":"); idx >= 0 {
+			baseName = baseName[:idx]
+		}
+		if idx := strings.Index(baseName, "@"); idx >= 0 {
+			baseName = baseName[:idx]
+		}
+		if stageAliases[strings.ToLower(baseName)] {
+			continue
+		}
+
 		name, version := img, ""
 		if idx := strings.Index(img, "@"); idx >= 0 {
 			name, version = img[:idx], img[idx+1:]

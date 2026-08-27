@@ -36,6 +36,8 @@ func (f *Flags) UpdateDockerfiles() error {
 
 // UpdateDockerfile pins FROM image references in a single Dockerfile to SHA digests.
 // Output format: FROM image:tag@sha256:digest  (valid Docker syntax, tag preserved inline).
+// Multi-stage build stage aliases (FROM ... AS <alias>) are tracked and skipped when
+// referenced as an image target.
 func (f *Flags) UpdateDockerfile(file string) error {
 	content, err := os.ReadFile(file)
 	if err != nil {
@@ -43,6 +45,7 @@ func (f *Flags) UpdateDockerfile(file string) error {
 	}
 
 	pinned := parsePinnedFromLines(string(content))
+	stageAliases := make(map[string]bool)
 
 	lines := strings.Split(string(content), "\n")
 	for i, line := range lines {
@@ -52,7 +55,26 @@ func (f *Flags) UpdateDockerfile(file string) error {
 		}
 		prefix, imageStr, alias := m[1], m[2], m[3]
 
+		// Track stage aliases defined with "AS <alias>".
+		if alias != "" {
+			if aliasMatch := stageAliasRe.FindStringSubmatch(alias); aliasMatch != nil {
+				stageAliases[strings.ToLower(aliasMatch[1])] = true
+			}
+		}
+
 		if imageStr == "scratch" {
+			continue
+		}
+
+		// Skip references to earlier build stages (e.g., FROM base).
+		baseName := imageStr
+		if colon := strings.Index(baseName, ":"); colon >= 0 {
+			baseName = baseName[:colon]
+		}
+		if at := strings.Index(baseName, "@"); at >= 0 {
+			baseName = baseName[:at]
+		}
+		if stageAliases[strings.ToLower(baseName)] {
 			continue
 		}
 		if ok, reason := parseSuppression(line); ok {
@@ -62,6 +84,12 @@ func (f *Flags) UpdateDockerfile(file string) error {
 
 		// Expand any ARG variable references using defaults declared above this FROM.
 		resolvedStr := expandDockerVars(imageStr, parseArgDefaults(lines[:i]))
+
+		// Skip images from trusted registries.
+		if f.IsTrustedRegistry(resolvedStr) {
+			log.Info().Str("image", resolvedStr).Msg("skipping trusted registry")
+			continue
+		}
 
 		if strings.Contains(resolvedStr, "$") {
 			// Still has unexpanded references — classify by position.

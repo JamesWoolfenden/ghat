@@ -24,3 +24,43 @@ FROM alpine:3.19  # ghat:suppress
 		t.Errorf("images[2] = %+v, want suppressed at line 6", a.Images[2])
 	}
 }
+
+func TestAnalyzeDockerfile_MultiStageAlias(t *testing.T) {
+	content := []byte(`FROM golang:1.22 AS base
+RUN go mod download
+
+FROM base AS builder
+RUN go build
+
+FROM base
+COPY --from=builder /app /app
+`)
+	a := AnalyzeDockerfile(content)
+	if len(a.Images) != 1 {
+		t.Fatalf("expected 1 image (stage aliases skipped), got %d: %+v", len(a.Images), a.Images)
+	}
+	if a.Images[0].Image != "library/golang" || a.Images[0].Tag != "1.22" {
+		t.Errorf("images[0] = %+v, want library/golang:1.22", a.Images[0])
+	}
+}
+
+func TestAnalyzeDockerfile_TrustedRegistries(t *testing.T) {
+	content := []byte(`FROM gcr.io/myproject/myimage:v1
+FROM us-central1-docker.pkg.dev/myproject/repo/image:latest
+FROM nginx:1.25
+`)
+	trusted := []string{"gcr.io/myproject/", "us-central1-docker.pkg.dev/myproject/"}
+	a := AnalyzeDockerfileWithTrusted(content, trusted)
+	if len(a.Images) != 3 {
+		t.Fatalf("expected 3 images, got %d: %+v", len(a.Images), a.Images)
+	}
+	if !a.Images[0].Trusted {
+		t.Errorf("images[0] should be trusted: %+v", a.Images[0])
+	}
+	if !a.Images[1].Trusted {
+		t.Errorf("images[1] should be trusted: %+v", a.Images[1])
+	}
+	if a.Images[2].Trusted {
+		t.Errorf("images[2] should NOT be trusted: %+v", a.Images[2])
+	}
+}

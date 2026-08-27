@@ -25,12 +25,13 @@ type Flags struct {
 	CacheEnabled bool
 	CacheTTL     time.Duration
 
-	Silent        bool // suppress diff output (used by org bulk mode)
-	PinOnly       bool // pin current tag to SHA without checking for upgrades
-	Substitutions []Substitution
-	InputUpgrades []InputUpgrade
+	Silent            bool // suppress diff output (used by org bulk mode)
+	PinOnly           bool // pin current tag to SHA without checking for upgrades
+	Substitutions     []Substitution
+	InputUpgrades     []InputUpgrade
+	TrustedRegistries []string // image registries to skip pinning
 
-	OpenPR      bool
+	OpenPR bool
 	AutoMerge   bool
 	Branch      string
 	PRToken     string
@@ -60,5 +61,6 @@ func (f *Flags) InitializeCache() error {
 	cfg := LoadConfig(f.Directory)
 	f.Substitutions = cfg.Substitutions
 	f.InputUpgrades = cfg.InputUpgrades
+	f.TrustedRegistries = cfg.TrustedRegistries
 	return nil
 }

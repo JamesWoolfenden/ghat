@@ -317,7 +317,7 @@ func (s *Server) analyze(w io.Writer, uri string, content []byte) error {
 	case core.ManifestPreCommit:
 		return s.publishDiags(w, uri, preCommitStaticDiags(refs))
 	case core.ManifestDockerfile:
-		return s.publishDiags(w, uri, dockerfileStaticDiags(refs))
+		return s.publishDiags(w, uri, dockerfileStaticDiags(uri, refs))
 	case core.ManifestGitLab:
 		return s.publishDiags(w, uri, gitlabStaticDiags(refs))
 	case core.ManifestKube, core.ManifestCompose:
@@ -359,10 +359,15 @@ func ghaStaticDiags(filename string, content []byte) []diagnostic {
 }
 
 // dockerfileStaticDiags warns on FROM lines not pinned to a digest.
-func dockerfileStaticDiags(refs []core.DepRef) []diagnostic {
+// Images from trusted_registries (configured in .ghat.yml) are skipped.
+func dockerfileStaticDiags(uri string, refs []core.DepRef) []diagnostic {
+	cfg := core.LoadConfig(filepath.Dir(uriToPath(uri)))
 	var diags []diagnostic
 	for _, ref := range refs {
 		if strings.HasPrefix(ref.Version, "sha256:") {
+			continue
+		}
+		if core.IsTrustedRegistryFromList(ref.Name, cfg.TrustedRegistries) {
 			continue
 		}
 		tag := ref.Version
@@ -1137,7 +1142,7 @@ func (s *Server) refreshDiags(w io.Writer, uri string) error {
 		case core.ManifestPreCommit:
 			staticDiags = preCommitStaticDiags(refs)
 		case core.ManifestDockerfile:
-			staticDiags = dockerfileStaticDiags(refs)
+			staticDiags = dockerfileStaticDiags(uri, refs)
 		case core.ManifestGitLab:
 			staticDiags = gitlabStaticDiags(refs)
 		case core.ManifestKube, core.ManifestCompose:
