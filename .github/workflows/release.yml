@@ -12,6 +12,7 @@ jobs:
     permissions:
       contents: write  # create release + upload assets
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -29,8 +30,10 @@ jobs:
           passphrase: ${{ secrets.PASSPHRASE }}
       - name: Install syft
         uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+      # holden:ignore:HLD_CI_013 goreleaser reads GITHUB_TOKEN, GPG and tap
+      # credentials only from the environment; the action has no inputs for them.
+      - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        name: Run GoReleaser
         with:
           # Bound to v2.x so a v3 breaking release can't silently change builds.
           # For a fully immutable pin, set an exact version (e.g. '2.7.0').
@@ -46,6 +49,7 @@ jobs:
     permissions:
       contents: read  # uses DockerHub creds, not GITHUB_TOKEN
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs:
       - goreleaser
     steps:
@@ -72,6 +76,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs:
       - goreleaser
     steps:
@@ -86,12 +91,15 @@ jobs:
         run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
         working-directory: editors/vscode
       - name: Publish to VS Code Marketplace
-        run: npm run publish -- --pat "${{ secrets.VSCE_PAT }}"
+        run: npm run publish -- --pat "$VSCE_PAT"
         working-directory: editors/vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
   update-scoop:
     permissions:
       contents: read  # dispatches via secrets.PAT, not GITHUB_TOKEN
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs:
       - goreleaser
     steps:
