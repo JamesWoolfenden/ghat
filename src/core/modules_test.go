@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -259,27 +260,32 @@ func TestFlags_UpdateGithubSource(t *testing.T) {
 		newModule string
 	}
 
+	// wantLatestRe/want1LatestRe match "Pass"/"Pass update": these resolve the
+	// *current* latest tag of the live jameswoolfenden/terraform-http-ip repo,
+	// which advances over time, so the exact tag/SHA can't be pinned here.
+	wantLatestRe := regexp.MustCompile(`^git::https://github\.com/jameswoolfenden/terraform-http-ip\.git\?ref=[0-9a-f]{40}$`)
+	want1LatestRe := regexp.MustCompile(`^v\d+\.\d+\.\d+$`)
+
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    string
-		want1   string
-		wantErr bool
+		name       string
+		fields     fields
+		args       args
+		want       string
+		want1      string
+		wantLatest bool
+		wantErr    bool
 	}{
 		{"Pass update", fields{Update: true, GitHubToken: gitHubToken}, args{newModule: "github.com/jameswoolfenden/terraform-http-ip.git"},
-			"git::https://github.com/jameswoolfenden/terraform-http-ip.git?ref=e33037668bc4cf5c25f8962c7e8085df4b61623c",
-			"v0.4.0", false},
-		{"Not action", fields{Update: true}, args{newModule: "github.com/jameswoolfenden/ip.git"}, "", "", true},
-		{"Fail no .git", fields{Update: true}, args{newModule: "jameswoolfenden/ip"}, "", "", true},
-		{"Fail too short", fields{Update: true}, args{newModule: "jameswoolfenden/ip"}, "", "", true},
+			"", "", true, false},
+		{"Not action", fields{Update: true}, args{newModule: "github.com/jameswoolfenden/ip.git"}, "", "", false, true},
+		{"Fail no .git", fields{Update: true}, args{newModule: "jameswoolfenden/ip"}, "", "", false, true},
+		{"Fail too short", fields{Update: true}, args{newModule: "jameswoolfenden/ip"}, "", "", false, true},
 		{"Pass", fields{Update: false, GitHubToken: gitHubToken}, args{newModule: "github.com/jameswoolfenden/terraform-http-ip.git"},
-			"git::https://github.com/jameswoolfenden/terraform-http-ip.git?ref=e33037668bc4cf5c25f8962c7e8085df4b61623c",
-			"v0.4.0", false},
+			"", "", true, false},
 		{"Pass with version",
 			fields{Update: false, GitHubToken: gitHubToken}, args{version: "81a0a7c", newModule: "github.com/jameswoolfenden/terraform-http-ip.git"},
 			"git::https://github.com/jameswoolfenden/terraform-http-ip.git?ref=81a0a7c",
-			"81a0a7c", false},
+			"81a0a7c", false, false},
 	}
 
 	for _, tt := range tests {
@@ -299,6 +305,15 @@ func TestFlags_UpdateGithubSource(t *testing.T) {
 			got, got1, err := myFlags.UpdateGithubSource(tt.args.version, tt.args.newModule)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateGithubSource() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantLatest {
+				if !wantLatestRe.MatchString(got) {
+					t.Errorf("UpdateGithubSource() got = %v, want match of %v", got, wantLatestRe)
+				}
+				if !want1LatestRe.MatchString(got1) {
+					t.Errorf("UpdateGithubSource() got1 = %v, want match of %v", got1, want1LatestRe)
+				}
 				return
 			}
 			if got != tt.want {

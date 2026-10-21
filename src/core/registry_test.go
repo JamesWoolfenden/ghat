@@ -2,6 +2,7 @@ package core
 
 import (
 	"reflect"
+	"regexp"
 	"testing"
 )
 
@@ -95,19 +96,21 @@ func TestRegistry_GetLatest(t *testing.T) {
 		module string
 	}
 
-	want := "0.4.0"
-
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    *string
-		wantErr bool
+		name       string
+		fields     fields
+		args       args
+		wantSemver bool
+		wantErr    bool
 	}{
-		{"Pass", fields{false, ""}, args{"jameswoolfenden/ip/http"}, &want, false},
-		{"Fail", fields{false, ""}, args{"jameswoolfenden/ip/guff"}, nil, true},
-		{"No Repo", fields{false, ""}, args{"jameswoolfenden/ip/guff"}, nil, true},
+		{"Pass", fields{false, ""}, args{"jameswoolfenden/ip/http"}, true, false},
+		{"Fail", fields{false, ""}, args{"jameswoolfenden/ip/guff"}, false, true},
+		{"No Repo", fields{false, ""}, args{"jameswoolfenden/ip/guff"}, false, true},
 	}
+	// semverRe matches a bare "x.y.z" version string, not pinned to any specific
+	// release — the "Pass" case queries jameswoolfenden/ip/http on the live
+	// Terraform registry, whose latest version advances over time.
+	semverRe := regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
@@ -121,8 +124,14 @@ func TestRegistry_GetLatest(t *testing.T) {
 				t.Errorf("GetLatestRelease() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetLatestRelease() got = %v, want %v", got, tt.want)
+			if !tt.wantSemver {
+				if got != nil {
+					t.Errorf("GetLatestRelease() got = %v, want nil", got)
+				}
+				return
+			}
+			if got == nil || !semverRe.MatchString(*got) {
+				t.Errorf("GetLatestRelease() got = %v, want a semver version", got)
 			}
 		})
 	}
