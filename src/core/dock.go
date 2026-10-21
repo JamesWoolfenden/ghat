@@ -104,6 +104,23 @@ func (f *Flags) UpdateDockerfile(file string) error {
 			continue
 		}
 
+		// Already pinned by digest with no tag at all (e.g. "gcr.io/distroless/static@sha256:...").
+		// There is no tag to re-resolve or check for mutation against — the digest is already
+		// the complete, immutable reference — so leave it untouched. Without this check, the
+		// digest strip below leaves no tag, parseImageReference defaults that to an implicit
+		// "latest", and the digest gets re-resolved against whatever that registry's current
+		// best-semver tag happens to be — silently swapping in an unrelated image.
+		if beforeDigest, _, found := strings.Cut(resolvedStr, "@sha256:"); found {
+			repoPart := beforeDigest
+			if slash := strings.LastIndex(beforeDigest, "/"); slash != -1 {
+				repoPart = beforeDigest[slash+1:]
+			}
+			if !strings.Contains(repoPart, ":") {
+				log.Info().Str("image", resolvedStr).Msg("already pinned by digest with no tag, skipping")
+				continue
+			}
+		}
+
 		// Strip existing sha256 digest from the resolved string before re-resolving.
 		bareResolved := resolvedStr
 		if idx := strings.Index(resolvedStr, "@sha256:"); idx != -1 {

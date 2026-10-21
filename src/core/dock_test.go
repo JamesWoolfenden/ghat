@@ -209,6 +209,36 @@ func TestUpdateDockerfile_SkipsScratchAndVars(t *testing.T) {
 	}
 }
 
+func TestUpdateDockerfile_SkipsBareDigestNoTag(t *testing.T) {
+	content := "FROM gcr.io/distroless/static@sha256:6706c73aae2afaa8201d63cc3dda48753c09bcd6c300762251065c0f7e602b25\n"
+	tmp, err := os.CreateTemp("", "Dockerfile.*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Remove(tmp.Name()) }()
+
+	if _, err := tmp.WriteString(content); err != nil {
+		t.Fatal(err)
+	}
+	_ = tmp.Close()
+
+	// No registry credentials/network available in this test — if the already-pinned,
+	// tag-less digest reference were (incorrectly) re-resolved, this would fail trying
+	// to reach the registry rather than silently rewriting the line.
+	myFlags := &Flags{DryRun: false}
+	if err := myFlags.UpdateDockerfile(tmp.Name()); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(tmp.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != content {
+		t.Errorf("already-pinned bare-digest FROM line should be left untouched, got: %s", got)
+	}
+}
+
 func TestUpdateDockerfile_DynamicImageWarning(t *testing.T) {
 	var buf strings.Builder
 	original := log.Logger
