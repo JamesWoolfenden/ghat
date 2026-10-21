@@ -211,10 +211,11 @@ func Test_parseImageReference(t *testing.T) {
 			name:  "no tag",
 			image: "nginx",
 			want: ImageReference{
-				Registry:   "docker.io",
-				Repository: "library/nginx",
-				Tag:        "latest",
-				Original:   "nginx",
+				Registry:    "docker.io",
+				Repository:  "library/nginx",
+				Tag:         "latest",
+				TagImplicit: true,
+				Original:    "nginx",
 			},
 		},
 		{
@@ -238,14 +239,25 @@ func Test_parseImageReference(t *testing.T) {
 			},
 		},
 		{
-			name:  "with digest",
+			name:  "with digest and no tag",
 			image: "nginx@sha256:abcdef123456",
 			want: ImageReference{
 				Registry:   "docker.io",
 				Repository: "library/nginx",
-				Tag:        "latest",
+				Tag:        "",
 				Digest:     "sha256:abcdef123456",
 				Original:   "nginx@sha256:abcdef123456",
+			},
+		},
+		{
+			name:  "with tag and digest",
+			image: "nginx:1.25@sha256:abcdef123456",
+			want: ImageReference{
+				Registry:   "docker.io",
+				Repository: "library/nginx",
+				Tag:        "1.25",
+				Digest:     "sha256:abcdef123456",
+				Original:   "nginx:1.25@sha256:abcdef123456",
 			},
 		},
 		{
@@ -274,6 +286,9 @@ func Test_parseImageReference(t *testing.T) {
 			}
 			if got.Digest != tt.want.Digest {
 				t.Errorf("parseImageReference().Digest = %v, want %v", got.Digest, tt.want.Digest)
+			}
+			if got.TagImplicit != tt.want.TagImplicit {
+				t.Errorf("parseImageReference().TagImplicit = %v, want %v", got.TagImplicit, tt.want.TagImplicit)
 			}
 			if got.Original != tt.want.Original {
 				t.Errorf("parseImageReference().Original = %v, want %v", got.Original, tt.want.Original)

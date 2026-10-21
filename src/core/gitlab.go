@@ -263,8 +263,15 @@ func parseImageReference(image string) ImageReference {
 		ref.Tag = parts[1]
 	} else {
 		ref.Repository = repoTag
-		ref.Tag = "latest"
-		ref.TagImplicit = true
+		if ref.Digest == "" {
+			// No tag and no digest — a genuinely untagged reference (e.g. "FROM alpine").
+			// Default to "latest" so callers can resolve a concrete tag.
+			ref.Tag = "latest"
+			ref.TagImplicit = true
+		}
+		// else: already pinned by digest with no tag at all (e.g. "image@sha256:...").
+		// Leave Tag empty rather than inventing "latest" — there is no tag in the
+		// source to resolve a fresh digest against or compare for mutation.
 	}
 
 	// Docker Hub short names need library/ prefix
@@ -321,9 +328,19 @@ func (f *Flags) getImageDigest(ref *ImageReference) (string, error) {
 		log.Info().Str("image", ref.Repository).Str("tag", ref.Tag).Msg("resolved implicit tag to best semantic version")
 	}
 
-	imageStr := ref.Registry + "/" + ref.Repository + ":" + ref.Tag
-	if ref.Registry == "docker.io" {
-		imageStr = strings.TrimPrefix(ref.Repository, "library/") + ":" + ref.Tag
+	var imageStr string
+	if ref.Tag == "" && ref.Digest != "" {
+		// Already pinned by digest with no tag — resolve by digest directly rather
+		// than falling back to an implicit "latest" tag that may point elsewhere.
+		imageStr = ref.Registry + "/" + ref.Repository + "@" + ref.Digest
+		if ref.Registry == "docker.io" {
+			imageStr = strings.TrimPrefix(ref.Repository, "library/") + "@" + ref.Digest
+		}
+	} else {
+		imageStr = ref.Registry + "/" + ref.Repository + ":" + ref.Tag
+		if ref.Registry == "docker.io" {
+			imageStr = strings.TrimPrefix(ref.Repository, "library/") + ":" + ref.Tag
+		}
 	}
 
 	const digestKeyPrefix = "digest:"
