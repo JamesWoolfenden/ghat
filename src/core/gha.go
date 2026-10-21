@@ -320,6 +320,7 @@ func (f *Flags) UpdateGHA(file string) error {
 
 	for _, imageStr := range containerImages {
 		imgRef := parseImageReference(imageStr)
+		bareDigest := hasBareDigestNoTag(imageStr)
 		digest, err := f.getImageDigest(&imgRef)
 		if err != nil {
 			log.Warn().Err(err).Str("image", imageStr).Msg("failed to get digest for container image, skipping")
@@ -332,7 +333,11 @@ func (f *Flags) UpdateGHA(file string) error {
 		}
 
 		if at := strings.Index(imageStr, "@sha256:"); at >= 0 {
-			replacement = strings.ReplaceAll(replacement, imageStr, imageStr[:at]+"@"+digest)
+			newRef := imageStr[:at] + "@" + digest
+			if bareDigest && imgRef.Tag != "" {
+				newRef += " # " + imgRef.Tag
+			}
+			replacement = strings.ReplaceAll(replacement, imageStr, newRef)
 		} else {
 			replacement = replaceWithComment(replacement, imageStr, formatImageWithDigest(imgRef, digest))
 		}

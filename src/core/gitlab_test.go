@@ -472,6 +472,30 @@ func Test_parseImageReference_EdgeCases(t *testing.T) {
 	}
 }
 
+func Test_hasBareDigestNoTag(t *testing.T) {
+	tests := []struct {
+		name  string
+		image string
+		want  bool
+	}{
+		{"bare digest, no tag", "gcr.io/distroless/static@sha256:6706c73aae2afaa8201d63cc3dda48753c09bcd6c300762251065c0f7e602b25", true},
+		{"docker hub bare digest, no tag", "nginx@sha256:abcdef123456", true},
+		{"tag and digest", "nginx:1.25@sha256:abcdef123456", false},
+		{"tag only, no digest", "nginx:1.25", false},
+		{"no tag, no digest", "nginx", false},
+		{"registry with port, bare digest", "localhost:5000/myimage@sha256:abcdef123456", true},
+		{"registry with port, tag and digest", "localhost:5000/myimage:tag@sha256:abcdef123456", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hasBareDigestNoTag(tt.image); got != tt.want {
+				t.Errorf("hasBareDigestNoTag(%q) = %v, want %v", tt.image, got, tt.want)
+			}
+		})
+	}
+}
+
 // Test that we skip variable references
 func Test_findImages_SkipsVariables(t *testing.T) {
 	content := `

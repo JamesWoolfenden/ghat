@@ -37,6 +37,22 @@ func replaceWithComment(s, oldStr, newStr string) string {
 	return re.ReplaceAllLiteralString(s, newStr)
 }
 
+// hasBareDigestNoTag reports whether image is pinned to a digest with no tag at
+// all (e.g. "gcr.io/distroless/static@sha256:..."), as opposed to a tag+digest
+// or tag-only reference. Used to decide whether a "# tag" readability comment
+// should be attached when confirming an already-pinned reference.
+func hasBareDigestNoTag(image string) bool {
+	beforeDigest, _, found := strings.Cut(image, "@sha256:")
+	if !found {
+		return false
+	}
+	repoPart := beforeDigest
+	if slash := strings.LastIndex(beforeDigest, "/"); slash != -1 {
+		repoPart = beforeDigest[slash+1:]
+	}
+	return !strings.Contains(repoPart, ":")
+}
+
 const gitlab = ".gitlab-ci.yml"
 
 type gitlabProjectError struct {
@@ -126,6 +142,7 @@ func (f *Flags) UpdateGitlab() error {
 
 		// Parse the image reference
 		imgRef := parseImageReference(imageStr)
+		bareDigest := hasBareDigestNoTag(imageStr)
 		log.Info().Str("image", imageStr).Msg("Processing image")
 
 		// Get the digest for the image
@@ -149,7 +166,13 @@ func (f *Flags) UpdateGitlab() error {
 			Msg("Image update")
 
 		if at := strings.Index(imageStr, "@sha256:"); at >= 0 {
-			replacement = strings.ReplaceAll(replacement, imageStr, imageStr[:at]+"@"+digest)
+			newRef := imageStr[:at] + "@" + digest
+			if bareDigest && imgRef.Tag != "" {
+				// Already fully pinned by digest — the digest itself is unchanged
+				// above; this only attaches a "# tag" readability annotation.
+				newRef += " # " + imgRef.Tag
+			}
+			replacement = strings.ReplaceAll(replacement, imageStr, newRef)
 		} else {
 			replacement = replaceWithComment(replacement, imageStr, newImageRef)
 		}
@@ -329,7 +352,8 @@ func (f *Flags) getImageDigest(ref *ImageReference) (string, error) {
 	}
 
 	var imageStr string
-	if ref.Tag == "" && ref.Digest != "" {
+	bareDigestPin := ref.Tag == "" && ref.Digest != ""
+	if bareDigestPin {
 		// Already pinned by digest with no tag — resolve by digest directly rather
 		// than falling back to an implicit "latest" tag that may point elsewhere.
 		imageStr = ref.Registry + "/" + ref.Repository + "@" + ref.Digest
@@ -374,6 +398,20 @@ func (f *Flags) getImageDigest(ref *ImageReference) (string, error) {
 	if f.Cache != nil {
 		_ = f.Cache.Set(cacheKey, digest)
 	}
+
+	if bareDigestPin {
+		// The digest itself is already fixed above by @digest lookup — this only
+		// attaches a human-readable "# tag" annotation for callers that write one,
+		// without changing which artifact is pinned. Only annotate when the best
+		// tag actually coerces to a semantic version: images like
+		// gcr.io/distroless/static tag by git commit SHA, not semver, and
+		// bestSemanticTag falls back to the registry's first listed tag in that
+		// case — annotating with that would be misleading, so leave it blank.
+		if candidate := f.bestSemanticTag(*ref); coerceSemver(candidate) != "" {
+			ref.Tag = candidate
+		}
+	}
+
 	return digest, nil
 }
 

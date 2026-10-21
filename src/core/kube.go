@@ -67,6 +67,7 @@ func (f *Flags) UpdateKube(file string) error {
 			continue
 		}
 		imgRef := parseImageReference(imageStr)
+		bareDigest := hasBareDigestNoTag(imageStr)
 		digest, err := f.getImageDigest(&imgRef)
 		if err != nil {
 			log.Warn().Err(err).Str("image", imageStr).Msg("failed to get digest, skipping")
@@ -83,6 +84,11 @@ func (f *Flags) UpdateKube(file string) error {
 		// any existing # tag comment. For fresh images: write full # tag annotation.
 		if at := strings.Index(imageStr, "@sha256:"); at >= 0 {
 			newRef := imageStr[:at] + "@" + digest
+			if bareDigest && imgRef.Tag != "" {
+				// Already fully pinned by digest — the digest itself is unchanged
+				// above; this only attaches a "# tag" readability annotation.
+				newRef += " # " + imgRef.Tag
+			}
 			replacement = strings.ReplaceAll(replacement, imageStr, newRef)
 		} else {
 			replacement = replaceWithComment(replacement, imageStr, formatImageWithDigest(imgRef, digest))
@@ -242,6 +248,7 @@ func (f *Flags) UpdateCompose(file string) error {
 	replacement := string(content)
 	for _, imageStr := range images {
 		imgRef := parseImageReference(imageStr)
+		bareDigest := hasBareDigestNoTag(imageStr)
 		digest, err := f.getImageDigest(&imgRef)
 		if err != nil {
 			log.Warn().Err(err).Str("image", imageStr).Msg("failed to get digest, skipping")
@@ -253,6 +260,9 @@ func (f *Flags) UpdateCompose(file string) error {
 		}
 		if at := strings.Index(imageStr, "@sha256:"); at >= 0 {
 			newRef := imageStr[:at] + "@" + digest
+			if bareDigest && imgRef.Tag != "" {
+				newRef += " # " + imgRef.Tag
+			}
 			replacement = strings.ReplaceAll(replacement, imageStr, newRef)
 		} else {
 			replacement = replaceWithComment(replacement, imageStr, formatImageWithDigest(imgRef, digest))
