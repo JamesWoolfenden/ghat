@@ -1,5 +1,3 @@
-default_language_version:
-    python: python3.11
 repos:
     - hooks:
         - id: check-json
@@ -46,14 +44,6 @@ repos:
         - id: golangci-lint
       repo: https://github.com/golangci/golangci-lint
       rev: 25c5369a93aacb8cccea0d46e1569ca4a194564d # v2.15.0
-    - hooks:
-        - id: checkov
-          language_version: python3.11
-          args:
-            - -d
-            - .
-      repo: https://github.com/bridgecrewio/checkov
-      rev: dfeb34b2d52a269bb417b4d4f7854a16bef06629 # 3.3.30
     - hooks:
         - id: ghat-go
           name: ghat
@@ -106,4 +96,10 @@ repos:
           pass_filenames: false
           types:
             - go
+        - id: holden
+          name: holden
+          entry: holden scan .
+          language: system
+          pass_filenames: false
+          always_run: true
       repo: local
