@@ -382,14 +382,14 @@ func (f *Flags) getImageDigest(ref *ImageReference) (string, error) {
 		return "", fmt.Errorf("parse %q: %w", imageStr, err)
 	}
 
-	opts := []remote.Option{remote.WithAuthFromKeychain(authn.DefaultKeychain)}
-	// Preserve the existing --github-token flag for ghcr.io so callers without
-	// a local docker login keep working.
-	if f.GitHubToken != "" && parsed.Context().RegistryStr() == "ghcr.io" {
-		opts = []remote.Option{remote.WithAuth(&authn.Bearer{Token: f.GitHubToken})}
+	desc, err := remote.Head(parsed, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	// The --github-token fallback for ghcr.io (private images, no local docker login) is
+	// only tried after the keychain/anonymous lookup fails, never instead of it: a token
+	// without read:packages - e.g. `gh auth token`'s OAuth token - makes ghcr answer 403
+	// even for public images rather than falling back to anonymous access.
+	if err != nil && f.GitHubToken != "" && parsed.Context().RegistryStr() == "ghcr.io" {
+		desc, err = remote.Head(parsed, remote.WithAuth(&authn.Bearer{Token: f.GitHubToken}))
 	}
-
-	desc, err := remote.Head(parsed, opts...)
 	if err != nil {
 		return "", fmt.Errorf("resolve digest for %q: %w", ref.Original, err)
 	}
