@@ -655,7 +655,7 @@ COMMANDS:
    all, sweep  runs every pinner (GHA, GitLab, pre-commit, Terraform, Kubernetes, Dockerfiles) against a directory
    audit, sc   scores your dependencies (go.mod, GHA uses:, pre-commit, Terraform, npm, PyPI, Cargo, RubyGems) on supply-chain hygiene
    cache       Manage API response cache
-   dock, df    pins Dockerfile FROM images to SHA digests
+   dock, df    pins Dockerfile FROM and COPY --from images to SHA digests
    kube, k8s   pins container images in Kubernetes manifests to SHA digests
    org         run ghat all across every non-fork repo for a GitHub/GitLab user, org or group
    shake, k    updates Terraform provider versions to latest

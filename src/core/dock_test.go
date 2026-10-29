@@ -371,3 +371,102 @@ func TestGetDockerfiles(t *testing.T) {
 		t.Errorf("GetDockerfiles() = %d files, want 2: %v", len(got), got)
 	}
 }
+
+// stubImageDigests swaps the registry lookup for a fixed digest and records every image
+// reference the pinner asked to resolve, so tests can assert what was (and wasn't) looked up.
+func stubImageDigests(t *testing.T, digest string) *[]string {
+	t.Helper()
+	var resolved []string
+	orig := imageDigestFunc
+	imageDigestFunc = func(_ *Flags, ref *ImageReference) (string, error) {
+		resolved = append(resolved, ref.Registry+"/"+ref.Repository+":"+ref.Tag)
+		return digest, nil
+	}
+	t.Cleanup(func() { imageDigestFunc = orig })
+	return &resolved
+}
+
+func writeTempDockerfile(t *testing.T, content string) string {
+	t.Helper()
+	path := t.TempDir() + "/Dockerfile"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestUpdateDockerfile_PinsCopyFromImages(t *testing.T) {
+	resolved := stubImageDigests(t, "sha256:1111")
+	path := writeTempDockerfile(t, strings.Join([]string{
+		"FROM golang:1.22 AS builder",
+		"FROM scratch",
+		"COPY --from=builder /out/app /app",
+		"COPY --from=0 /etc/passwd /etc/passwd",
+		"COPY --chown=app:app --from=ghcr.io/astral-sh/uv:0.5.0 /uv /uvx /bin/",
+		"COPY --from=ghcr.io/astral-sh/uv:0.5.0 --chmod=755 /uv /bin/",
+		"",
+	}, "\n"))
+
+	if err := (&Flags{}).UpdateDockerfile(path); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := strings.Join([]string{
+		"FROM golang:1.22@sha256:1111 AS builder",
+		"FROM scratch",
+		"COPY --from=builder /out/app /app",
+		"COPY --from=0 /etc/passwd /etc/passwd",
+		"COPY --chown=app:app --from=ghcr.io/astral-sh/uv:0.5.0@sha256:1111 /uv /uvx /bin/",
+		"COPY --from=ghcr.io/astral-sh/uv:0.5.0@sha256:1111 --chmod=755 /uv /bin/",
+		"",
+	}, "\n")
+	if string(got) != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+
+	// The stage alias and the numeric stage index must never reach a registry lookup.
+	for _, r := range *resolved {
+		if strings.Contains(r, "builder") || strings.Contains(r, "/0:") {
+			t.Errorf("build-stage reference was resolved as an image: %s", r)
+		}
+	}
+	if len(*resolved) != 3 {
+		t.Errorf("resolved %d images, want 3 (golang + 2x uv): %v", len(*resolved), *resolved)
+	}
+}
+
+func TestUpdateDockerfile_CopyFromArgsAndBareDigest(t *testing.T) {
+	resolved := stubImageDigests(t, "sha256:2222")
+	bare := "COPY --from=gcr.io/distroless/static@sha256:6706c73aae2afaa8201d63cc3dda48753c09bcd6c300762251065c0f7e602b25 /x /x"
+	path := writeTempDockerfile(t, strings.Join([]string{
+		"FROM scratch",
+		"ARG UV=0.5.0",
+		"COPY --from=ghcr.io/astral-sh/uv:${UV} /uv /bin/",
+		bare,
+		"",
+	}, "\n"))
+
+	if err := (&Flags{}).UpdateDockerfile(path); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// ARG-tagged references keep their variable syntax with the digest appended.
+	if !strings.Contains(string(got), "COPY --from=ghcr.io/astral-sh/uv:${UV}@sha256:2222 /uv /bin/") {
+		t.Errorf("ARG-tagged COPY --from not pinned with variable preserved:\n%s", got)
+	}
+	// A tag-less digest pin is already immutable and must be left exactly as written.
+	if !strings.Contains(string(got), bare) {
+		t.Errorf("bare-digest COPY --from should be untouched:\n%s", got)
+	}
+	if len(*resolved) != 1 || (*resolved)[0] != "ghcr.io/astral-sh/uv:0.5.0" {
+		t.Errorf("resolved = %v, want only ghcr.io/astral-sh/uv:0.5.0", *resolved)
+	}
+}

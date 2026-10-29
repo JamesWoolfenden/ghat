@@ -542,7 +542,7 @@ var kubeCmd = &cli.Command{
 var dockCmd = &cli.Command{
 	Name:    "dock",
 	Aliases: []string{"df"},
-	Usage:   "pins Dockerfile FROM images to SHA digests",
+	Usage:   "pins Dockerfile FROM and COPY --from images to SHA digests",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:    "directory",
