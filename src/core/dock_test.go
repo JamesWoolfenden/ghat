@@ -470,3 +470,42 @@ func TestUpdateDockerfile_CopyFromArgsAndBareDigest(t *testing.T) {
 		t.Errorf("resolved = %v, want only ghcr.io/astral-sh/uv:0.5.0", *resolved)
 	}
 }
+
+func TestUpdateDockerfile_CopyFromEdgeCases(t *testing.T) {
+	tests := []struct {
+		name         string
+		line         string
+		trusted      []string
+		want         string
+		wantResolved int
+	}{
+		{"plain COPY untouched", "COPY . /app", nil, "COPY . /app", 0},
+		{"COPY with other flags untouched", "COPY --chown=app:app src /dst", nil, "COPY --chown=app:app src /dst", 0},
+		{"lowercase instruction pinned", "copy --from=ghcr.io/astral-sh/uv:0.5.0 /uv /bin/", nil,
+			"copy --from=ghcr.io/astral-sh/uv:0.5.0@sha256:3333 /uv /bin/", 1},
+		{"dynamic image reference left alone", "COPY --from=$TOOLS_IMAGE /uv /bin/", nil, "COPY --from=$TOOLS_IMAGE /uv /bin/", 0},
+		{"trusted registry left alone", "COPY --from=registry.internal/tools:1.0 /uv /bin/", []string{"registry.internal/"},
+			"COPY --from=registry.internal/tools:1.0 /uv /bin/", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolved := stubImageDigests(t, "sha256:3333")
+			path := writeTempDockerfile(t, "FROM scratch\n"+tt.line+"\n")
+
+			if err := (&Flags{TrustedRegistries: tt.trusted}).UpdateDockerfile(path); err != nil {
+				t.Fatal(err)
+			}
+
+			got, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := "FROM scratch\n" + tt.want + "\n"; string(got) != want {
+				t.Errorf("got:\n%s\nwant:\n%s", got, want)
+			}
+			if len(*resolved) != tt.wantResolved {
+				t.Errorf("resolved %d images, want %d: %v", len(*resolved), tt.wantResolved, *resolved)
+			}
+		})
+	}
+}
