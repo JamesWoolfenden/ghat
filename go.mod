@@ -1,6 +1,6 @@
 module github.com/jameswoolfenden/ghat
 
-go 1.26.2
+go 1.26.10
 
 require (
 	github.com/go-git/go-git/v5 v5.19.3

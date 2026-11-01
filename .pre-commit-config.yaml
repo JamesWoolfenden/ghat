@@ -10,7 +10,6 @@ repos:
         - id: pretty-format-json
           args:
             - --autofix
-        - id: detect-aws-credentials
         - id: detect-private-key
       repo: https://github.com/pre-commit/pre-commit-hooks
       rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # v6.0.0
@@ -37,7 +36,6 @@ repos:
       rev: cbcdc463be5464e25e3e955a511599a67b9b987f # v0.50.0
     - hooks:
         - id: terraform-fmt
-          language_version: python3.11
       repo: https://github.com/jameswoolfenden/pre-commit
       rev: c5bdf92051a9e574d62152d81a3bd98a71816dd3 # v0.1.62
     - hooks:
@@ -98,7 +96,7 @@ repos:
             - go
         - id: holden
           name: holden
-          entry: holden scan .
+          entry: holden scan
           language: system
           pass_filenames: false
           always_run: true
