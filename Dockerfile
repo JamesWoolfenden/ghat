@@ -1,7 +1,7 @@
 # holden:ignore:HLD_DF_003 this image is ghat's Docker container action (action.yml
 # runs.using: docker). GitHub requires container actions to run as the default
 # root user, or they cannot write to GITHUB_WORKSPACE, which ghat edits in place.
-FROM golang:1.26-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS build
+FROM golang:1.26-alpine@sha256:87c65a688975c0b1d4585d204874c45ca78354670e3a5f11368c5a492303d696 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
