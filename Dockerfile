@@ -11,7 +11,7 @@ COPY src/ ./src/
 ARG VERSION=dev
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/jameswoolfenden/ghat/src/version.Version=${VERSION}" -o /out/ghat .
 
-FROM alpine:3.22@sha256:310c62b5e7ca5b08167e4384c68db0fd2905dd9c7493756d356e893909057601
+FROM alpine:3.22@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f
 # holden:ignore:HLD_DF_021 the base image is digest-pinned; Alpine only keeps the
 # latest build of each package in a release branch, so exact apk pins break the
 # build on every security update instead of picking it up.
