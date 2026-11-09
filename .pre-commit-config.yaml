@@ -10,6 +10,7 @@ repos:
         - id: pretty-format-json
           args:
             - --autofix
+          exclude: package-lock\.json$
         - id: detect-private-key
       repo: https://github.com/pre-commit/pre-commit-hooks
       rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # v6.0.0
