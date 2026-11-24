@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 )
@@ -224,5 +225,29 @@ func TestCache_ClearExpired(t *testing.T) {
 	count, _, _ := cache.Stats()
 	if count != 1 {
 		t.Errorf("Expected 1 entry after clearing expired, got %d", count)
+	}
+}
+
+func TestNewCache_NoUserCacheDirDisablesCache(t *testing.T) {
+	// Not parallel: t.Setenv changes the process environment.
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CACHE_HOME", "")
+	t.Setenv("LocalAppData", "")
+
+	if _, err := os.UserCacheDir(); err == nil {
+		t.Skip("platform still resolves a user cache dir without these variables")
+	}
+
+	c, err := NewCache(time.Hour, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if c.enabled {
+		t.Fatal("cache must be disabled, not fall back to a shared temp dir")
+	}
+
+	if c.dir != "" {
+		t.Errorf("cache dir = %q, want empty", c.dir)
 	}
 }

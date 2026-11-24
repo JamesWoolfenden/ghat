@@ -32,15 +32,23 @@ func NewCache(ttl time.Duration, enabled bool) (*Cache, error) {
 		return &Cache{enabled: false}, nil
 	}
 
+	// Never fall back to a shared directory such as os.TempDir(): another local
+	// user could create it first and plant entries that make ghat pin
+	// attacker-chosen SHAs. Without a per-user cache dir, run without a cache.
 	base, err := os.UserCacheDir()
 	if err != nil {
-		base = os.TempDir()
+		log.Warn().Err(err).Msg("No user cache directory, caching disabled")
+		return &Cache{enabled: false}, nil
 	}
+
 	cacheDir := filepath.Join(base, "ghat")
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o700); err != nil {
 		log.Warn().Err(err).Msg("Failed to create cache directory, caching disabled")
 		return &Cache{enabled: false}, nil
 	}
+
+	// MkdirAll leaves an existing directory's mode alone; tighten one made by an older version.
+	_ = os.Chmod(cacheDir, 0o700)
 
 	log.Debug().Str("dir", cacheDir).Dur("ttl", ttl).Msg("Cache initialized")
 
@@ -111,7 +119,7 @@ func (c *Cache) Set(url string, data interface{}) error {
 		return err
 	}
 
-	if err := os.WriteFile(cachePath, jsonData, 0644); err != nil {
+	if err := os.WriteFile(cachePath, jsonData, 0o600); err != nil {
 		log.Warn().Err(err).Str("url", url).Msg("Failed to write cache")
 		return err
 	}
