@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: JamesWoolfenden/ghat@5d739cb543c72a4e88810234e619abb28678ca23 # v0.1.52
+      - uses: JamesWoolfenden/ghat@134c1b6e9903019419da5e04ffac2189fcbba98d # v0.1.54
         with:
           directory: .
       - uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
