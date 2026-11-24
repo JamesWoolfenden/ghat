@@ -36,6 +36,17 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Dockerfile Go version matches go.mod
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          want=$(awk '/^go /{print $2}' go.mod)
+          have=$(grep -oE '^FROM golang:[0-9]+\.[0-9]+(\.[0-9]+)?' Dockerfile | head -1 | sed 's/.*golang://')
+          if [ "$want" != "$have" ]; then
+            echo "Dockerfile builds with Go '$have' but go.mod requires '$want'" >&2
+            exit 1
+          fi
+
       - name: Build
         run: go build ./...
 
