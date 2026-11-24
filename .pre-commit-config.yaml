@@ -34,7 +34,7 @@ repos:
         - id: markdownlint
           exclude: src/testdata|testdata|CLAUDE.md
       repo: https://github.com/igorshubovych/markdownlint-cli
-      rev: cbcdc463be5464e25e3e955a511599a67b9b987f # v0.50.0
+      rev: bf6d1792b8bc7f6cc93f10cc27735a4cb0c38e47 # v0.50.1
     - hooks:
         - id: terraform-fmt
       repo: https://github.com/jameswoolfenden/pre-commit
