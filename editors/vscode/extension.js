@@ -10,12 +10,14 @@ function activate(context) {
   const binary = config.get('path', 'ghat');
   const token = config.get('githubToken', '');
 
-  const args = ['lsp'];
+  // The token goes in the child's environment, not argv, where other local
+  // users could read it from the process list. `ghat lsp` reads GITHUB_TOKEN.
+  const env = { ...process.env };
   if (token) {
-    args.push('--token', token);
+    env.GITHUB_TOKEN = token;
   }
 
-  const serverOptions = { command: binary, args };
+  const serverOptions = { command: binary, args: ['lsp'], options: { env } };
 
   const clientOptions = {
     documentSelector: [

@@ -10,6 +10,16 @@
     "workspaceContains:**/compose.yaml",
     "onLanguage:dockerfile"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "description": "ghat runs an external binary, so its path and token settings are ignored from workspace settings and can only be set in user or machine settings.",
+      "restrictedConfigurations": [
+        "ghat.path",
+        "ghat.githubToken"
+      ],
+      "supported": "limited"
+    }
+  },
   "categories": [
     "Linters"
   ],
@@ -19,11 +29,13 @@
         "ghat.githubToken": {
           "default": "",
           "markdownDescription": "GitHub PAT for the *Pin to SHA* / *Pin to digest* code actions. Falls back to `$GITHUB_TOKEN`.",
+          "scope": "machine",
           "type": "string"
         },
         "ghat.path": {
           "default": "ghat",
           "description": "Path to the ghat binary. Defaults to 'ghat' on PATH.",
+          "scope": "machine",
           "type": "string"
         }
       },
