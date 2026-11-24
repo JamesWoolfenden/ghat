@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
@@ -15,6 +16,10 @@ import (
 	"github.com/zclconf/go-cty/cty"
 	"golang.org/x/mod/semver"
 )
+
+// commitHashRe matches a short (7) or full (40) hexadecimal commit hash. Length
+// alone is not enough: a branch named "develop" is also 7 characters long.
+var commitHashRe = regexp.MustCompile(`^(?:[0-9a-f]{7}|[0-9a-f]{40})$`)
 
 func (f *Flags) UpdateModule(file string) error {
 	var version string
@@ -86,7 +91,7 @@ func (f *Flags) UpdateModule(file string) error {
 	f.printDiff(file, string(src), temp)
 
 	if differ && !f.DryRun {
-		err := os.WriteFile(file, []byte(temp), 0666)
+		err := os.WriteFile(file, []byte(temp), FilePermissions)
 		if err != nil {
 			log.Info().Msgf("failed to write %s", file)
 		}
@@ -538,7 +543,7 @@ func (f *Flags) GetGithubHash(newModule string, tag string) (string, error) {
 
 		hash = sha
 	} else {
-		if len(tag) == 40 || len(tag) == 7 {
+		if commitHashRe.MatchString(tag) {
 			hash = tag
 		} else {
 			return "", fmt.Errorf("supplied hash is not a short or a long hash")

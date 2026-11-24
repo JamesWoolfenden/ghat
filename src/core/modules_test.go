@@ -495,3 +495,38 @@ func TestUpdateSource_TagRefKeepsVersion(t *testing.T) {
 		t.Errorf("tag ?ref= should keep version %q, got %q", "v0.0.3", version)
 	}
 }
+
+func TestGetGithubHash_RefIsHexOnly(t *testing.T) {
+	t.Parallel()
+
+	f := &Flags{}
+	const module = "github.com/example/module"
+
+	tests := []struct {
+		name    string
+		ref     string
+		wantErr bool
+	}{
+		{"short hash", "abc1234", false},
+		{"full hash", "0123456789abcdef0123456789abcdef01234567", false},
+		{"7 char branch name", "develop", true},
+		{"40 char branch name", "feature/some-very-long-branch-name-heree", true},
+		{"uppercase hex", "ABC1234", true},
+		{"wrong length hex", "abc12345", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := f.GetGithubHash(module, tt.ref)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("GetGithubHash(%q) error = %v, wantErr %v", tt.ref, err, tt.wantErr)
+			}
+
+			if !tt.wantErr && got != tt.ref {
+				t.Errorf("GetGithubHash(%q) = %q, want the ref returned unchanged", tt.ref, got)
+			}
+		})
+	}
+}
