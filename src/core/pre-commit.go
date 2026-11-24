@@ -51,7 +51,7 @@ type ConfigFile struct {
 const (
 	PreCommitConfigFile = ".pre-commit-config.yaml"
 	GitHubPrefix        = "https://github.com/"
-	FilePermissions     = 0666
+	FilePermissions     = 0o644
 )
 
 type revPin struct {
