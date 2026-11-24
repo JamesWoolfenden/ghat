@@ -98,7 +98,7 @@ func (f *Flags) UpdateKube(file string) error {
 	f.printDiff(file, string(content), replacement)
 
 	if !f.DryRun && string(content) != replacement {
-		if err := os.WriteFile(file, []byte(replacement), 0644); err != nil {
+		if err := safeWriteFile(file, []byte(replacement), 0644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", file, err)
 		}
 	}
@@ -272,7 +272,7 @@ func (f *Flags) UpdateCompose(file string) error {
 	f.printDiff(file, string(content), replacement)
 
 	if !f.DryRun && string(content) != replacement {
-		if err := os.WriteFile(file, []byte(replacement), 0644); err != nil {
+		if err := safeWriteFile(file, []byte(replacement), 0644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", file, err)
 		}
 	}

@@ -178,7 +178,7 @@ func (f *Flags) UpdateCpanfile() error {
 	f.printDiff(config, string(data), replacement)
 
 	if !f.DryRun {
-		if err := os.WriteFile(config, []byte(replacement), FilePermissions); err != nil {
+		if err := safeWriteFile(config, []byte(replacement), FilePermissions); err != nil {
 			return fmt.Errorf("failed to write %s: %w", config, err)
 		}
 	}

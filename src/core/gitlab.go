@@ -182,7 +182,7 @@ func (f *Flags) UpdateGitlab() error {
 
 	// Write file if not dry-run
 	if !f.DryRun && string(project) != replacement {
-		err = os.WriteFile(projectFile, []byte(replacement), 0644)
+		err = safeWriteFile(projectFile, []byte(replacement), 0644)
 		if err != nil {
 			return fmt.Errorf("failed to write GitLab CI file: %w", err)
 		}

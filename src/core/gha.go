@@ -350,7 +350,7 @@ func (f *Flags) UpdateGHA(file string) error {
 	if !f.DryRun {
 		newBuffer := []byte(replacement)
 
-		err = os.WriteFile(file, newBuffer, 0644)
+		err = safeWriteFile(file, newBuffer, 0644)
 
 		if err != nil {
 			return &writeGHAError{file}

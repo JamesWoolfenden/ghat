@@ -140,7 +140,7 @@ func (f *Flags) UpdateProvider(file string) error {
 
 	// Write file if not dry-run
 	if !f.DryRun {
-		err = os.WriteFile(file, []byte(newContent), 0644)
+		err = safeWriteFile(file, []byte(newContent), 0644)
 		if err != nil {
 			return fmt.Errorf("failed to write file: %w", err)
 		}

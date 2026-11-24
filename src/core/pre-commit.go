@@ -203,7 +203,7 @@ func (f *Flags) UpdateHooks() error {
 	f.printDiff(*config, string(data), replacement)
 
 	if !f.DryRun {
-		err = os.WriteFile(*config, []byte(replacement), FilePermissions)
+		err = safeWriteFile(*config, []byte(replacement), FilePermissions)
 		if err != nil {
 			log.Info().Msgf("failed to write %s", *config)
 

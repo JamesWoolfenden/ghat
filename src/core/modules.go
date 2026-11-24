@@ -91,7 +91,7 @@ func (f *Flags) UpdateModule(file string) error {
 	f.printDiff(file, string(src), temp)
 
 	if differ && !f.DryRun {
-		err := os.WriteFile(file, []byte(temp), FilePermissions)
+		err := safeWriteFile(file, []byte(temp), FilePermissions)
 		if err != nil {
 			log.Info().Msgf("failed to write %s", file)
 		}
