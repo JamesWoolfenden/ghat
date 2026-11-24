@@ -31,7 +31,7 @@ type Flags struct {
 	InputUpgrades     []InputUpgrade
 	TrustedRegistries []string // image registries to skip pinning
 
-	OpenPR bool
+	OpenPR      bool
 	AutoMerge   bool
 	Branch      string
 	PRToken     string
