@@ -16,9 +16,11 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: JamesWoolfenden/ghat@362a98a37f83b95ceaf8327fda7f506faf43f8c5 # v0.1.55
+      - uses: JamesWoolfenden/ghat@cfebcaaf3bee65a5d835a2f03779bc889285901a # v0.1.56
         with:
           directory: .
+          # example/lsp holds deliberately bad demo workflows; leave them as-is.
+          exclude: /example/
       - uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
         with:
           commit-message: "chore(ghat): pin dependencies to immutable refs"

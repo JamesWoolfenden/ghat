@@ -46,7 +46,8 @@ repos:
     - hooks:
         - id: ghat-go
           name: ghat
-          entry: ghat swot -d . --continue-on-error true
+          # example/lsp holds deliberately bad demo workflows; leave them as-is.
+          entry: ghat swot -d . --continue-on-error --exclude /example/
           language: golang
           types:
             - yaml

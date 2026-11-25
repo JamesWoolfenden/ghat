@@ -18,5 +18,9 @@ if [[ "$VERB" != "audit" ]]; then
   fi
 fi
 
+if [[ -n "$INPUT_EXCLUDE" ]]; then
+  args+=(--exclude "$INPUT_EXCLUDE")
+fi
+
 echo "running: ghat ${args[*]}"
 exec /usr/bin/ghat "${args[@]}"

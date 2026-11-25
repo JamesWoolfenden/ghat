@@ -19,6 +19,10 @@ inputs:
     description: Single file to process (overrides directory)
     required: false
     default: ""
+  exclude:
+    description: Regex; scanned paths that match are skipped (e.g. /example/)
+    required: false
+    default: ""
   dryrun:
     description: Show changes without writing files
     required: false

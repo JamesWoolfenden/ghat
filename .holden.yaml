@@ -2,7 +2,6 @@ ignore_paths:
   # Deliberately unpinned inputs that ghat's own tests and LSP demo pin.
   - src/core/testdata/**
   - example/**
-
 scan_roots:
-  - path: "."
-    targets: [gha]
+  - path: .
+    targets: [dockerfile, gha]

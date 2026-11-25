@@ -219,8 +219,15 @@ func main() {
 	}
 	sort.Sort(cli.FlagsByName(app.Flags))
 	sort.Sort(cli.CommandsByName(app.Commands))
+	rejectPositionalArgs(app.Commands)
 
 	if err := app.Run(os.Args); err != nil {
+		// --quiet (and lsp) swap in a Nop logger, which would make a failure
+		// exit 1 with no message at all; always surface the error on stderr.
+		if log.Logger.GetLevel() == zerolog.Disabled {
+			fmt.Fprintf(os.Stderr, "ghat failure: %v\n", err)
+			os.Exit(1)
+		}
 		log.Fatal().Err(err).Msg("ghat failure")
 	}
 }
@@ -1022,6 +1029,32 @@ var lspCmd = &cli.Command{
 		}
 		return nil
 	},
+}
+
+// argsExempt lists commands allowed to receive positional arguments. lsp is
+// launched by editor clients that may append their own arguments.
+var argsExempt = map[string]bool{"lsp": true}
+
+// rejectPositionalArgs wraps every command's Action so a stray positional
+// argument is an error. No ghat command takes positional arguments, and
+// urfave/cli stops parsing flags at the first one, so a value given to a bool
+// flag (e.g. "--continue-on-error true") would otherwise silently drop every
+// flag after it.
+func rejectPositionalArgs(cmds []*cli.Command) {
+	for _, cmd := range cmds {
+		rejectPositionalArgs(cmd.Subcommands)
+		if cmd.Action == nil || argsExempt[cmd.Name] {
+			continue
+		}
+		action := cmd.Action
+		cmd.Action = func(c *cli.Context) error {
+			if c.NArg() > 0 {
+				return fmt.Errorf("%s: unexpected argument(s) %q; flags after the first one were not parsed (bool flags take no value: use --flag or --flag=false)",
+					c.Command.FullName(), c.Args().Slice())
+			}
+			return action(c)
+		}
+	}
 }
 
 func formatBytes(bytes int64) string {
