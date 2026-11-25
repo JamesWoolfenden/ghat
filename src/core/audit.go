@@ -15,13 +15,13 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"golang.org/x/mod/modfile"
+	"golang.org/x/mod/module"
 	"gopkg.in/yaml.v3"
 )
 
 var (
 	usesRe     = regexp.MustCompile(`uses:\s*["']?([^\s"'#]+)`)
 	shaRe      = regexp.MustCompile(`^[0-9a-f]{40}$`)
-	goImportRe = regexp.MustCompile(`<meta\s+name="go-import"\s+content="[^ ]+\s+git\s+(https://[^"]+)"`)
 	ghRepoRe   = regexp.MustCompile(`github\.com[:/]([\w.-]+)/([\w.-]+)`)
 	tfSourceRe = regexp.MustCompile(`source\s*=\s*"([^"]+)"`)
 )
@@ -196,30 +196,95 @@ func (f *Flags) listModules() ([]string, error) {
 	return mods, nil
 }
 
+// goProxyURL is the Go module proxy used to resolve vanity import paths. A var
+// so tests can point it at a local server.
+var goProxyURL = "https://proxy.golang.org"
+
+// maxProxyResponse bounds how much of a proxy response is read.
+const maxProxyResponse = 1 << 20
+
+// resolveRepo maps a Go module path to its GitHub owner and repo.
+//
+// Vanity paths are resolved through the Go module proxy rather than by
+// fetching https://<module>?go-get=1, so scanning a go.mod never makes ghat
+// connect to a host chosen by the scanned repository.
 func resolveRepo(modulePath string) (owner, repo string, err error) {
 	if rest, ok := strings.CutPrefix(modulePath, "github.com/"); ok {
 		return splitGithubPath(rest)
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Get("https://" + modulePath + "?go-get=1")
+	if o, r, ok := gopkgInRepo(modulePath); ok {
+		return o, r, nil
+	}
+
+	escaped, err := module.EscapePath(modulePath)
 	if err != nil {
-		return "", "", fmt.Errorf("vanity lookup failed: %w", err)
+		return "", "", fmt.Errorf("invalid module path: %w", err)
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+
+	resp, err := client.Get(goProxyURL + "/" + escaped + "/@latest")
+	if err != nil {
+		return "", "", fmt.Errorf("proxy lookup failed: %w", err)
 	}
 
 	defer resp.Body.Close() //nolint:errcheck
-	body, _ := io.ReadAll(resp.Body)
 
-	m := goImportRe.FindStringSubmatch(string(body))
-	if m == nil {
-		return "", "", fmt.Errorf("no go-import meta tag")
+	if resp.StatusCode != http.StatusOK {
+		return "", "", fmt.Errorf("proxy lookup failed: status %d", resp.StatusCode)
 	}
-	repoURL := strings.TrimSuffix(m[1], ".git")
+
+	var info struct {
+		Origin struct {
+			URL string
+		}
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxProxyResponse)).Decode(&info); err != nil {
+		return "", "", fmt.Errorf("proxy lookup failed: %w", err)
+	}
+
+	if info.Origin.URL == "" {
+		return "", "", fmt.Errorf("proxy returned no origin for %s", modulePath)
+	}
+
+	repoURL := strings.TrimSuffix(info.Origin.URL, ".git")
+
 	rest, ok := strings.CutPrefix(repoURL, "https://github.com/")
 	if !ok {
 		return "", "", fmt.Errorf("not on GitHub (%s)", repoURL)
 	}
+
 	return splitGithubPath(rest)
+}
+
+// gopkgInRepo maps gopkg.in paths to their GitHub repo without a network call:
+// gopkg.in/pkg.v3 is github.com/go-pkg/pkg, gopkg.in/user/pkg.v3 is
+// github.com/user/pkg.
+func gopkgInRepo(modulePath string) (owner, repo string, ok bool) {
+	rest, found := strings.CutPrefix(modulePath, "gopkg.in/")
+	if !found {
+		return "", "", false
+	}
+
+	parts := strings.Split(rest, "/")
+	last := parts[len(parts)-1]
+
+	idx := strings.LastIndex(last, ".v")
+	if idx <= 0 {
+		return "", "", false
+	}
+
+	name := last[:idx]
+
+	switch len(parts) {
+	case 1:
+		return "go-" + name, name, true
+	case 2:
+		return parts[0], name, true
+	default:
+		return "", "", false
+	}
 }
 
 func splitGithubPath(p string) (string, string, error) {
