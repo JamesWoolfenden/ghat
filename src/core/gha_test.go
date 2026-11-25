@@ -329,6 +329,26 @@ func TestGetLatestTag(t *testing.T) {
 	}
 }
 
+// copyToTemp copies a workflow fixture into a fresh temp dir under
+// .github/workflows (GetGHA only picks up files on that path) and returns the
+// copy's path, so tests that write never modify committed testdata.
+func copyToTemp(t *testing.T, src string) string {
+	t.Helper()
+	data, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(t.TempDir(), githubWorkflowPath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(dir, filepath.Base(src))
+	if err := os.WriteFile(dst, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return dst
+}
+
 func TestFlags_UpdateGHAS(t *testing.T) {
 	t.Parallel()
 
@@ -361,13 +381,21 @@ func TestFlags_UpdateGHAS(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			file, entries := tt.fields.File, tt.fields.Entries
+			if !tt.fields.DryRun {
+				// A real write re-pins to whatever is live upstream; never let
+				// it rewrite the committed fixture (or race the parallel
+				// dry-run cases reading it). Work on a temp copy instead.
+				file = copyToTemp(t, tt.fields.File)
+				entries = []string{file}
+			}
 			myFlags := &Flags{
-				File:        tt.fields.File,
+				File:        file,
 				Directory:   tt.fields.Directory,
 				GitHubToken: tt.fields.GitHubToken,
 				Days:        tt.fields.Days,
 				DryRun:      tt.fields.DryRun,
-				Entries:     tt.fields.Entries,
+				Entries:     entries,
 				Update:      tt.fields.Update,
 			}
 			if err := myFlags.UpdateGHAS(); (err != nil) != tt.wantErr {
